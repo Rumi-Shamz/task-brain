@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day Planner</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #161616;
+      --card: #1c1c1c;
+      --border: rgba(255,255,255,0.08);
+      --border-md: rgba(255,255,255,0.15);
+      --txt: #f0f0ee;
+      --txt2: #a0a09a;
+      --txt3: #5a5a56;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --mono: 'Courier New', monospace;
+      --sans: system-ui, -apple-system, sans-serif;
+      --accent: #E24B4A;
+      --accent-dim: rgba(226,75,74,0.12);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f5f4f0;
+        --surface: #ebebea;
+        --card: #ffffff;
+        --border: rgba(0,0,0,0.08);
+        --border-md: rgba(0,0,0,0.15);
+        --txt: #111110;
+        --txt2: #5a5a56;
+        --txt3: #a0a09a;
+      }
+    }
+
+    body {
+      font-family: var(--sans);
+      color: var(--txt);
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 2rem 1.5rem 4rem;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: baseline;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      border-bottom: 0.5px solid var(--border-md);
+      padding-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .header h1 {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--txt3);
+    }
+
+    .phase-tabs { display: flex; gap: 4px; }
+    .phase-tab {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 0.5px solid var(--border);
+      background: transparent;
+      color: var(--txt3);
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .phase-tab.active { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+
+    .phase { display: none; }
+    .phase.active { display: block; }
+
+    .input-area { margin-bottom: 1.5rem; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .input-row input {
+      flex: 1;
+      font-size: 14px;
+      padding: 9px 12px;
+      background: var(--card);
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius);
+      color: var(--txt);
+      font-family: var(--sans);
+    }
+    .input-row input:focus { outline: none; border-color: var(--txt3); }
+
+    .btn {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      border: 0.5px solid var(--border-md);
+      background: transparent;
+      color: var(--txt);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.12s;
+      letter-spacing: 0.04em;
+      font-family: var(--sans);
+    }
+    .btn:hover { background: var(--surface); }
+    .btn.primary { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+    .btn.primary:hover { opacity: 0.85; }
+    .btn.danger-outline { border-color: var(--accent); color: var(--accent); }
+    .btn.danger-outline:hover { background: var(--accent-dim); }
+
+    textarea {
+      width: 100%;
+      font-size: 13px;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius);
+      color: var(--txt);
+      font-family: var(--mono);
+      resize: vertical;
+      min-height: 90px;
+    }
+    textarea:focus { outline: none; border-color: var(--txt3); }
+    .bulk-hint { font-size: 11px; color: var(--txt3); margin-bottom: 6px; }
+
+    .task-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .task-card {
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px 14px;
+      transition: border-color 0.12s;
+    }
+    .task-card:hover { border-color: var(--border-md); }
+    .task-card.triaged { border-left: 2.5px solid var(--txt3); border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+    .task-card.triaged.complex { border-left-color: var(--accent); }
+    .task-card.triaged.mid { border-left-color: #EF9F27; }
+    .task-card.triaged.simple { border-left-color: #1D9E75; }
+
+    .task-top { display: flex; align-items: flex-start; gap: 10px; }
+    .task-name { font-size: 14px; font-weight: 500; flex: 1; line-height: 1.4; }
+    .task-del {
+      font-size: 11px;
+      color: var(--txt3);
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    .task-del:hover { color: var(--accent); background: var(--accent-dim); }
+
+    .triage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .triage-field { display: flex; flex-direction: column; gap: 5px; }
+    .triage-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt3); font-weight: 500; }
+    .triage-field input {
+      font-size: 13px;
+      padding: 5px 8px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--txt);
+      font-family: var(--sans);
+    }
+    .triage-field input:focus { outline: none; border-color: var(--txt3); }
+
+    .toggle-triage { font-size: 11px; color: var(--txt3); cursor: pointer; margin-top: 6px; display: inline-block; user-select: none; }
+    .toggle-triage:hover { color: var(--txt); }
+    .triage-form { margin-top: 8px; }
+
+    .size-pills, .blocking-toggle, .lt-toggle { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+    .pill {
+      font-size: 11px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 0.5px solid var(--border);
+      background: transparent;
+      color: var(--txt3);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.1s;
+      user-select: none;
+    }
+    .pill.active-yn { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+    .pill.active-complex { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+    .pill.active-mid { background: rgba(239,159,39,0.12); color: #EF9F27; border-color: #EF9F27; }
+    .pill.active-simple { background: rgba(29,158,117,0.12); color: #1D9E75; border-color: #1D9E75; }
+
+    .subtask-list { margin-top: 8px; padding-top: 8px; border-top: 0.5px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
+    .subtask-row { display: flex; gap: 6px; align-items: center; }
+    .subtask-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--border-md); flex-shrink: 0; }
+    .subtask-text { font-size: 12px; color: var(--txt2); flex: 1; }
+    .subtask-input {
+      font-size: 12px;
+      flex: 1;
+      padding: 3px 7px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--txt);
+      font-family: var(--sans);
+    }
+    .subtask-input:focus { outline: none; border-color: var(--txt3); }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--txt3);
+      font-size: 13px;
+      border: 0.5px dashed var(--border-md);
+      border-radius: var(--radius-lg);
+    }
+
+    .section-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--txt3); font-weight: 500; margin-bottom: 10px; }
+
+    .organized-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .org-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      cursor: grab;
+    }
+    .org-item:active { cursor: grabbing; opacity: 0.7; }
+    .org-item.drag-over { border-color: var(--txt3); }
+
+    .org-num { font-size: 11px; font-family: var(--mono); color: var(--txt3); min-width: 20px; padding-top: 1px; }
+    .org-body { flex: 1; }
+    .org-name { font-size: 13px; font-weight: 500; }
+    .org-meta { font-size: 11px; color: var(--txt3); margin-top: 4px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .meta-tag { padding: 1px 6px; border-radius: 10px; background: var(--surface); }
+    .meta-blocking { color: var(--accent); background: var(--accent-dim); }
+
+    .group-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(55,138,221,0.12);
+      color: #378ADD;
+      margin-top: 4px;
+      display: inline-block;
+    }
+
+    .select-checkbox { width: 14px; height: 14px; cursor: pointer; accent-color: var(--txt); flex-shrink: 0; margin-top: 2px; }
+
+    .group-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; }
+    .selected-count { font-size: 11px; color: var(--txt3); min-width: 70px; }
+
+    .plan-summary {
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      margin-bottom: 1.5rem;
+    }
+    .plan-summary h3 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt3); margin-bottom: 10px; }
+    .plan-stats { display: flex; gap: 2rem; }
+    .plan-stat { font-size: 24px; font-weight: 500; }
+    .plan-stat-label { font-size: 11px; color: var(--txt3); }
+
+    .buffer-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 12px;
+      border: 0.5px dashed var(--border-md);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .buffer-label { font-size: 12px; color: var(--txt2); flex: 1; }
+
+    .buffer-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .bpick {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: var(--radius);
+      border: 0.5px solid var(--border);
+      background: var(--card);
+      color: var(--txt2);
+      cursor: pointer;
+      transition: all 0.1s;
+      font-family: var(--sans);
+    }
+    .bpick:hover { border-color: var(--border-md); background: var(--surface); }
+
+    .draining-flag {
+      font-size: 11px;
+      color: var(--txt3);
+      cursor: pointer;
+      user-select: none;
+      display: inline-block;
+      margin-top: 5px;
+    }
+    .draining-flag:hover { color: var(--txt2); }
+    .draining-flag.flagged { color: #EF9F27; }
+
+    .bottom-actions { margin-top: 1.5rem; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    @media (max-width: 480px) {
+      body { padding: 1rem 1rem 3rem; }
+      .triage-grid { grid-template-columns: 1fr; }
+      .plan-stats { gap: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <h1>Day Planner</h1>
+    <div class="phase-tabs">
+      <button class="phase-tab active" onclick="switchPhase('triage')">01 Triage</button>
+      <button class="phase-tab" onclick="switchPhase('organize')">02 Organize</button>
+      <button class="phase-tab" onclick="switchPhase('schedule')">03 Schedule</button>
+    </div>
+  </div>
+
+  <!-- PHASE 1: TRIAGE -->
+  <div id="phase-triage" class="phase active">
+    <div class="input-area">
+      <div class="input-row">
+        <input type="text" id="single-input" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addSingle()" />
+        <button class="btn primary" onclick="addSingle()">Add</button>
+        <button class="btn" onclick="toggleBulk()">Bulk</button>
+      </div>
+      <div id="bulk-area" style="display:none;">
+        <p class="bulk-hint">One task per line.</p>
+        <textarea id="bulk-input" placeholder="Fix login bug&#10;Update README&#10;Write tests for auth module"></textarea>
+        <div style="margin-top:6px;display:flex;gap:6px;">
+          <button class="btn primary" onclick="importBulk()">Import</button>
+          <button class="btn" onclick="toggleBulk()">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="task-list" class="task-list"></div>
+    <div id="triage-actions" style="margin-top:1.5rem;display:none;">
+      <button class="btn primary" onclick="switchPhase('organize')">Organize ›</button>
+    </div>
+  </div>
+
+  <!-- PHASE 2: ORGANIZE -->
+  <div id="phase-organize" class="phase">
+    <div class="group-actions">
+      <span class="selected-count" id="sel-count"></span>
+      <button class="btn" onclick="groupSelected()">Group selected</button>
+      <button class="btn" onclick="clearSelection()">Clear</button>
+    </div>
+    <div class="section-label">Tasks — drag to reorder</div>
+    <div id="organized-list" class="organized-list"></div>
+    <div class="bottom-actions">
+      <button class="btn primary" onclick="switchPhase('schedule')">Schedule ›</button>
+      <button class="btn" onclick="switchPhase('triage')">‹ Back</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3: SCHEDULE -->
+  <div id="phase-schedule" class="phase">
+    <div class="plan-summary" id="plan-summary"></div>
+    <div class="section-label">Your day — in order</div>
+    <div id="schedule-list" class="organized-list"></div>
+    <div class="bottom-actions">
+      <button class="btn" onclick="switchPhase('organize')">‹ Back</button>
+      <button class="btn danger-outline" onclick="clearAll()">Clear all</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let tasks = [];
+  let groups = {};
+  let groupCounter = 0;
+  let schedule = [];
+  let dragSrc = null;
+
+  const BUFFERS = [
+    { icon: '☕', label: 'Coffee break', energy: 'up' },
+    { icon: '🚶', label: 'Short walk', energy: 'up' },
+    { icon: '📓', label: 'Journal 5 min', energy: 'neutral' },
+    { icon: '🧘', label: 'Breathe / reset', energy: 'down' },
+    { icon: '🎧', label: 'Music break', energy: 'up' },
+    { icon: '💧', label: 'Water + stretch', energy: 'neutral' },
+    { icon: '👀', label: 'Eyes off screen', energy: 'neutral' },
+  ];
+
+  function save() {
+    try { localStorage.setItem('dayplanner_v2', JSON.stringify({ tasks, groups, groupCounter, schedule })); } catch(e) {}
+  }
+
+  function load() {
+    try {
+      const d = JSON.parse(localStorage.getItem('dayplanner_v2') || 'null');
+      if (d) { tasks = d.tasks || []; groups = d.groups || {}; groupCounter = d.groupCounter || 0; schedule = d.schedule || []; }
+    } catch(e) {}
+  }
+
+  function uid() { return Math.random().toString(36).slice(2, 8); }
+  function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function addSingle() {
+    const inp = document.getElementById('single-input');
+    const val = inp.value.trim();
+    if (!val) return;
+    tasks.push({ id: uid(), name: val, who: '', blocking: null, lt: null, size: null, subtasks: [], draining: false });
+    inp.value = '';
+    save(); render();
+  }
+
+  function toggleBulk() {
+    const el = document.getElementById('bulk-area');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function importBulk() {
+    const lines = document.getElementById('bulk-input').value.split('\n').map(l => l.trim()).filter(Boolean);
+    lines.forEach(name => tasks.push({ id: uid(), name, who: '', blocking: null, lt: null, size: null, subtasks: [], draining: false }));
+    document.getElementById('bulk-input').value = '';
+    toggleBulk();
+    save(); render();
+  }
+
+  function deleteTask(id) { tasks = tasks.filter(t => t.id !== id); save(); render(); }
+
+  function setSize(id, size) {
+    const t = tasks.find(t => t.id === id);
+    if (!t) return;
+    t.size = t.size === size ? null : size;
+    if (t.size && (t.size === 'complex' || t.size === 'mid') && t.subtasks.length === 0) {
+      t.subtasks = [{ id: uid(), text: '' }, { id: uid(), text: '' }];
+    }
+    save(); render();
+  }
+
+  function setBlocking(id, val) { const t = tasks.find(t => t.id === id); if (t) { t.blocking = val; save(); render(); } }
+  function setLT(id, val) { const t = tasks.find(t => t.id === id); if (t) { t.lt = val; save(); render(); } }
+  function updateWho(id, val) { const t = tasks.find(t => t.id === id); if (t) { t.who = val; save(); } }
+  function addSubtask(id) { const t = tasks.find(t => t.id === id); if (t && t.subtasks.length < 9) { t.subtasks.push({ id: uid(), text: '' }); save(); render(); } }
+  function updateSubtask(tid, sid, val) { const t = tasks.find(t => t.id === tid); if (t) { const s = t.subtasks.find(s => s.id === sid); if (s) { s.text = val; save(); } } }
+  function removeSubtask(tid, sid) { const t = tasks.find(t => t.id === tid); if (t) { t.subtasks = t.subtasks.filter(s => s.id !== sid); save(); render(); } }
+  function toggleDraining(id) { const t = tasks.find(t => t.id === id); if (t) { t.draining = !t.draining; save(); renderSchedule(); } }
+
+  function toggleTriageForm(id) {
+    const el = document.getElementById('tf-' + id);
+    const arrow = document.getElementById('arr-' + id);
+    if (!el) return;
+    const open = el.style.display !== 'none';
+    el.style.display = open ? 'none' : 'block';
+    if (arrow) arrow.textContent = open ? '▸ triage' : '▴ triage';
+  }
+
+  function render() {
+    renderTriage();
+    renderOrganize();
+    document.getElementById('triage-actions').style.display = tasks.length ? 'block' : 'none';
+  }
+
+  function renderTriage() {
+    const el = document.getElementById('task-list');
+    if (!tasks.length) { el.innerHTML = '<div class="empty-state">No tasks yet — add one above.</div>'; return; }
+    el.innerHTML = tasks.map(t => {
+      const sizeClass = t.size ? `triaged ${t.size}` : '';
+      const subHTML = (t.size === 'complex' || t.size === 'mid') ? `
+        <div class="subtask-list">
+          ${t.subtasks.map(s => `
+            <div class="subtask-row">
+              <div class="subtask-dot"></div>
+              <input class="subtask-input" value="${esc(s.text)}" placeholder="subtask..." oninput="updateSubtask('${t.id}','${s.id}',this.value)" />
+              <span class="task-del" onclick="removeSubtask('${t.id}','${s.id}')">✕</span>
+            </div>`).join('')}
+          ${t.subtasks.length < 9 ? `<span class="toggle-triage" onclick="addSubtask('${t.id}')">+ subtask</span>` : ''}
+        </div>` : '';
+      return `<div class="task-card ${sizeClass}">
+        <div class="task-top">
+          <span class="task-name">${esc(t.name)}</span>
+          <span class="task-del" onclick="deleteTask('${t.id}')">✕</span>
+        </div>
+        <span class="toggle-triage" id="arr-${t.id}" onclick="toggleTriageForm('${t.id}')">▸ triage</span>
+        <div class="triage-form" id="tf-${t.id}" style="display:none;">
+          <div class="triage-grid">
+            <div class="triage-field">
+              <span class="triage-label">Who is affected</span>
+              <input type="text" value="${esc(t.who)}" placeholder="person / org" oninput="updateWho('${t.id}',this.value)" />
+            </div>
+            <div class="triage-field">
+              <span class="triage-label">Blocking</span>
+              <div class="blocking-toggle">
+                <span class="pill ${t.blocking === true ? 'active-yn' : ''}" onclick="setBlocking('${t.id}',true)">Yes</span>
+                <span class="pill ${t.blocking === false ? 'active-yn' : ''}" onclick="setBlocking('${t.id}',false)">No</span>
+              </div>
+            </div>
+            <div class="triage-field">
+              <span class="triage-label">Long-term value</span>
+              <div class="lt-toggle">
+                <span class="pill ${t.lt === true ? 'active-yn' : ''}" onclick="setLT('${t.id}',true)">Yes</span>
+                <span class="pill ${t.lt === false ? 'active-yn' : ''}" onclick="setLT('${t.id}',false)">No</span>
+              </div>
+            </div>
+            <div class="triage-field">
+              <span class="triage-label">Size</span>
+              <div class="size-pills">
+                <span class="pill ${t.size === 'complex' ? 'active-complex' : ''}" onclick="setSize('${t.id}','complex')">Complex</span>
+                <span class="pill ${t.size === 'mid' ? 'active-mid' : ''}" onclick="setSize('${t.id}','mid')">Mid</span>
+                <span class="pill ${t.size === 'simple' ? 'active-simple' : ''}" onclick="setSize('${t.id}','simple')">Simple</span>
+              </div>
+            </div>
+          </div>
+          ${subHTML}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function groupSelected() {
+    const checked = [...document.querySelectorAll('.group-cb:checked')].map(el => el.dataset.id);
+    if (checked.length < 2) return;
+    groupCounter++;
+    const gName = `Group ${groupCounter}`;
+    groups[gName] = checked;
+    checked.forEach(id => { const t = tasks.find(t => t.id === id); if (t) t.group = gName; });
+    save(); renderOrganize();
+  }
+
+  function clearSelection() {
+    document.querySelectorAll('.group-cb').forEach(cb => cb.checked = false);
+    updateSelCount();
+  }
+
+  function updateSelCount() {
+    const n = document.querySelectorAll('.group-cb:checked').length;
+    document.getElementById('sel-count').textContent = n > 0 ? `${n} selected` : '';
+  }
+
+  function renderOrganize() {
+    const el = document.getElementById('organized-list');
+    const sorted = [...tasks].sort((a, b) => {
+      const sp = { complex: 0, mid: 1, simple: 2 };
+      const bs = t => t.blocking ? 0 : 1;
+      return bs(a) - bs(b) || (sp[a.size] ?? 3) - (sp[b.size] ?? 3);
+    });
+    if (!sorted.length) { el.innerHTML = '<div class="empty-state">No tasks yet.</div>'; return; }
+    el.innerHTML = sorted.map((t, i) => {
+      const sizeColor = t.size === 'complex' ? 'color:#E24B4A' : t.size === 'mid' ? 'color:#EF9F27' : t.size === 'simple' ? 'color:#1D9E75' : '';
+      const stHTML = t.subtasks && t.subtasks.filter(s => s.text).length ? `<div class="subtask-list">${t.subtasks.filter(s => s.text).map(s => `<div class="subtask-row"><div class="subtask-dot"></div><span class="subtask-text">${esc(s.text)}</span></div>`).join('')}</div>` : '';
+      return `<div class="org-item" draggable="true" data-id="${t.id}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+        <input type="checkbox" class="select-checkbox group-cb" data-id="${t.id}" onchange="updateSelCount()" />
+        <span class="org-num">${String(i + 1).padStart(2, '0')}</span>
+        <div class="org-body">
+          <div class="org-name">${esc(t.name)}</div>
+          <div class="org-meta">
+            ${t.who ? `<span class="meta-tag">${esc(t.who)}</span>` : ''}
+            ${t.blocking ? `<span class="meta-tag meta-blocking">blocking</span>` : ''}
+            ${t.size ? `<span class="meta-tag" style="${sizeColor}">${t.size}</span>` : ''}
+            ${t.lt === true ? `<span class="meta-tag">long-term</span>` : ''}
+          </div>
+          ${t.group ? `<span class="group-badge">${esc(t.group)}</span>` : ''}
+          ${stHTML}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function dragStart(e) { dragSrc = e.currentTarget; e.dataTransfer.effectAllowed = 'move'; }
+  function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+  function dragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+  function drop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drag-over');
+    const target = e.currentTarget;
+    if (!dragSrc || dragSrc === target) return;
+    const srcId = dragSrc.dataset.id;
+    const tgtId = target.dataset.id;
+    const srcTask = tasks.find(t => t.id === srcId);
+    const tgtTask = tasks.find(t => t.id === tgtId);
+    if (!srcTask || !tgtTask) return;
+    const srcIdx = tasks.indexOf(srcTask);
+    const tgtIdx = tasks.indexOf(tgtTask);
+    tasks.splice(srcIdx, 1);
+    tasks.splice(tgtIdx, 0, srcTask);
+    save(); renderOrganize(); renderSchedule();
+  }
+
+  function buildScheduleItems() {
+    const items = [];
+    tasks.forEach(t => {
+      items.push({ type: 'task', task: t });
+      schedule.filter(b => b.afterId === t.id).forEach(b => items.push({ type: 'buffer', ...b }));
+    });
+    return items;
+  }
+
+  function insertBuffer(afterIdx, icon, label) {
+    const combined = buildScheduleItems();
+    const item = combined[afterIdx];
+    if (!item || item.type !== 'task') return;
+    schedule.push({ id: uid(), afterId: item.task.id, icon, label });
+    save(); renderSchedule();
+  }
+
+  function removeBuffer(idx) {
+    const combined = buildScheduleItems();
+    const item = combined[idx];
+    if (!item || item.type !== 'buffer') return;
+    schedule = schedule.filter(b => b.id !== item.id);
+    save(); renderSchedule();
+  }
+
+  function renderSchedule() {
+    const el = document.getElementById('schedule-list');
+    const summary = document.getElementById('plan-summary');
+    summary.innerHTML = `<h3>Today at a glance</h3>
+      <div class="plan-stats">
+        <div><div class="plan-stat">${tasks.length}</div><div class="plan-stat-label">tasks</div></div>
+        <div><div class="plan-stat">${tasks.filter(t => t.blocking).length}</div><div class="plan-stat-label">blocking</div></div>
+        <div><div class="plan-stat">${tasks.filter(t => t.size === 'complex').length}</div><div class="plan-stat-label">complex</div></div>
+      </div>`;
+    const combined = buildScheduleItems();
+    if (!combined.length) { el.innerHTML = '<div class="empty-state">No tasks yet — go to phase 01.</div>'; return; }
+    el.innerHTML = combined.map((item, i) => {
+      if (item.type === 'buffer') {
+        return `<div class="buffer-row">
+          <span style="font-size:14px;">${item.icon}</span>
+          <span class="buffer-label">${esc(item.label)}</span>
+          <span class="task-del" onclick="removeBuffer(${i})">✕</span>
+        </div>`;
+      }
+      const t = item.task;
+      const stHTML = t.subtasks && t.subtasks.filter(s => s.text).length ? `<div class="subtask-list" style="margin-top:6px;">${t.subtasks.filter(s => s.text).map(s => `<div class="subtask-row"><div class="subtask-dot"></div><span class="subtask-text">${esc(s.text)}</span></div>`).join('')}</div>` : '';
+      const bufferPicker = t.draining ? `<div style="margin-top:8px;"><span class="triage-label" style="display:block;margin-bottom:5px;">Add recovery after this:</span><div class="buffer-picker">${BUFFERS.filter(b => b.energy !== 'down').map(b => `<button class="bpick" onclick="insertBuffer(${i},'${b.icon}','${esc(b.label)}')">${b.icon} ${b.label}</button>`).join('')}</div></div>` : '';
+      return `<div class="org-item" style="flex-direction:column;gap:4px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;width:100%;">
+          <span class="org-num">${String(i + 1).padStart(2, '0')}</span>
+          <div class="org-body" style="flex:1;">
+            <div class="org-name">${esc(t.name)}</div>
+            <div class="org-meta">
+              ${t.who ? `<span class="meta-tag">${esc(t.who)}</span>` : ''}
+              ${t.blocking ? `<span class="meta-tag meta-blocking">blocking</span>` : ''}
+              ${t.size ? `<span class="meta-tag">${t.size}</span>` : ''}
+            </div>
+            ${stHTML}
+            <span class="draining-flag ${t.draining ? 'flagged' : ''}" onclick="toggleDraining('${t.id}')">${t.draining ? '⚡ draining — add recovery below' : '+ mark as draining'}</span>
+            ${bufferPicker}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function switchPhase(phase) {
+    document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.phase-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('phase-' + phase).classList.add('active');
+    const idx = { triage: 0, organize: 1, schedule: 2 }[phase];
+    document.querySelectorAll('.phase-tab')[idx].classList.add('active');
+    if (phase === 'organize') renderOrganize();
+    if (phase === 'schedule') renderSchedule();
+  }
+
+  function clearAll() {
+    if (!confirm('Clear all tasks and start fresh?')) return;
+    tasks = []; groups = {}; groupCounter = 0; schedule = [];
+    save(); render(); switchPhase('triage');
+  }
+
+  load();
+  render();
+</script>
+</body>
+</html>
