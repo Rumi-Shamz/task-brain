@@ -676,5 +676,17 @@
   load();
   render();
 </script>
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+  const supabase = createClient(
+    'https://ggnhaebvzszlvzzyudyk.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdnbmhhZWJ2enN6bHZ6enl1ZHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NjgxODQsImV4cCI6MjA5MDE0NDE4NH0.6O6n8QD9oum6vfTf7MZzxN4N0N0_mASIo2QcBdsHyC4'
+  )
+
+  // Test: fetch all tasks
+  const { data, error } = await supabase.from('tasks').select()
+  console.log(data, error)
+</script>
 </body>
 </html>
