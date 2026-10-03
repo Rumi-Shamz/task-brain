@@ -1,0 +1,67 @@
+# Manual weekly extraction — API key stays in Actions secrets (never in client JS).
+# Outputs are intended for the private task-brain-data repo (commit step optional).
+name: Extract week plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      transcript:
+        description: 'Transcript text (paste)'
+        required: true
+        type: string
+      week:
+        description: 'ISO week label e.g. 2026-W40 (empty = current)'
+        required: false
+        type: string
+      push_to_data_repo:
+        description: 'Push artifacts to private Rumi-Shamz/task-brain-data'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write transcript
+        run: |
+          mkdir -p /tmp/week-out
+          cat > /tmp/transcript.txt <<'EOF'
+          ${{ inputs.transcript }}
+          EOF
+
+      - name: Run extract_week.mjs
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          WEEK_ARG=""
+          if [ -n "${{ inputs.week }}" ]; then WEEK_ARG="--week ${{ inputs.week }}"; fi
+          node scripts/extract_week.mjs /tmp/transcript.txt --out /tmp/week-out $WEEK_ARG
+          ls -la /tmp/week-out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: week-extract
+          path: /tmp/week-out/*
+
+      - name: Push to private data repo
+        if: ${{ inputs.push_to_data_repo }}
+        env:
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
+        run: |
+          if [ -z "$DATA_REPO_TOKEN" ]; then
+            echo "DATA_REPO_TOKEN secret missing"; exit 1
+          fi
+          git clone "https://x-access-token:${DATA_REPO_TOKEN}@github.com/Rumi-Shamz/task-brain-data.git" /tmp/data-repo
+          cp /tmp/week-out/* /tmp/data-repo/
+          cd /tmp/data-repo
+          git config user.name "task-brain-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add week-*.json prebrief-*.md
+          git commit -m "Weekly extract from Actions" || echo "No changes"
+          git push
