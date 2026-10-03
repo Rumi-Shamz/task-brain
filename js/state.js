@@ -372,7 +372,27 @@ export function dayIndexToday(rhythm) {
 
 
 export function normalizeTask(t) {
-  return { ...t, project: t.project ?? null, lane: t.lane ?? null, start: t.start ?? null, duration: t.duration ?? DEFAULT_DURATION, date: t.date ?? null, subtasks: t.subtasks || [], draining: !!t.draining, done: !!t.done, trackedMs: Math.max(0, Number(t.trackedMs) || 0), timerStartedAt: t.timerStartedAt != null ? Number(t.timerStartedAt) : null };
+  const done = !!t.done;
+  let status = t.status || (done ? 'done' : 'todo');
+  if (!['todo', 'done', 'someday'].includes(status)) status = done ? 'done' : 'todo';
+  return {
+    ...t,
+    project: t.project ?? null,
+    domain: t.domain ?? null,
+    lane: t.lane ?? null,
+    start: t.start ?? null,
+    duration: t.duration ?? DEFAULT_DURATION,
+    date: t.date ?? null,
+    subtasks: t.subtasks || [],
+    draining: !!t.draining,
+    done: status === 'done' || done,
+    status,
+    reviewAt: t.reviewAt || null,
+    priority: t.priority != null ? Number(t.priority) : null,
+    timepressure: t.timepressure || null,
+    trackedMs: Math.max(0, Number(t.trackedMs) || 0),
+    timerStartedAt: t.timerStartedAt != null ? Number(t.timerStartedAt) : null,
+  };
 }
 export function newTask(name, extra) {
   return normalizeTask({

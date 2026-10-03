@@ -475,6 +475,11 @@
     }
     .year-import-msg { font-size: 12px; color: var(--txt2); margin-top: 6px; }
     .year-import-msg.err { color: var(--accent); }
+    .import-report-wrap { margin-top: 8px; max-height: 160px; overflow: auto; }
+    .import-report { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+    .import-report li { padding: 2px 0; color: var(--txt2); }
+    .import-report li.error { color: var(--accent); }
+    .import-report li.warn { color: #C17A3A; }
 
     .sync-status {
       font-size: 11px; color: var(--txt3); margin-left: auto;
