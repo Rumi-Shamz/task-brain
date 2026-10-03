@@ -1,6 +1,6 @@
 {
   "version": 8,
-  "updatedAt": "2026-10-03T12:33:05.807Z",
+  "updatedAt": "2026-10-03T12:33:10.619Z",
   "tasks": [
     {
       "id": "sgdm56",
@@ -10,7 +10,7 @@
       "lt": null,
       "size": "complex",
       "subtasks": [],
-      "draining": true,
+      "draining": false,
       "done": false,
       "trackedMs": 0,
       "timerStartedAt": null,
