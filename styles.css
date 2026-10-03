@@ -480,6 +480,12 @@
     .import-report li { padding: 2px 0; color: var(--txt2); }
     .import-report li.error { color: var(--accent); }
     .import-report li.warn { color: #C17A3A; }
+    .lno-week-stat {
+      font-size: 13px; color: var(--txt2); margin: 0 0 10px;
+      padding: 8px 10px; background: var(--bg); border-radius: var(--radius);
+      border: 0.5px solid var(--border);
+    }
+    .lno-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
 
     .sync-status {
       font-size: 11px; color: var(--txt3); margin-left: auto;

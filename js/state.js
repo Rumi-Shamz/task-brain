@@ -397,6 +397,9 @@ export function normalizeTask(t) {
     timepressure: t.timepressure || null,
     trackedMs: Math.max(0, Number(t.trackedMs) || 0),
     timerStartedAt: t.timerStartedAt != null ? Number(t.timerStartedAt) : null,
+    // LNO: migrate legacy lt boolean
+    lno: t.lno === 'L' || t.lno === 'N' || t.lno === 'O' ? t.lno
+      : t.lt === true ? 'L' : t.lt === false ? 'N' : (t.lno ?? null),
   };
 }
 export function newTask(name, extra) {

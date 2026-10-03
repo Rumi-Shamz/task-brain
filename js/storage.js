@@ -16,7 +16,7 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 5,
+    version: 6,
     updatedAt: new Date().toISOString(),
     tasks: state.tasks,
     groups: state.groups,
