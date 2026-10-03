@@ -2,3 +2,5 @@
 .env*.local
 *.xlsx
 *.csv
+# Personal payload lives in private repo task-brain-data only
+/data.json

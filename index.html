@@ -996,12 +996,12 @@
   </div>
 
   <div id="sync-panel" class="sync-panel" style="display:none;">
-    <h3>Cross-device sync (data.json via GitHub)</h3>
-    <p class="sync-hint">Same pattern as bar-shifts: PAT stays on this device; saves commit <code>data.json</code> so GitHub Pages picks it up. Triple-tap the title to open/close.</p>
+    <h3>Cross-device sync (private data.json)</h3>
+    <p class="sync-hint">PAT stays on this device. Connect to the <strong>private</strong> repo <code>task-brain-data</code> (Contents: Read and write). Personal data never lives in the public Pages repo. Triple-tap the title to open/close.</p>
     <div class="sync-grid">
-      <label>GitHub token<input type="password" id="su-token" placeholder="ghp_… or fine-grained PAT" autocomplete="off" /></label>
-      <label>Owner<input type="text" id="su-owner" placeholder="username or org" /></label>
-      <label>Repo<input type="text" id="su-repo" placeholder="task-brain" /></label>
+      <label>GitHub token<input type="password" id="su-token" placeholder="fine-grained PAT" autocomplete="off" /></label>
+      <label>Owner<input type="text" id="su-owner" placeholder="Rumi-Shamz" /></label>
+      <label>Repo<input type="text" id="su-repo" placeholder="task-brain-data" /></label>
     </div>
     <div class="sync-actions">
       <button type="button" class="btn primary" onclick="ghConnect()">Connect &amp; pull</button>
@@ -1011,7 +1011,7 @@
       <button type="button" class="btn" onclick="toggleSyncPanel(false)">Close</button>
     </div>
     <p id="sync-msg" class="sync-msg"></p>
-    <p class="sync-hint">BACKLOG (later): Supabase auth + per-user private sync when opening to other users.</p>
+    <p class="sync-hint">Reconnect: Owner <code>Rumi-Shamz</code>, Repo <code>task-brain-data</code>, then Connect &amp; pull. BACKLOG: Supabase auth later.</p>
   </div>
 
   <!-- PHASE 1: TRIAGE -->
@@ -1786,17 +1786,11 @@
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 
+  // Personal data lives only in the private data repo — never the public Pages app repo.
+  const DEFAULT_DATA_OWNER = 'Rumi-Shamz';
+  const DEFAULT_DATA_REPO = 'task-brain-data';
   function guessRepo() {
-    const host = location.hostname || '';
-    const m = host.match(/^([^.]+)\.github\.io$/i);
-    if (m) {
-      const seg = location.pathname.split('/').filter(Boolean)[0];
-      return {
-        owner: m[1],
-        repo: seg && !/\.html?$/i.test(seg) ? seg : m[1] + '.github.io',
-      };
-    }
-    return { owner: '', repo: '' };
+    return { owner: DEFAULT_DATA_OWNER, repo: DEFAULT_DATA_REPO };
   }
   function ghCfg() {
     const g = guessRepo();
@@ -1864,30 +1858,6 @@
         body: body ? JSON.stringify(body) : undefined,
       }
     );
-  }
-  function loadPublicDataJson() {
-    return fetch(DATA_PATH + '?t=' + Date.now(), { cache: 'no-store' })
-      .then(r => { if (!r.ok) throw r.status; return r.json(); })
-      .then(j => {
-        // Don't clobber local work with an empty seed file.
-        const remoteTasks = (j && j.tasks) || [];
-        const remoteUpdated = j && j.updatedAt;
-        if (!remoteUpdated && !remoteTasks.length) return;
-        let localUpdated = null;
-        try {
-          const local = JSON.parse(localStorage.getItem('dayplanner_v3') || 'null');
-          localUpdated = local && local.updatedAt;
-        } catch (e) {}
-        if (localUpdated && remoteUpdated && new Date(localUpdated) > new Date(remoteUpdated)) return;
-        if (localUpdated && !remoteUpdated && tasks.length) return;
-        applyPersistPayload(j);
-        try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
-        render();
-        if (typeof renderDashboard === 'function') renderDashboard();
-        if (typeof renderYear === 'function') renderYear();
-        setSyncStatus('Loaded data.json');
-      })
-      .catch(() => {});
   }
   function ghPull() {
     const c = ghCfg();
@@ -3450,9 +3420,8 @@
   ensureTimerTick();
   render();
   refreshSyncForm();
-  // Prefer remote: token → GitHub API; else published data.json (then keep local if fetch fails).
+  // Remote sync only via authenticated API against the private data repo.
   if (ghConnected()) ghPull();
-  else loadPublicDataJson();
 </script>
 </body>
 </html>
