@@ -6,6 +6,9 @@ export const state = {
   groups: [],
   groupCounter: 0,
   planWizardIndex: 0,
+  planEditId: null,
+  dashActivityFilter: 'all',
+  dashEditId: null,
   customDomains: [],
   collapsedDomains: null,
   schedule: [],
@@ -418,6 +421,7 @@ export function normalizeTask(t) {
     who: t.who != null ? String(t.who) : '',
     note: t.note != null ? String(t.note) : '',
     blockingNote: t.blockingNote != null ? String(t.blockingNote) : '',
+    parentId: t.parentId ? String(t.parentId) : null,
     // LNO: migrate legacy lt boolean
     lno: t.lno === 'L' || t.lno === 'N' || t.lno === 'O' ? t.lno
       : t.lt === true ? 'L' : t.lt === false ? 'N' : (t.lno ?? null),
@@ -426,10 +430,16 @@ export function normalizeTask(t) {
 }
 export function newTask(name, extra) {
   return normalizeTask({
-    id: uid(), name, who: '', note: '', blockingNote: '', blocking: null, lt: null, size: null,
+    id: uid(), name, who: '', note: '', blockingNote: '', parentId: null, blocking: null, lt: null, size: null,
     subtasks: [], draining: false, done: false, trackedMs: 0, timerStartedAt: null,
     ...(extra || {}),
   });
+}
+export function isTopLevelTask(t) {
+  return t && !t.parentId;
+}
+export function childTasksOf(parentId) {
+  return state.tasks.filter(t => t.parentId === parentId && t.status !== 'someday');
 }
 export function taskElapsedMs(t) {
   const base = Math.max(0, Number(t.trackedMs) || 0);

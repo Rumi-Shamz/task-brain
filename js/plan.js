@@ -1,10 +1,11 @@
 /** 01 Plan — single-screen triage + batches + merge projects. */
 import {
   state, esc, newTask, formatYmd, addDaysLocal, mondayOnOrBefore, formatHHMM, uid, BUFFERS,
+  isTopLevelTask, childTasksOf,
 } from './state.js';
 import { allDomains, domainLabel, normalizeDomainId } from './domains.js';
 import {
-  ensureProjectsMigrated, ensureProjectForDomain,
+  getProject, ensureProjectsMigrated, ensureProjectForDomain,
   mergeProjects, listMergeCandidates, projectsInDomain,
 } from './projects.js';
 import { createGroup, addTaskToGroup, applyGroupSchedule, listGroups, ensureGroups } from './groups.js';
@@ -21,16 +22,43 @@ const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4
 const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
 
 function untagedTasks() {
-  return state.tasks.filter(t => t.status !== 'someday' && !t.triaged);
+  return state.tasks.filter(t => t.status !== 'someday' && !t.triaged && isTopLevelTask(t));
 }
 
 export function currentPlanTask() {
+  if (state.planEditId) {
+    return state.tasks.find(t => t.id === state.planEditId) || null;
+  }
   const list = untagedTasks();
   if (!list.length) return null;
   let i = state.planWizardIndex || 0;
   if (i >= list.length) i = 0;
   state.planWizardIndex = i;
   return list[i];
+}
+
+export function planStartEdit(id) {
+  state.planEditId = id;
+  deps.save();
+  renderPlan();
+}
+
+export function planStopEdit() {
+  state.planEditId = null;
+  deps.save();
+  renderPlan();
+}
+
+export function planSaveEdit() {
+  const t = currentPlanTask();
+  if (!t) return;
+  commitDomainProject(t);
+  commitParent(t);
+  t.triaged = true;
+  state.planEditId = null;
+  deps.save();
+  renderPlan();
+  if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
 }
 
 export function markTriaged(t) {
@@ -64,7 +92,10 @@ export function importBulk() {
 }
 
 export function deleteTask(id) {
+  state.tasks.forEach(t => { if (t.parentId === id) t.parentId = null; });
   state.tasks = state.tasks.filter(t => t.id !== id);
+  if (state.planEditId === id) state.planEditId = null;
+  if (state.dashEditId === id) state.dashEditId = null;
   deps.save();
   renderPlan();
 }
@@ -137,16 +168,37 @@ function drainingHTML(t) {
   </div>`;
 }
 
+function parentTaskLabel(parentId) {
+  if (!parentId) return '';
+  const p = state.tasks.find(x => x.id === parentId);
+  return p ? p.name : '';
+}
+
+function wouldCreateParentCycle(taskId, parentId) {
+  if (!parentId || !taskId) return false;
+  if (parentId === taskId) return true;
+  let cur = state.tasks.find(x => x.id === parentId);
+  const seen = new Set([taskId]);
+  while (cur) {
+    if (seen.has(cur.id)) return true;
+    seen.add(cur.id);
+    if (!cur.parentId) break;
+    cur = state.tasks.find(x => x.id === cur.parentId);
+  }
+  return false;
+}
+
 function singleCardHTML(t) {
   ensureProjectsMigrated();
   ensureGroups();
+  const editing = !!state.planEditId;
   const domain = normalizeDomainId(t.domain) || 'Personal';
   const projects = projectsInDomain(domain);
   const groups = listGroups();
   const pid = t.projectId || t.project || '';
-  return `<div class="plan-q">
+  return `<div class="plan-q ${editing ? 'plan-q-edit' : ''}">
     <div class="plan-task-head">
-      <p class="plan-task-name">${esc(t.name)}</p>
+      <p class="plan-task-name">${esc(t.name)}${editing ? ' <span class="plan-edit-badge">editing</span>' : ''}</p>
       <span class="task-del" onclick="deleteTask('${t.id}')" title="Delete">✕</span>
     </div>
 
@@ -159,19 +211,11 @@ function singleCardHTML(t) {
         </div>
       </div>
       <div class="plan-field">LNO
-        <div class="plan-choices compact plan-lno">
-          <button type="button" class="btn ${t.lno === 'L' ? 'primary' : ''}" onclick="planPatch({lno:'L'})" title="10x return — best energy">
-            <span class="lno-letter">L</span><span class="lno-words">Leverage · best energy</span>
-          </button>
-          <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" onclick="planPatch({lno:'N'})" title="Do it well enough">
-            <span class="lno-letter">N</span><span class="lno-words">Neutral · well enough</span>
-          </button>
-          <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" onclick="planPatch({lno:'O'})" title="Minimize, batch, delegate first">
-            <span class="lno-letter">O</span><span class="lno-words">Optional · batch / delegate</span>
-          </button>
-          <button type="button" class="btn ${!t.lno ? 'primary' : ''}" onclick="planPatch({lno:null})">
-            <span class="lno-letter">—</span><span class="lno-words">Unset</span>
-          </button>
+        <div class="plan-choices compact">
+          <button type="button" class="btn ${t.lno === 'L' ? 'primary' : ''}" onclick="planPatch({lno:'L'})" title="10x return — best energy">Leverage</button>
+          <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" onclick="planPatch({lno:'N'})" title="Do it well enough">Neutral</button>
+          <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" onclick="planPatch({lno:'O'})" title="Minimize, batch, delegate first">Optional</button>
+          <button type="button" class="btn ${!t.lno ? 'primary' : ''}" onclick="planPatch({lno:null})" title="Unset">—</button>
         </div>
       </div>
       <div class="plan-field">Blocking
@@ -203,6 +247,16 @@ function singleCardHTML(t) {
           valueId: pid,
           valueLabel: projects.find(p => p.id === pid)?.name || '',
           placeholder: 'Search or create project…',
+        })}
+      </div>
+    </div>
+
+    <div class="plan-row plan-row-full">
+      <div class="plan-field">Parent task
+        ${comboHTML('parent', {
+          valueId: t.parentId || '',
+          valueLabel: parentTaskLabel(t.parentId),
+          placeholder: 'Optional — become a subtask of…',
         })}
       </div>
     </div>
@@ -251,15 +305,20 @@ function singleCardHTML(t) {
     ${drainingHTML(t)}
 
     <div class="plan-step-actions">
-      <button type="button" class="btn primary" onclick="planFinish('slot')">Next · set slot</button>
-      <button type="button" class="btn" onclick="planFinish('batch')">Next · add to batch</button>
-      <button type="button" class="btn" onclick="planFinish('none')">Next · leave open</button>
+      ${editing ? `
+        <button type="button" class="btn primary" onclick="planSaveEdit()">Save</button>
+        <button type="button" class="btn" onclick="planStopEdit()">Back to list</button>
+      ` : `
+        <button type="button" class="btn primary" onclick="planFinish('slot')">Next · set slot</button>
+        <button type="button" class="btn" onclick="planFinish('batch')">Next · add to batch</button>
+        <button type="button" class="btn" onclick="planFinish('none')">Next · leave open</button>
+      `}
     </div>
   </div>`;
 }
 
 let focusSubtaskId = null;
-let comboHighlight = { domain: -1, project: -1 };
+let comboHighlight = { domain: -1, project: -1, parent: -1 };
 
 function comboHTML(kind, { valueId, valueLabel, placeholder }) {
   return `<div class="plan-combo" data-combo="${kind}">
@@ -282,6 +341,16 @@ function comboOptions(kind, query) {
     return allDomains()
       .filter(d => !q || d.label.toLowerCase().includes(q) || d.id.toLowerCase().includes(q))
       .map(d => ({ id: d.id, label: d.label, create: false }));
+  }
+  if (kind === 'parent') {
+    const t = currentPlanTask();
+    const opts = [{ id: '', label: '— None (top-level) —', create: false }];
+    state.tasks
+      .filter(x => x.status !== 'someday' && x.id !== t?.id && !wouldCreateParentCycle(t?.id, x.id))
+      .filter(x => !q || x.name.toLowerCase().includes(q))
+      .slice(0, 40)
+      .forEach(x => opts.push({ id: x.id, label: x.name, create: false }));
+    return opts;
   }
   const t = currentPlanTask();
   const dom = normalizeDomainId(document.getElementById('plan-domain')?.value || t?.domain) || 'Personal';
@@ -348,6 +417,9 @@ export function planComboBlur(kind) {
         const id = t?.domain || 'Personal';
         hidden.value = id;
         qEl.value = domainLabel(id);
+      } else if (kind === 'parent') {
+        hidden.value = '';
+        qEl.value = '';
       }
       return;
     }
@@ -359,6 +431,21 @@ export function planComboBlur(kind) {
       const id = hit?.id || normalizeDomainId(q) || currentPlanTask()?.domain || 'Personal';
       if (hidden.value !== id) planDomainChanged(id);
       else { hidden.value = id; qEl.value = domainLabel(id); }
+      return;
+    }
+    if (kind === 'parent') {
+      if (hidden.value) {
+        qEl.value = parentTaskLabel(hidden.value);
+        return;
+      }
+      const hit = state.tasks.find(x => x.status !== 'someday' && x.name.toLowerCase() === q.toLowerCase());
+      if (hit && !wouldCreateParentCycle(currentPlanTask()?.id, hit.id)) {
+        hidden.value = hit.id;
+        qEl.value = hit.name;
+      } else {
+        hidden.value = '';
+        qEl.value = '';
+      }
       return;
     }
     // project
@@ -393,6 +480,18 @@ export function planComboPick(kind, id, createName) {
   if (!qEl || !hidden) return;
   if (kind === 'domain') {
     planDomainChanged(id);
+    return;
+  }
+  if (kind === 'parent') {
+    const t = currentPlanTask();
+    if (id && wouldCreateParentCycle(t?.id, id)) {
+      hidden.value = '';
+      qEl.value = '';
+    } else {
+      hidden.value = id || '';
+      qEl.value = id ? parentTaskLabel(id) : '';
+    }
+    if (list) { list.hidden = true; qEl.setAttribute('aria-expanded', 'false'); }
     return;
   }
   if (id === '__create__' || createName) {
@@ -463,16 +562,68 @@ export function planDomainChanged(dom) {
   renderPlanWizard();
 }
 
+function planTaskListHTML() {
+  const roots = state.tasks
+    .filter(t => t.status !== 'someday' && isTopLevelTask(t) && t.triaged && !t.done)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (!roots.length) {
+    return `<div class="plan-task-list"><div class="section-label">Tasks</div>
+      <p class="dash-inbox-empty">No open tasks yet.</p></div>`;
+  }
+  const rows = roots.map(t => {
+    const proj = getProject(t.projectId || t.project);
+    const kids = childTasksOf(t.id);
+    const childRows = kids.map(c => {
+      const cproj = getProject(c.projectId || c.project);
+      return `<div class="plan-task-row plan-task-child ${c.done ? 'done' : ''}">
+        <div class="plan-task-row-main">
+          <span class="plan-task-row-name">${esc(c.name)}</span>
+          <span class="plan-task-row-tags">
+            ${c.domain ? `<span class="tag">${esc(domainLabel(c.domain))}</span>` : ''}
+            ${cproj ? `<span class="tag">${esc(cproj.name)}</span>` : ''}
+          </span>
+        </div>
+        <button type="button" class="btn" onclick="planStartEdit('${c.id}')">Edit</button>
+      </div>`;
+    }).join('');
+    return `<div class="plan-task-block">
+      <div class="plan-task-row ${t.done ? 'done' : ''} ${!t.triaged ? 'untriaged' : ''}">
+        <div class="plan-task-row-main">
+          <span class="plan-task-row-name">${esc(t.name)}</span>
+          <span class="plan-task-row-tags">
+            ${t.domain ? `<span class="tag">${esc(domainLabel(t.domain))}</span>` : ''}
+            ${proj ? `<span class="tag">${esc(proj.name)}</span>` : ''}
+            ${!t.triaged ? '<span class="tag tag-warn">inbox</span>' : ''}
+          </span>
+        </div>
+        <button type="button" class="btn" onclick="planStartEdit('${t.id}')">Edit</button>
+      </div>
+      ${childRows}
+    </div>`;
+  }).join('');
+  return `<div class="plan-task-list">
+    <div class="section-label">Tasks</div>
+    ${rows}
+  </div>`;
+}
+
 export function renderPlanWizard() {
   const root = document.getElementById('plan-wizard');
   if (!root) return;
   try {
+    const editing = !!state.planEditId;
     const t = currentPlanTask();
-    if (!t) {
-      root.innerHTML = `${progressHTML()}<div class="empty-state">All tasks triaged — open Dashboard to execute, or add more above.</div>`;
-      return;
+    if (editing && !t) {
+      state.planEditId = null;
     }
-    root.innerHTML = progressHTML() + singleCardHTML(t);
+    const cardTask = currentPlanTask();
+    let card = '';
+    if (cardTask && (editing || !cardTask.triaged)) {
+      card = singleCardHTML(cardTask);
+    } else if (!editing) {
+      card = `<div class="empty-state">All tasks triaged — edit below, open Dashboard, or add more above.</div>`;
+    }
+    root.innerHTML = progressHTML() + card + (editing ? '' : planTaskListHTML());
     if (focusSubtaskId) {
       const inp = root.querySelector(`.subtask-input[data-sid="${focusSubtaskId}"]`);
       if (inp) { inp.focus(); inp.select?.(); }
@@ -578,6 +729,16 @@ function commitDomainProject(t) {
   else if (!t.blocking) t.blockingNote = '';
 }
 
+function commitParent(t) {
+  const raw = document.getElementById('plan-parent')?.value || '';
+  const parentId = raw || null;
+  if (parentId && wouldCreateParentCycle(t.id, parentId)) {
+    t.parentId = null;
+    return;
+  }
+  t.parentId = parentId;
+}
+
 function advance() {
   const t = currentPlanTask();
   if (t) markTriaged(t);
@@ -590,6 +751,7 @@ export function planFinish(mode) {
   const t = currentPlanTask();
   if (!t) return;
   commitDomainProject(t);
+  commitParent(t);
   const day = (document.getElementById('plan-weekday')?.value || 'monday').toLowerCase();
   const slot = (document.getElementById('plan-slot')?.value || 'morning').toLowerCase();
 

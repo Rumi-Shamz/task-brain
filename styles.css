@@ -541,7 +541,7 @@
       background: var(--card); color: var(--txt); font-family: inherit; min-width: 140px;
     }
     .year-substats { font-size: 11px; color: var(--txt3); margin: -0.5rem 0 1rem; line-height: 1.4; }
-    .year-month-card.large .year-cell { height: 36px; font-size: 12px; }
+    .year-month-card.large .year-cell { height: 54px; min-height: 54px; font-size: 13px; }
     .year-month-card.large h4 { font-size: 16px; }
     .yc-fast { background: #EF9F27; }
     .yc-restore { background: #FAC775; }
@@ -616,6 +616,41 @@
       margin: 0;
       font-size: 1.05rem; font-weight: 600; color: var(--txt);
     }
+    .plan-edit-badge {
+      font-size: 11px; font-weight: 500; color: var(--txt3);
+      vertical-align: middle;
+    }
+    .plan-task-list {
+      margin-top: 1.1rem;
+      padding-top: 0.85rem;
+      border-top: 0.5px solid var(--border);
+    }
+    .plan-task-block { margin-bottom: 6px; }
+    .plan-task-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 4px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .plan-task-row.done .plan-task-row-name { text-decoration: line-through; color: var(--txt3); }
+    .plan-task-row.untriaged { opacity: 0.85; }
+    .plan-task-child { padding-left: 1.25rem; }
+    .plan-task-row-main { min-width: 0; flex: 1; }
+    .plan-task-row-name {
+      display: block; font-size: 14px; font-weight: 550; color: var(--txt);
+      word-break: break-word;
+    }
+    .plan-task-row-tags {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px;
+    }
+    .plan-task-row-tags .tag,
+    .board-row-tags .tag {
+      font-size: 10px; color: var(--txt3);
+      border: 0.5px solid var(--border-md);
+      border-radius: 4px; padding: 1px 5px;
+      background: var(--surface);
+    }
+    .tag-warn { color: var(--txt2) !important; }
+    .tag-sched { color: var(--txt2) !important; }
     .plan-row {
       display: grid;
       gap: 10px 14px;
@@ -1060,14 +1095,12 @@
     .domain-chip .domain-chip-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .domain-chip .domain-count { font-weight: 500; }
     .project-board {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
-      grid-auto-rows: minmax(0, 1fr);
-      gap: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       min-width: 0;
       min-height: 0;
       flex: 1;
-      align-items: stretch;
       overflow: auto;
     }
     .project-col {
@@ -1075,11 +1108,14 @@
       border: 0.5px solid var(--border);
       border-radius: var(--radius-lg);
       min-width: 0;
-      min-height: 200px;
-      height: 100%;
+      min-height: 0;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+    }
+    .project-col.domain-stack {
+      overflow: visible;
+      height: auto;
     }
     .project-col-header, button.project-col-header {
       padding: 10px 10px 8px;
@@ -1141,6 +1177,84 @@
       overflow-y: auto;
       position: relative;
       align-content: flex-start;
+    }
+    .board-activity-filters {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+    .domain-stack {
+      display: flex; flex-direction: column;
+      min-width: 0;
+      width: 100%;
+      grid-column: 1 / -1;
+    }
+    .domain-task-rows {
+      display: flex; flex-direction: column; gap: 4px;
+      padding: 4px 0 10px;
+    }
+    .board-row {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+      padding: 10px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1.35;
+      color: var(--txt);
+      touch-action: manipulation;
+    }
+    .board-row-child { margin-left: 1rem; }
+    .board-row-main {
+      display: flex; align-items: flex-start; gap: 8px;
+      min-width: 0; flex: 1;
+    }
+    .board-row-text { min-width: 0; flex: 1; }
+    .board-row-name {
+      display: block; font-weight: 550; word-break: break-word;
+    }
+    .board-row-tags {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+    }
+    .board-row-controls { flex-shrink: 0; }
+    .board-row.done .board-row-name { text-decoration: line-through; color: var(--txt3); }
+    .board-row.scheduled { border-left: 2.5px solid var(--txt3); }
+    .board-row.timer-running {
+      border-left: 2.5px solid var(--p-swing);
+      box-shadow: inset 2px 0 0 var(--p-swing);
+    }
+    .board-row:hover { border-color: var(--border-md); }
+    .domain-stack.drag-over { background: rgba(55,138,221,0.06); }
+    .dash-edit-sheet {
+      position: fixed; inset: 0; z-index: 80;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .dash-edit-backdrop {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.35);
+    }
+    .dash-edit-panel {
+      position: relative; z-index: 1;
+      width: min(520px, 100%);
+      max-height: min(88vh, 720px);
+      overflow: auto;
+      background: var(--card);
+      border: 0.5px solid var(--border-md);
+      border-radius: 14px 14px 0 0;
+      padding: 14px 14px 18px;
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.12);
+    }
+    .dash-edit-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .dash-edit-done {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; margin: 8px 0;
+    }
+    @media (min-width: 721px) {
+      .dash-edit-sheet { align-items: center; }
+      .dash-edit-panel { border-radius: 12px; }
     }
     .board-chip {
       position: relative;
@@ -1311,18 +1425,6 @@
       word-break: break-word;
     }
     .year-week-col.task-drop-hover { outline: 2px solid var(--accent); }
-    /* —— Plan LNO full words (until memorized) —— */
-    .plan-lno .btn {
-      display: inline-flex; flex-direction: column; align-items: flex-start;
-      gap: 2px; text-align: left; line-height: 1.2;
-    }
-    .plan-lno .lno-letter { font-weight: 600; }
-    .plan-lno .lno-words {
-      font-size: 10px; font-weight: 400; text-transform: none; letter-spacing: 0;
-      color: inherit; opacity: 0.85; white-space: normal; max-width: 9.5rem;
-    }
-    .plan-lno .btn.primary .lno-words { opacity: 0.9; }
-
     .dash-mobile-tabs { display: none; }
 
     @media (max-width: 900px) {
@@ -1371,15 +1473,11 @@
       }
       .board-panel { min-height: 0; overflow: auto; }
       .project-board {
-        grid-template-columns: 1fr;
         min-height: 0;
         flex: 1;
       }
+      .board-row { font-size: 15px; padding: 12px 10px; }
 
-      /* Plan denser on phones */
-      .plan-lno { flex-direction: column; align-items: stretch; }
-      .plan-lno .btn { width: 100%; }
-      .plan-lno .lno-words { max-width: none; font-size: 11px; }
       body.plan-active { padding: 0.5rem 0.75rem 1.25rem; }
       .input-row { flex-wrap: wrap; }
       .input-row input { min-width: 0; flex: 1 1 100%; }
@@ -1387,17 +1485,29 @@
       /* Year: no Year overview on mobile */
       .year-view-desktop-only { display: none !important; }
       body.year-active { max-width: none; width: 100%; padding: 0.5rem 0.65rem 1rem; }
+      .year-month-mobile-wrap {
+        display: flex; flex-direction: column;
+        min-height: calc(100vh - 160px);
+      }
       .year-month-mobile-wrap .year-month-card.large {
         border: none; padding: 0; background: transparent;
+        flex: 1; display: flex; flex-direction: column;
+        width: 100%;
       }
       .year-month-mobile-wrap .year-month-grid {
-        gap: 3px;
+        gap: 4px;
+        flex: 1;
+        align-content: stretch;
       }
       .year-month-card.large .year-cell {
-        height: 44px; font-size: 14px; border-radius: 8px;
+        min-height: 54px; height: 54px; font-size: 15px; border-radius: 8px;
       }
       .year-mobile-stats {
         display: flex; gap: 1rem; margin-bottom: 10px;
+      }
+      .year-mobile-stats-compact {
+        gap: 0.85rem; margin-bottom: 8px;
+        font-size: 12px; color: var(--txt3);
       }
       .year-day-pills {
         display: flex; gap: 4px; margin-bottom: 8px;

@@ -4,14 +4,19 @@ import {
   CAL_SNAP, CAL_MIN_DURATION, projectClass, projectCssVars, projectColStyleAttr, chipControlsHTML,
   esc, pad2, formatYmd, parseYmd, parseHHMM, formatHHMM, snapCalMins, clampCalStart, todayYmd,
   ensureDashCalDate, formatTracked, taskElapsedMs, setHideDone, toggleTaskDone,
-  startTaskTimer, pauseTaskTimer, stopTaskTimer, ensureTimerTick
+  startTaskTimer, pauseTaskTimer, stopTaskTimer, ensureTimerTick, isTopLevelTask, childTasksOf,
+  mondayOnOrBefore, addDaysLocal,
 } from './state.js';
 import {
   allDomains, normalizeDomainId, addCustomDomain,
   toggleDomainCollapsed, setAllDomainsCollapsed,
 } from './domains.js';
-import { getProject, ACTIVITIES } from './projects.js';
+import { getProject, ACTIVITIES, projectsInDomain, ensureProjectForDomain } from './projects.js';
 import { deps } from './deps.js';
+
+const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
+const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
+const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
 export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 18); }
@@ -26,24 +31,213 @@ export function applyCalBlockStyle(el, t) {
   if (timeEl) timeEl.textContent = t.start + '–' + formatHHMM(startMins + dur);
 }
 export function chipHTML(t) {
+  return boardRowHTML(t);
+}
+
+function activityLabel(act) {
+  const id = act || 'act';
+  return (ACTIVITIES.find(a => a.id === id) || LANES.find(a => a.id === id))?.label || id;
+}
+
+export function boardRowHTML(t, { nested = false } = {}) {
   const scheduled = !!(t.start && t.date);
   const running = !!t.timerStartedAt;
   const proj = getProject(t.projectId || t.project);
-  const projLabel = proj ? proj.name : '';
-  return `<div class="board-chip ${ scheduled ? 'scheduled' : '' } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }"
-      draggable="true" data-id="${ t.id }"
-      ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
-    <div class="board-chip-main">
-      <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
+  const act = t.activity || t.lane || 'act';
+  const tags = [
+    `<span class="tag">${esc(activityLabel(act))}</span>`,
+    proj ? `<span class="tag">${esc(proj.name)}</span>` : '',
+    t.lno ? `<span class="tag">LNO ${esc(t.lno)}</span>` : '',
+    scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
+  ].filter(Boolean).join('');
+  return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${running ? 'timer-running' : ''}"
+      draggable="true" data-id="${t.id}"
+      ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)"
+      onclick="dashRowClick(event,'${t.id}')">
+    <div class="board-row-main">
+      <input type="checkbox" class="chip-done" ${t.done ? 'checked' : ''}
         onpointerdown="event.stopPropagation()"
-        onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)"
+        onclick="event.stopPropagation(); toggleTaskDone('${t.id}', this.checked)"
         title="Mark done" aria-label="Mark done" />
-      <span class="board-chip-name">${ esc(t.name) }</span>
-      ${projLabel ? `<span class="chip-proj-mark">${ esc(projLabel) }</span>` : ''}
-      ${scheduled ? `<span class="chip-sched-mark">${ esc(t.date.slice(5)) } ${ esc(t.start) }</span>` : ''}
+      <div class="board-row-text">
+        <span class="board-row-name">${esc(t.name)}</span>
+        <span class="board-row-tags">${tags}</span>
+      </div>
     </div>
-    ${ chipControlsHTML(t) }
+    <div class="board-row-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+      ${chipControlsHTML(t)}
+    </div>
   </div>`;
+}
+
+export function dashRowClick(e, id) {
+  if (e.target.closest('input, button, .chip-actions, .board-row-controls')) return;
+  openDashEdit(id);
+}
+
+export function setDashActivityFilter(id) {
+  state.dashActivityFilter = id || 'all';
+  deps.renderProjectBoard();
+}
+
+export function openDashEdit(id) {
+  state.dashEditId = id;
+  renderDashEditSheet();
+}
+
+export function closeDashEdit() {
+  state.dashEditId = null;
+  const el = document.getElementById('dash-edit-sheet');
+  if (el) el.remove();
+}
+
+export function saveDashEdit() {
+  const t = state.tasks.find(x => x.id === state.dashEditId);
+  if (!t) { closeDashEdit(); return; }
+  const name = document.getElementById('de-name')?.value.trim();
+  if (name) t.name = name;
+  const dom = normalizeDomainId(document.getElementById('de-domain')?.value) || t.domain || 'Personal';
+  t.domain = dom;
+  const projRaw = (document.getElementById('de-project')?.value || '').trim();
+  if (projRaw) {
+    const existing = projectsInDomain(dom).find(p => p.id === projRaw || p.name.toLowerCase() === projRaw.toLowerCase());
+    const pid = existing ? existing.id : ensureProjectForDomain(dom, projRaw);
+    t.project = pid;
+    t.projectId = pid;
+  }
+  const act = document.getElementById('de-activity')?.value || 'act';
+  t.activity = act;
+  t.lane = act === 'research' ? 'research' : act;
+  t.note = (document.getElementById('de-note')?.value || '').trim();
+  t.done = !!document.getElementById('de-done')?.checked;
+  const mode = document.getElementById('de-sched-mode')?.value || 'none';
+  if (mode === 'none') {
+    t.date = null;
+    t.start = null;
+  } else if (mode === 'slot') {
+    const day = (document.getElementById('de-weekday')?.value || 'monday').toLowerCase();
+    const slot = (document.getElementById('de-slot')?.value || 'morning').toLowerCase();
+    if (DAY_OFFSET[day] != null && SLOT_START[slot] != null) {
+      const mon = mondayOnOrBefore(new Date());
+      t.date = formatYmd(addDaysLocal(mon, DAY_OFFSET[day]));
+      t.start = formatHHMM(SLOT_START[slot]);
+      if (!t.duration) t.duration = DEFAULT_DURATION;
+    }
+  } else if (mode === 'exact') {
+    const date = document.getElementById('de-date')?.value || '';
+    const start = document.getElementById('de-start')?.value || '';
+    const dur = parseInt(document.getElementById('de-duration')?.value || '', 10);
+    if (date) t.date = date;
+    if (start) t.start = start.length === 5 ? start : formatHHMM(parseHHMM(start) ?? 9 * 60);
+    if (Number.isFinite(dur) && dur > 0) t.duration = dur;
+  }
+  deps.save();
+  closeDashEdit();
+  deps.renderDashboard();
+}
+
+export function renderDashEditSheet() {
+  let el = document.getElementById('dash-edit-sheet');
+  if (!state.dashEditId) {
+    if (el) el.remove();
+    return;
+  }
+  const t = state.tasks.find(x => x.id === state.dashEditId);
+  if (!t) { closeDashEdit(); return; }
+  const domain = normalizeDomainId(t.domain) || 'Personal';
+  const projects = projectsInDomain(domain);
+  const pid = t.projectId || t.project || '';
+  const act = t.activity || t.lane || 'act';
+  const scheduled = !!(t.date && t.start);
+  const schedMode = scheduled ? 'exact' : 'none';
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'dash-edit-sheet';
+    document.body.appendChild(el);
+  }
+  el.className = 'dash-edit-sheet';
+  el.innerHTML = `
+    <div class="dash-edit-backdrop" onclick="closeDashEdit()"></div>
+    <div class="dash-edit-panel" role="dialog" aria-label="Edit task">
+      <div class="dash-edit-head">
+        <strong>Edit task</strong>
+        <button type="button" class="btn" onclick="closeDashEdit()">Close</button>
+      </div>
+      <label class="plan-field">Name
+        <input type="text" id="de-name" value="${esc(t.name)}" />
+      </label>
+      <div class="plan-row plan-row-2">
+        <label class="plan-field">Domain
+          <select id="de-domain">${allDomains().map(d =>
+            `<option value="${d.id}" ${d.id === domain ? 'selected' : ''}>${esc(d.label)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="plan-field">Project
+          <select id="de-project">
+            <option value="">—</option>
+            ${projects.map(p => `<option value="${p.id}" ${p.id === pid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+      <label class="plan-field">Activity
+        <select id="de-activity">${ACTIVITIES.map(a =>
+          `<option value="${a.id}" ${a.id === act ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="plan-field">Schedule
+        <select id="de-sched-mode" onchange="dashEditSchedMode(this.value)">
+          <option value="none" ${schedMode === 'none' ? 'selected' : ''}>Unscheduled</option>
+          <option value="slot" ${schedMode === 'slot' ? 'selected' : ''}>Weekday + slot</option>
+          <option value="exact" ${schedMode === 'exact' ? 'selected' : ''}>Date + start</option>
+        </select>
+      </label>
+      <div id="de-sched-fields">${dashEditSchedFieldsHTML(schedMode, t)}</div>
+      <label class="plan-field">Note
+        <textarea id="de-note" rows="3">${esc(t.note || '')}</textarea>
+      </label>
+      <label class="dash-edit-done"><input type="checkbox" id="de-done" ${t.done ? 'checked' : ''} /> Done</label>
+      <div class="plan-step-actions">
+        <button type="button" class="btn primary" onclick="saveDashEdit()">Save</button>
+        <button type="button" class="btn" onclick="closeDashEdit()">Cancel</button>
+      </div>
+    </div>`;
+}
+
+export function dashEditSchedMode(mode) {
+  const t = state.tasks.find(x => x.id === state.dashEditId);
+  const box = document.getElementById('de-sched-fields');
+  if (box) box.innerHTML = dashEditSchedFieldsHTML(mode, t || {});
+}
+
+function dashEditSchedFieldsHTML(mode, t) {
+  if (mode === 'slot') {
+    return `<div class="plan-pair">
+      <label class="plan-field">Weekday
+        <select id="de-weekday">${WEEKDAYS.map(d => `<option value="${d}">${d}</option>`).join('')}</select>
+      </label>
+      <label class="plan-field">Slot
+        <select id="de-slot">
+          <option value="morning">Morning</option>
+          <option value="afternoon">Afternoon</option>
+          <option value="evening">Evening</option>
+        </select>
+      </label>
+    </div>`;
+  }
+  if (mode === 'exact') {
+    return `<div class="plan-pair">
+      <label class="plan-field">Date
+        <input type="date" id="de-date" value="${esc(t.date || todayYmd())}" />
+      </label>
+      <label class="plan-field">Start
+        <input type="time" id="de-start" value="${esc(t.start || '09:00')}" />
+      </label>
+      <label class="plan-field">Duration (min)
+        <input type="number" id="de-duration" min="5" step="5" value="${t.duration || DEFAULT_DURATION}" />
+      </label>
+    </div>`;
+  }
+  return '';
 }
 
 export function renderDayCalendar() {
@@ -111,6 +305,15 @@ function isCollapsed(domainId) {
   return !domainHasTasks(domainId);
 }
 
+function matchesActivityFilter(t) {
+  const f = state.dashActivityFilter || 'all';
+  if (f === 'all') return true;
+  const act = t.activity || t.lane || 'act';
+  if (f === 'learn') return act === 'learn';
+  if (f === 'research') return act === 'research';
+  return act === f;
+}
+
 export function renderProjectBoard() {
   const board = document.getElementById('project-board');
   if (!board) return;
@@ -119,6 +322,7 @@ export function renderProjectBoard() {
   const domains = allDomains();
   const collapsedDoms = domains.filter(d => isCollapsed(d.id));
   const expandedDoms = domains.filter(d => !isCollapsed(d.id));
+  const filter = state.dashActivityFilter || 'all';
 
   const strip = document.getElementById('domain-chip-strip');
   if (strip) {
@@ -128,7 +332,7 @@ export function renderProjectBoard() {
     } else {
       strip.hidden = false;
       strip.innerHTML = collapsedDoms.map(dom => {
-        const count = visible(state.tasks.filter(t => t.status !== 'someday' && taskDomain(t) === dom.id)).length;
+        const count = visible(state.tasks.filter(t => t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id)).length;
         return `<button type="button" class="domain-chip" data-domain="${dom.id}"
             onclick="toggleDomainCol('${dom.id}')" title="Expand ${esc(dom.label)}">
           <span class="project-dot"></span>
@@ -140,42 +344,57 @@ export function renderProjectBoard() {
     }
   }
 
-  board.innerHTML = expandedDoms.map(dom => {
-    const count = visible(state.tasks.filter(t => t.status !== 'someday' && taskDomain(t) === dom.id)).length;
-    const lanes = activities.map(lane => {
-      const chips = visible(state.tasks.filter(t => {
-        if (t.status === 'someday') return false;
-        if (taskDomain(t) !== dom.id) return false;
-        const act = t.activity || t.lane || 'act';
-        if (lane.id === 'learn') return act === 'learn';
-        if (lane.id === 'research') return act === 'research';
-        return act === lane.id;
-      }));
-      return `<div class="lane-block" data-domain="${dom.id}" data-lane="${lane.id}"
-          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnDomainLane(event)">
-        <div class="lane-label">${esc(lane.label)}</div>
-        <div class="lane-chips">${chips.map(chipHTML).join('')}</div>
-      </div>`;
+  const filterChips = `<div class="board-activity-filters">
+    <button type="button" class="btn ${filter === 'all' ? 'primary' : ''}" onclick="setDashActivityFilter('all')">All</button>
+    ${activities.map(a =>
+      `<button type="button" class="btn ${filter === a.id ? 'primary' : ''}" onclick="setDashActivityFilter('${a.id}')">${esc(a.label.split(' ')[0])}</button>`
+    ).join('')}
+  </div>`;
+
+  board.innerHTML = filterChips + (expandedDoms.map(dom => {
+    const roots = visible(state.tasks.filter(t =>
+      t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id && matchesActivityFilter(t)
+    ));
+    const count = roots.length;
+    const rows = roots.map(t => {
+      const kids = visible(childTasksOf(t.id).filter(matchesActivityFilter));
+      return boardRowHTML(t) + kids.map(c => boardRowHTML(c, { nested: true })).join('');
     }).join('');
-    return `<div class="project-col domain-col" data-domain="${dom.id}">
+    return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}"
+        ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
+        ondrop="dropOnDomainStack(event)">
       <button type="button" class="project-col-header domain-toggle" onclick="toggleDomainCol('${dom.id}')">
         <span class="project-dot"></span>
         <span class="domain-toggle-label">${esc(dom.label)}</span>
         <span class="domain-count">${count}</span>
         <span class="domain-chevron">▾</span>
       </button>
-      ${lanes}
+      <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">No tasks in this filter.</div>'}</div>
     </div>`;
-  }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
+  }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>');
 
-  const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday'));
+  const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday' && isTopLevelTask(t)));
   const inboxEl = document.getElementById('dash-inbox-chips');
-  if (inboxEl) { inboxEl.innerHTML = inbox.length
-      ? inbox.map(chipHTML).join('')
-      : '<div class="dash-inbox-empty">Tasks without a domain land here. Drag onto a domain lane, or onto the day calendar to schedule.</div>'; }
+  if (inboxEl) {
+    inboxEl.innerHTML = inbox.length
+      ? inbox.map(t => boardRowHTML(t)).join('')
+      : '<div class="dash-inbox-empty">Tasks without a domain land here. Click a row to edit, or drag onto the day calendar to schedule.</div>';
+  }
   const toggle = document.getElementById('hide-done-toggle');
   if (toggle) toggle.checked = state.hideDone;
   ensureTimerTick();
+  if (state.dashEditId) renderDashEditSheet();
+}
+
+export function dropOnDomainStack(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const id = e.dataTransfer.getData('application/x-task-id') || e.dataTransfer.getData('text/plain') || state.dashDragId;
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.domain = e.currentTarget.dataset.domain;
+  deps.save();
+  deps.renderDashboard();
 }
 
 export function toggleDomainCol(domainId) {
@@ -275,7 +494,7 @@ export function renderDashboard() {
 }
 
 export function dashChipDragStart(e) {
-  if (e.target.closest('input, button, .chip-actions, .cal-block-controls')) { e.preventDefault();
+  if (e.target.closest('input, button, .chip-actions, .cal-block-controls, .board-row-controls')) { e.preventDefault();
     return; }
   const id = e.currentTarget.dataset.id;
   state.dashDragId = id;
@@ -396,22 +615,35 @@ export function onCalPointerUp(e) {
   const block = state.calPointer.block;
   const mode = state.calPointer.mode;
   const moved = state.calPointer.moved;
+  const editId = state.calPointer.id;
   let changed = moved || mode === 'resize';
   clearLanePointerOver();
   block.style.pointerEvents = '';
   if (mode === 'move' && t) {
     const under = document.elementFromPoint(e.clientX, e.clientY);
-    const lane = under && under.closest('.lane-block');
+    const lane = under && under.closest('.lane-block, .domain-stack');
     const inbox = under && under.closest('.dash-inbox');
-    if (lane) { t.project = lane.dataset.project;
-      t.lane = lane.dataset.lane;
+    if (lane) {
+      if (lane.dataset.domain) t.domain = lane.dataset.domain;
+      if (lane.dataset.project) t.project = lane.dataset.project;
+      if (lane.dataset.lane) {
+        t.lane = lane.dataset.lane;
+        t.activity = lane.dataset.lane === 'research' ? 'research' : lane.dataset.lane;
+      }
       t.start = null; t.date = null;
-      changed = true; } else if (inbox) { t.project = null; t.lane = null;
+      changed = true;
+    } else if (inbox) {
+      t.project = null; t.lane = null;
       t.start = null; t.date = null;
-      changed = true; }
+      changed = true;
+    }
   }
   block.classList.remove('moving', 'resizing');
   state.calPointer = null;
+  if (!changed && mode === 'move' && editId) {
+    openDashEdit(editId);
+    return;
+  }
   if (changed) { deps.save(); deps.renderDashboard(); }
 }
 document.addEventListener('pointermove', onCalPointerMove);
