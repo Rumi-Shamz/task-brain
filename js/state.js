@@ -3,8 +3,11 @@ import { deps } from './deps.js';
 // Shared mutable app state
 export const state = {
   tasks: [],
-  groups: {},
+  groups: [],
   groupCounter: 0,
+  planWizardIndex: 0,
+  customDomains: [],
+  collapsedDomains: null,
   schedule: [],
   dragSrc: null,
   yearRhythm: null,
@@ -84,6 +87,8 @@ export function allProjects() {
 export function isBuiltinProject(id) {
   return BUILTIN_PROJECTS.some(p => p.id === id);
 }
+export function uid() { return Math.random().toString(36).slice(2, 8); }
+
 export function normalizeCustomProjects(list) {
   if (!Array.isArray(list)) return [];
   const seen = new Set(BUILTIN_PROJECTS.map(p => p.id));
@@ -95,7 +100,9 @@ export function normalizeCustomProjects(list) {
     if (!id || !label || seen.has(id)) return;
     seen.add(id);
     const color = String(p.color || PROJECT_PALETTE[i % PROJECT_PALETTE.length]);
-    out.push({ id, label, color });
+    const domain = p.domain || (Array.isArray(p.domains) && p.domains[0]) || 'Personal';
+    const domains = Array.isArray(p.domains) && p.domains.length ? p.domains : [domain];
+    out.push({ id, label, color, domain, domains });
   });
   return out;
 }
@@ -119,10 +126,10 @@ export function addCustomProject() {
   }
   const id = slugProjectId(label);
   const color = PROJECT_PALETTE[state.customProjects.length % PROJECT_PALETTE.length];
-  state.customProjects.push({ id, label, color });
+  state.customProjects.push({ id, label, color, domain: 'Personal', domains: ['Personal'] });
   if (!Array.isArray(state.projects)) state.projects = [];
   if (!state.projects.some(p => p.id === id)) {
-    state.projects.push({ id, name: label, domain: 'Other', objective: '', deadline: null, status: 'active', people: [], links: [], color });
+    state.projects.push({ id, name: label, domain: 'Personal', domains: ['Personal'], objective: '', deadline: null, status: 'active', people: [], links: [], color });
   }
   if (inp) { inp.value = '';
     inp.placeholder = 'New project…'; }
@@ -403,14 +410,18 @@ export function normalizeTask(t) {
     timepressure: t.timepressure || null,
     trackedMs: Math.max(0, Number(t.trackedMs) || 0),
     timerStartedAt: t.timerStartedAt != null ? Number(t.timerStartedAt) : null,
+    who: t.who != null ? String(t.who) : '',
+    note: t.note != null ? String(t.note) : '',
+    blockingNote: t.blockingNote != null ? String(t.blockingNote) : '',
     // LNO: migrate legacy lt boolean
     lno: t.lno === 'L' || t.lno === 'N' || t.lno === 'O' ? t.lno
       : t.lt === true ? 'L' : t.lt === false ? 'N' : (t.lno ?? null),
+    triaged: !!t.triaged,
   };
 }
 export function newTask(name, extra) {
   return normalizeTask({
-    id: uid(), name, who: '', blocking: null, lt: null, size: null,
+    id: uid(), name, who: '', note: '', blockingNote: '', blocking: null, lt: null, size: null,
     subtasks: [], draining: false, done: false, trackedMs: 0, timerStartedAt: null,
     ...(extra || {}),
   });

@@ -1,4 +1,5 @@
-import { state, BUFFERS, esc } from './state.js';
+import { state, BUFFERS, esc, uid } from './state.js';
+import { buildScheduleItems } from './organize.js';
 import { deps } from './deps.js';
 
 export function renderSchedule() {

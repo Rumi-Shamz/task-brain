@@ -6,16 +6,15 @@
   <title>Day Planner</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="plan-active">
 <div id="app">
   <div class="header">
     <h1 id="app-logo" title="Triple-tap to sync settings">Day Planner</h1>
     <div class="phase-tabs">
-      <button class="phase-tab active" onclick="switchPhase('triage')">01 Triage</button>
-      <button class="phase-tab" onclick="switchPhase('organize')">02 Organize</button>
-      <button class="phase-tab" onclick="switchPhase('schedule')">03 Schedule</button>
+      <button class="phase-tab active" onclick="switchPhase('plan')">01 Plan</button>
+      <button class="phase-tab" onclick="switchPhase('dashboard')">02 Dashboard</button>
+      <button class="phase-tab" onclick="switchPhase('skills')">03 Skills</button>
       <button class="phase-tab" onclick="switchPhase('year')">04 Year</button>
-      <button class="phase-tab" onclick="switchPhase('dashboard')">05 Dashboard</button>
     </div>
     <span id="sync-status" class="sync-status" aria-live="polite"></span>
   </div>
@@ -39,8 +38,8 @@
     <p class="sync-hint">Reconnect: Owner <code>Rumi-Shamz</code>, Repo <code>task-brain-data</code>, then Connect &amp; pull. BACKLOG: Supabase auth later.</p>
   </div>
 
-  <!-- PHASE 1: TRIAGE -->
-  <div id="phase-triage" class="phase active">
+  <!-- 01 PLAN -->
+  <div id="phase-plan" class="phase active">
     <div class="input-area">
       <div class="input-row">
         <input type="text" id="single-input" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addSingle()" />
@@ -62,69 +61,75 @@
       <p class="bulk-hint" id="week-plan-msg"></p>
       <div id="week-plan-report" class="import-report-wrap"></div>
     </div>
-    <div id="task-list" class="task-list"></div>
-    <div id="triage-actions" style="margin-top:1.5rem;display:none;">
-      <button class="btn primary" onclick="switchPhase('organize')">Organize ›</button>
-    </div>
-  </div>
-
-  <!-- PHASE 2: ORGANIZE -->
-  <div id="phase-organize" class="phase">
-    <div class="group-actions">
-      <span class="selected-count" id="sel-count"></span>
-      <button class="btn" onclick="groupSelected()">Group selected</button>
-      <button class="btn" onclick="clearSelection()">Clear</button>
-    </div>
-    <div class="section-label">Tasks — drag to reorder</div>
-    <div id="organized-list" class="organized-list"></div>
+    <div id="plan-wizard" class="plan-wizard"></div>
+    <div id="plan-batches" class="plan-batches"></div>
+    <details class="dash-extras" style="margin-top:1.25rem;">
+      <summary>Merge projects</summary>
+      <div id="merge-projects-panel"></div>
+    </details>
     <div class="bottom-actions">
-      <button class="btn primary" onclick="switchPhase('schedule')">Schedule ›</button>
-      <button class="btn" onclick="switchPhase('triage')">‹ Back</button>
-    </div>
-  </div>
-
-  <!-- PHASE 3: SCHEDULE -->
-  <div id="phase-schedule" class="phase">
-    <div class="plan-summary" id="plan-summary"></div>
-    <div class="section-label">Your day — in order</div>
-    <div id="schedule-list" class="organized-list"></div>
-    <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('organize')">‹ Back</button>
-      <button class="btn" onclick="switchPhase('year')">Year ›</button>
+      <button class="btn primary" onclick="switchPhase('dashboard')">Dashboard ›</button>
       <button class="btn danger-outline" onclick="clearAll()">Clear all</button>
     </div>
   </div>
 
-  <!-- PHASE 4: YEAR -->
+  <!-- 02 DASHBOARD -->
+  <div id="phase-dashboard" class="phase">
+    <div class="dash-layout">
+      <aside class="day-panel">
+        <div class="day-panel-header">
+          <h2 id="dash-day-title">Today · 00:00–24:00</h2>
+          <span class="day-hint">drop to schedule · drag body to move · bottom edge to resize</span>
+        </div>
+        <div class="day-calendar" id="day-calendar"></div>
+      </aside>
+      <section class="board-panel">
+        <div class="board-toolbar">
+          <div class="add-project">
+            <input type="text" id="new-domain-input" placeholder="New domain…"
+              onkeydown="if(event.key==='Enter')addDomainFromForm()" />
+            <button type="button" class="btn" onclick="addDomainFromForm()">Add domain</button>
+          </div>
+          <div class="board-domain-tools">
+            <button type="button" class="btn" onclick="expandAllDomains()">Expand all</button>
+            <button type="button" class="btn" onclick="collapseAllDomains()">Collapse all</button>
+          </div>
+          <label class="board-filter">
+            <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
+            Hide done
+          </label>
+        </div>
+        <div class="domain-chip-strip" id="domain-chip-strip" hidden></div>
+        <div class="project-board" id="project-board"></div>
+        <div class="dash-inbox" id="dash-inbox"
+          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnInbox(event)">
+          <div class="section-label" style="margin-bottom:0;">Inbox — no domain</div>
+          <div class="dash-inbox-chips" id="dash-inbox-chips"></div>
+        </div>
+        <details class="dash-extras">
+          <summary>Someday</summary>
+          <div id="someday-panel" class="someday-panel"></div>
+        </details>
+      </section>
+    </div>
+    <div class="bottom-actions">
+      <button class="btn" onclick="switchPhase('plan')">‹ Plan</button>
+      <button class="btn" onclick="switchPhase('skills')">Skills ›</button>
+    </div>
+  </div>
+
+  <!-- 03 SKILLS -->
+  <div id="phase-skills" class="phase">
+    <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
+    <div id="skills-panel" class="skills-panel"></div>
+    <div class="bottom-actions">
+      <button class="btn" onclick="switchPhase('dashboard')">‹ Dashboard</button>
+      <button class="btn" onclick="switchPhase('year')">Year ›</button>
+    </div>
+  </div>
+
+  <!-- 04 YEAR -->
   <div id="phase-year" class="phase">
-    <div class="year-controls">
-      <label>
-        Year start Monday
-        <input type="date" id="year-anchor" onchange="setYearAnchor(this.value)" />
-      </label>
-      <button class="btn" onclick="resetYearSeed()">Reset seed</button>
-    </div>
-    <div class="year-callout" id="year-this-week"></div>
-    <div class="year-stats" id="year-stats"></div>
-    <div class="year-substats" id="year-substats"></div>
-    <div class="year-rule" id="year-rule">
-      <strong>Painting vs stats</strong><br>
-      Protocol days win: sprint and vacation are protocol blocks, not seasonal overlays.
-      Seasonal work/off only paint unmarked days.
-      Stats: <strong>Work</strong> = seasonal work + sprint · <strong>Free</strong> = seasonal off + vacation · <strong>Reset</strong> = fast + restore + deep rest.
-      <span id="year-schedule-rule">Configure working schedule below.</span>
-    </div>
-    <div class="year-controls" id="year-schedule-controls" style="margin-top:0.75rem;"></div>
-    <div class="year-legend">
-      <span><i class="year-swatch yc-sprint"></i>Sprint (protocol · Work)</span>
-      <span><i class="year-swatch yc-work"></i>Seasonal work (≠ sprint)</span>
-      <span><i class="year-swatch yc-vacation"></i>Vacation (protocol · Free)</span>
-      <span><i class="year-swatch yc-free"></i>Seasonal off (≠ vacation)</span>
-      <span><i class="year-swatch yc-fast"></i>Fast (Reset)</span>
-      <span><i class="year-swatch yc-restore"></i>Restore (Reset)</span>
-      <span><i class="year-swatch yc-deepRest"></i>Deep rest (Reset)</span>
-      <span><i class="year-swatch yc-conflict"></i>Conflict</span>
-    </div>
     <div class="year-view-toggle">
       <button class="btn active" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
       <button class="btn" id="year-view-month" onclick="setYearCalendarView('month')">Month</button>
@@ -144,64 +149,57 @@
         <span class="year-week-label" id="year-week-label"></span>
       </span>
     </div>
-    <div class="section-label" id="year-section-label">12 months · 3×4 · deep rest band in the middle</div>
+    <div class="section-label" id="year-section-label">12 months · W1 starts after deep rest</div>
     <div class="year-grid-wrap">
       <div class="year-months" id="year-grid"></div>
     </div>
     <div id="year-hour-edit" class="year-hour-edit" style="display:none;"></div>
-    <div class="year-import">
-      <div class="section-label">Import rhythm JSON (from Year Rhythm Lab canvas)</div>
-      <textarea id="year-json-input" placeholder='{"version":1,"yearStartMonday":"...","cycles":[...],...}'></textarea>
-      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn primary" onclick="importYearJson()">Import</button>
-        <button class="btn" onclick="exportYearJson()">Copy JSON</button>
-      </div>
-      <div class="year-import-msg" id="year-import-msg"></div>
-    </div>
-    <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('schedule')">‹ Schedule</button>
-      <button class="btn" onclick="switchPhase('dashboard')">Dashboard ›</button>
-    </div>
-  </div>
 
-  <div id="phase-dashboard" class="phase">
-    <div class="dash-layout">
-      <aside class="day-panel">
-        <div class="day-panel-header">
-          <h2 id="dash-day-title">Today · 00:00–24:00</h2>
-          <span class="day-hint">drop to schedule · drag body to move · bottom edge to resize</span>
+    <details class="year-config" id="year-config">
+      <summary>Year setup · stats · seasons · import</summary>
+      <div class="year-controls">
+        <label>
+          Year start Monday
+          <input type="date" id="year-anchor" onchange="setYearAnchor(this.value)" />
+        </label>
+        <button class="btn" onclick="resetYearSeed()">Reset seed</button>
+      </div>
+      <div class="year-callout" id="year-this-week"></div>
+      <div class="year-stats" id="year-stats"></div>
+      <div class="year-substats" id="year-substats"></div>
+      <div class="year-rule" id="year-rule">
+        <strong>Painting vs stats</strong><br>
+        Protocol days win: sprint and vacation are protocol blocks, not seasonal overlays.
+        Seasonal work/off only paint unmarked days.
+        Stats: <strong>Work</strong> = seasonal work + sprint · <strong>Free</strong> = seasonal off + vacation · <strong>Reset</strong> = fast + restore + deep rest.
+        Week numbers: <strong>W1</strong> is the first week after the 28-day deep rest.
+        <span id="year-schedule-rule">Configure working schedule below.</span>
+      </div>
+      <div class="year-controls" id="year-schedule-controls" style="margin-top:0.75rem;"></div>
+      <div class="year-legend">
+        <span><i class="year-swatch yc-sprint"></i>Sprint (protocol · Work)</span>
+        <span><i class="year-swatch yc-work"></i>Seasonal work (≠ sprint)</span>
+        <span><i class="year-swatch yc-vacation"></i>Vacation (protocol · Free)</span>
+        <span><i class="year-swatch yc-free"></i>Seasonal off (≠ vacation)</span>
+        <span><i class="year-swatch yc-fast"></i>Fast (Reset)</span>
+        <span><i class="year-swatch yc-restore"></i>Restore (Reset)</span>
+        <span><i class="year-swatch yc-deepRest"></i>Deep rest (Reset)</span>
+        <span><i class="year-swatch yc-conflict"></i>Conflict</span>
+      </div>
+      <div class="year-import">
+        <div class="section-label">Import rhythm JSON (from Year Rhythm Lab canvas)</div>
+        <textarea id="year-json-input" placeholder='{"version":1,"yearStartMonday":"...","cycles":[...],...}'></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn primary" onclick="importYearJson()">Import</button>
+          <button class="btn" onclick="exportYearJson()">Copy JSON</button>
         </div>
-        <div class="day-calendar" id="day-calendar"></div>
-      </aside>
-      <section class="board-panel">
-        <div class="board-toolbar">
-          <div class="add-project">
-            <input type="text" id="new-project-input" placeholder="New project…"
-              onkeydown="if(event.key==='Enter')addCustomProject()" />
-            <button type="button" class="btn" onclick="addCustomProject()">Add project</button>
-          </div>
-          <label class="board-filter">
-            <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
-            Hide done
-          </label>
-        </div>
-        <details class="dash-extras">
-          <summary>Skills · Someday · week LNO</summary>
-          <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
-          <div id="skills-panel" class="skills-panel"></div>
-          <div id="someday-panel" class="someday-panel"></div>
-        </details>
-        <div class="dash-inbox" id="dash-inbox"
-          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnInbox(event)">
-          <div class="section-label" style="margin-bottom:0;">Inbox — unassigned</div>
-          <div class="dash-inbox-chips" id="dash-inbox-chips"></div>
-        </div>
-        <div class="project-board" id="project-board"></div>
-      </section>
-    </div>
+        <div class="year-import-msg" id="year-import-msg"></div>
+      </div>
+    </details>
+
     <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('year')">‹ Year</button>
-      <button class="btn" onclick="switchPhase('schedule')">Schedule</button>
+      <button class="btn" onclick="switchPhase('skills')">‹ Skills</button>
+      <button class="btn" onclick="switchPhase('plan')">Plan ›</button>
     </div>
   </div>
 </div>

@@ -1,11 +1,16 @@
 import {
   state, LANES, HOUR_H, VIEW_HOUR_START, VIEW_HOUR_END, VIEW_HOURS, VIEW_SCROLL_TOP,
   DAY_START_MIN, DAY_END_MIN, VISIBLE_MINUTES, DEFAULT_DURATION, CAL_DAY_START, CAL_DAY_END,
-  CAL_SNAP, CAL_MIN_DURATION, allProjects, projectClass, projectCssVars, projectColStyleAttr, chipControlsHTML,
+  CAL_SNAP, CAL_MIN_DURATION, projectClass, projectCssVars, projectColStyleAttr, chipControlsHTML,
   esc, pad2, formatYmd, parseYmd, parseHHMM, formatHHMM, snapCalMins, clampCalStart, todayYmd,
   ensureDashCalDate, formatTracked, taskElapsedMs, setHideDone, toggleTaskDone,
   startTaskTimer, pauseTaskTimer, stopTaskTimer, ensureTimerTick
 } from './state.js';
+import {
+  allDomains, normalizeDomainId, addCustomDomain,
+  toggleDomainCollapsed, setAllDomainsCollapsed,
+} from './domains.js';
+import { getProject, ACTIVITIES } from './projects.js';
 import { deps } from './deps.js';
 
 export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
@@ -23,6 +28,8 @@ export function applyCalBlockStyle(el, t) {
 export function chipHTML(t) {
   const scheduled = !!(t.start && t.date);
   const running = !!t.timerStartedAt;
+  const proj = getProject(t.projectId || t.project);
+  const projLabel = proj ? proj.name : '';
   return `<div class="board-chip ${ scheduled ? 'scheduled' : '' } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }"
       draggable="true" data-id="${ t.id }"
       ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
@@ -32,6 +39,7 @@ export function chipHTML(t) {
         onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)"
         title="Mark done" aria-label="Mark done" />
       <span class="board-chip-name">${ esc(t.name) }</span>
+      ${projLabel ? `<span class="chip-proj-mark">${ esc(projLabel) }</span>` : ''}
       ${scheduled ? `<span class="chip-sched-mark">${ esc(t.date.slice(5)) } ${ esc(t.start) }</span>` : ''}
     </div>
     ${ chipControlsHTML(t) }
@@ -83,32 +91,143 @@ export function renderDayCalendar() {
   else { root.scrollTop = VIEW_SCROLL_TOP; state.dayCalScrolledOnce = true; }
 }
 
+function taskDomain(t) {
+  const d = normalizeDomainId(t.domain);
+  if (d) return d;
+  const p = getProject(t.projectId || t.project);
+  if (p) return normalizeDomainId(p.domain) || (p.domains && p.domains[0]) || 'Personal';
+  return null;
+}
+
+function domainHasTasks(domainId) {
+  return state.tasks.some(t => t.status !== 'someday' && taskDomain(t) === domainId);
+}
+
+function isCollapsed(domainId) {
+  if (Array.isArray(state.collapsedDomains)) {
+    return state.collapsedDomains.includes(domainId);
+  }
+  // Default: collapse empty domains
+  return !domainHasTasks(domainId);
+}
+
 export function renderProjectBoard() {
   const board = document.getElementById('project-board');
   if (!board) return;
   const visible = (list) => state.hideDone ? list.filter(t => !t.done) : list;
-  board.innerHTML = allProjects().map(p => {
-    const lanes = LANES.map(lane => {
-      const chips = visible(state.tasks.filter(t => t.project === p.id && t.lane === lane.id));
-      return `<div class="lane-block" data-project="${ p.id }" data-lane="${ lane.id }"
-          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnLane(event)">
-        <div class="lane-label">${ esc(lane.label) }</div>
-        <div class="lane-chips">${ chips.map(chipHTML).join('') }</div>
+  const activities = ACTIVITIES.length ? ACTIVITIES : LANES;
+  const domains = allDomains();
+  const collapsedDoms = domains.filter(d => isCollapsed(d.id));
+  const expandedDoms = domains.filter(d => !isCollapsed(d.id));
+
+  const strip = document.getElementById('domain-chip-strip');
+  if (strip) {
+    if (!collapsedDoms.length) {
+      strip.hidden = true;
+      strip.innerHTML = '';
+    } else {
+      strip.hidden = false;
+      strip.innerHTML = collapsedDoms.map(dom => {
+        const count = visible(state.tasks.filter(t => t.status !== 'someday' && taskDomain(t) === dom.id)).length;
+        return `<button type="button" class="domain-chip" data-domain="${dom.id}"
+            onclick="toggleDomainCol('${dom.id}')" title="Expand ${esc(dom.label)}">
+          <span class="project-dot"></span>
+          <span class="domain-chip-label">${esc(dom.label)}</span>
+          <span class="domain-count">${count}</span>
+          <span class="domain-chevron">▸</span>
+        </button>`;
+      }).join('');
+    }
+  }
+
+  board.innerHTML = expandedDoms.map(dom => {
+    const count = visible(state.tasks.filter(t => t.status !== 'someday' && taskDomain(t) === dom.id)).length;
+    const lanes = activities.map(lane => {
+      const chips = visible(state.tasks.filter(t => {
+        if (t.status === 'someday') return false;
+        if (taskDomain(t) !== dom.id) return false;
+        const act = t.activity || t.lane || 'act';
+        if (lane.id === 'learn') return act === 'learn';
+        if (lane.id === 'research') return act === 'research';
+        return act === lane.id;
+      }));
+      return `<div class="lane-block" data-domain="${dom.id}" data-lane="${lane.id}"
+          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnDomainLane(event)">
+        <div class="lane-label">${esc(lane.label)}</div>
+        <div class="lane-chips">${chips.map(chipHTML).join('')}</div>
       </div>`;
     }).join('');
-    return `<div class="project-col" data-project="${ p.id }"${ projectColStyleAttr(p.id) }>
-      <div class="project-col-header"><span class="project-dot"></span>${ esc(p.label) }</div>
-      ${ lanes }
+    return `<div class="project-col domain-col" data-domain="${dom.id}">
+      <button type="button" class="project-col-header domain-toggle" onclick="toggleDomainCol('${dom.id}')">
+        <span class="project-dot"></span>
+        <span class="domain-toggle-label">${esc(dom.label)}</span>
+        <span class="domain-count">${count}</span>
+        <span class="domain-chevron">▾</span>
+      </button>
+      ${lanes}
     </div>`;
-  }).join('');
-  const inbox = visible(state.tasks.filter(t => !t.project));
+  }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
+
+  const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday'));
   const inboxEl = document.getElementById('dash-inbox-chips');
   if (inboxEl) { inboxEl.innerHTML = inbox.length
       ? inbox.map(chipHTML).join('')
-      : '<div class="dash-inbox-empty">Tasks without a project land here. Drag onto a lane to assign, or onto the day calendar to schedule.</div>'; }
+      : '<div class="dash-inbox-empty">Tasks without a domain land here. Drag onto a domain lane, or onto the day calendar to schedule.</div>'; }
   const toggle = document.getElementById('hide-done-toggle');
   if (toggle) toggle.checked = state.hideDone;
   ensureTimerTick();
+}
+
+export function toggleDomainCol(domainId) {
+  // Materialize default into array on first toggle
+  if (!Array.isArray(state.collapsedDomains)) {
+    state.collapsedDomains = allDomains().filter(d => !domainHasTasks(d.id)).map(d => d.id);
+  }
+  toggleDomainCollapsed(domainId);
+  deps.save();
+  deps.renderProjectBoard();
+}
+
+export function expandAllDomains() {
+  setAllDomainsCollapsed(false);
+  deps.save();
+  deps.renderProjectBoard();
+}
+
+export function collapseAllDomains() {
+  setAllDomainsCollapsed(true);
+  deps.save();
+  deps.renderProjectBoard();
+}
+
+export function addDomainFromForm() {
+  const inp = document.getElementById('new-domain-input');
+  const label = (inp && inp.value || '').trim();
+  const res = addCustomDomain(label);
+  if (!res.ok) {
+    if (inp) { inp.focus(); inp.placeholder = res.error || 'Name required…'; }
+    return;
+  }
+  if (inp) { inp.value = ''; inp.placeholder = 'New domain…'; }
+  // Expand newly added domain
+  if (Array.isArray(state.collapsedDomains)) {
+    state.collapsedDomains = state.collapsedDomains.filter(id => id !== res.id);
+  }
+  deps.save();
+  deps.renderDashboard();
+}
+
+export function dropOnDomainLane(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const id = e.dataTransfer.getData('application/x-task-id') || e.dataTransfer.getData('text/plain') || state.dashDragId;
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.domain = e.currentTarget.dataset.domain;
+  t.lane = e.currentTarget.dataset.lane;
+  t.activity = e.currentTarget.dataset.lane === 'research' ? 'research' : e.currentTarget.dataset.lane;
+  deps.save();
+  deps.renderDashboard();
 }
 
 export function weekLnoStats() {
@@ -139,16 +258,6 @@ export function renderDashboard() {
   ensureDashCalDate();
   deps.renderDayCalendar();
   deps.renderProjectBoard();
-  const el = document.getElementById('lno-week-stat');
-  if (el) {
-    const s = weekLnoStats();
-    el.textContent = s.total
-      ? `This week: ${s.pct}% of scheduled minutes on L (${s.lMins}m / ${s.total}m)`
-      : 'This week: no scheduled minutes yet — tag tasks L/N/O in Triage.';
-  }
-  if (typeof window.renderSkillsPanel === 'function') {
-    window.renderSkillsPanel(document.getElementById('skills-panel'));
-  }
   if (typeof window.renderSomedayPanel === 'function') {
     window.renderSomedayPanel(document.getElementById('someday-panel'));
   }
@@ -173,6 +282,7 @@ export function boardDragLeave(e) {
   if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
 }
 export function dropOnLane(e) {
+  if (e.currentTarget.dataset.domain) return dropOnDomainLane(e);
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   const id = e.dataTransfer.getData('application/x-task-id') || e.dataTransfer.getData('text/plain') || state.dashDragId;
@@ -338,7 +448,7 @@ export function weekTaskBlocksHTML(ymd) {
         style="${ projectCssVars(t.project) }top:${ top }%;height:${ Math.max(height, 3.5) }%"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
         onpointerdown="weekTaskPointerDown(event)"
-        ondblclick="event.stopPropagation();unscheduleTask('${ t.id }');deps.renderYear();">
+        ondblclick="event.stopPropagation();unscheduleTask('${ t.id }');renderYear();">
       <div class="yt-head">
         <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
           onpointerdown="event.stopPropagation()"

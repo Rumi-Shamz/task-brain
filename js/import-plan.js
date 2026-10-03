@@ -3,29 +3,32 @@
  * Schema source of truth: schema/plan.schema.json
  */
 import {
-  state, PROJECT_PALETTE, DEFAULT_DURATION, slugProjectId, isBuiltinProject, allProjects,
+  state, DEFAULT_DURATION,
   newTask, dateForDay, mondayOfWeek, mondayOnOrBefore, addDaysLocal, formatYmd, formatHHMM,
 } from './state.js';
+import { normalizeDomainId, domainLabel, DOMAINS as DOMAIN_LIST } from './domains.js';
+import { ensureProjectForDomain, ensureProjectsMigrated } from './projects.js';
 import { deps } from './deps.js';
 
-export const DOMAINS = ['ALFA', 'Dorst', 'SwingShuffle', 'SwingSociety', 'SoftwareDev', 'Personal', 'Other'];
+export const DOMAINS = DOMAIN_LIST.map(d => d.id);
 export const LENGTHS = [15, 30, 60, 180];
 export const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
 export const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
 
-/** Legacy CSV domain/project labels → { domain, projectLabel } */
-const DOMAIN_ALIASES = {
-  alfa: { domain: 'ALFA', project: 'ALFA' },
-  dorst: { domain: 'Dorst', project: 'Dorst' },
-  personal: { domain: 'Personal', project: 'Personal' },
-  other: { domain: 'Other', project: 'Other' },
-  softwaredev: { domain: 'SoftwareDev', project: 'SoftwareDev' },
-  'software dev': { domain: 'SoftwareDev', project: 'SoftwareDev' },
-  swingshuffle: { domain: 'SwingShuffle', project: 'Swing&Shuffle' },
-  'swing&shuffle': { domain: 'SwingShuffle', project: 'Swing&Shuffle' },
-  'swing & shuffle': { domain: 'SwingShuffle', project: 'Swing&Shuffle' },
-  swingsociety: { domain: 'SwingSociety', project: 'Swing Society' },
-  'swing society': { domain: 'SwingSociety', project: 'Swing Society' },
+/** CSV Domain cell → { domain, project hint } — project names stay separate. */
+const DOMAIN_CELL_HINTS = {
+  alfa: { domain: 'ALFA', project: null },
+  dorst: { domain: 'Dorst', project: null },
+  personal: { domain: 'Personal', project: null },
+  other: { domain: 'Personal', project: null },
+  softwaredev: { domain: 'Dev', project: null },
+  'software dev': { domain: 'Dev', project: null },
+  dev: { domain: 'Dev', project: null },
+  swingshuffle: { domain: 'SwingShuffle', project: null },
+  'swing&shuffle': { domain: 'SwingShuffle', project: null },
+  'swing & shuffle': { domain: 'SwingShuffle', project: null },
+  swingsociety: { domain: 'SwingSociety', project: null },
+  'swing society': { domain: 'SwingSociety', project: null },
   swingbuzz: { domain: 'SwingSociety', project: 'Swing Buzz' },
   'swing buzz': { domain: 'SwingSociety', project: 'Swing Buzz' },
 };
@@ -34,45 +37,17 @@ export function resolveDomainProject(rawDomain) {
   const raw = String(rawDomain || '').trim();
   if (!raw) return { domain: null, project: null, warnings: ['missing domain'] };
   const key = raw.toLowerCase().replace(/\s+/g, ' ');
-  if (DOMAIN_ALIASES[key]) {
-    return { ...DOMAIN_ALIASES[key], warnings: [] };
+  if (DOMAIN_CELL_HINTS[key]) {
+    return { ...DOMAIN_CELL_HINTS[key], warnings: [] };
   }
-  if (key.includes('swing') && key.includes('shuffle')) {
-    return { domain: 'SwingShuffle', project: raw, warnings: [] };
-  }
-  // Unknown label → Other domain, keep as project name
-  return { domain: 'Other', project: raw, warnings: [`unknown domain "${raw}" mapped to Other`] };
+  const id = normalizeDomainId(raw);
+  if (id) return { domain: id, project: null, warnings: [] };
+  // Unknown string used as project name under Personal
+  return { domain: 'Personal', project: raw, warnings: [`unknown domain "${raw}" → Personal project`] };
 }
 
 export function ensureProjectRecord(domain, projectLabel) {
-  const label = (projectLabel || domain || 'Other').trim();
-  // Map builtins by domain for stable ids
-  const builtinByDomain = {
-    SwingShuffle: 'swing-shuffle',
-    ALFA: 'alfa',
-    Dorst: 'dorst',
-    Personal: 'personal',
-  };
-  if (builtinByDomain[domain] && label.toLowerCase().includes(domain === 'SwingShuffle' ? 'shuffle' : domain.toLowerCase())) {
-    return builtinByDomain[domain];
-  }
-  if (domain === 'SwingShuffle' && /shuffle/i.test(label)) return 'swing-shuffle';
-  if (domain === 'ALFA') return 'alfa';
-  if (domain === 'Dorst') return 'dorst';
-  if (domain === 'Personal' && /^personal$/i.test(label)) return 'personal';
-
-  const existing = allProjects().find(p => p.label.toLowerCase() === label.toLowerCase() || p.id === slugProjectId(label));
-  if (existing) return existing.id;
-  const id = slugProjectId(label);
-  if (!isBuiltinProject(id) && !state.customProjects.some(p => p.id === id)) {
-    state.customProjects.push({
-      id,
-      label,
-      domain: domain || 'Other',
-      color: PROJECT_PALETTE[state.customProjects.length % PROJECT_PALETTE.length],
-    });
-  }
-  return id;
+  return ensureProjectForDomain(domain, projectLabel);
 }
 
 export function weekMondayForImport() {
@@ -139,11 +114,11 @@ export function validateAndBuildItems(items) {
     let dom = resolveDomainProject(item.domain || item.projectDomain);
     warnings.push(...(dom.warnings || []));
     if (!dom.domain) {
-      // Keep data: empty domain → Other (common on completed CSV rows).
-      dom = { domain: 'Other', project: name, warnings: [] };
-      warnings.push('missing domain → Other');
+      // Missing domain → Personal / Unassigned — never invent a project from the task name.
+      dom = { domain: 'Personal', project: 'Unassigned', warnings: [] };
+      warnings.push('missing domain → Personal / Unassigned');
     }
-    const projectLabel = item.project || dom.project || dom.domain;
+    const projectLabel = item.project || dom.project || domainLabel(dom.domain);
     const projectId = ensureProjectRecord(dom.domain, projectLabel);
 
     const pr = normalizePriority(item.priority);
@@ -206,7 +181,7 @@ export function validateAndBuildItems(items) {
       reviewAt,
       reviewSkips: 0,
       blocking: tp.value === 'urgent' ? true : null,
-      who: String(item.description || '').trim().slice(0, 120),
+      note: String(item.description || '').trim(),
       size,
       priority: pr.value,
       timepressure: tp.value,
@@ -230,7 +205,8 @@ export function csvRowsToItems(rows) {
   };
   const col = {
     key: idx(['key word', 'keyword', 'task', 'title', 'name']),
-    domain: idx(['domain', 'project']),
+    domain: idx(['domain']),
+    project: idx(['project', 'project name', 'project title']),
     priority: idx(['priority']),
     pressure: idx(['timepressure', 'time pressure']),
     slot: idx(['allotted time', 'slot', 'time of day']),
@@ -239,6 +215,11 @@ export function csvRowsToItems(rows) {
     sessions: idx(['sessions']),
     desc: idx(['description', 'notes', 'details']),
   };
+  // Legacy CSVs sometimes label the domain column "project"
+  if (col.domain < 0 && col.project >= 0) {
+    col.domain = col.project;
+    col.project = -1;
+  }
   const items = [];
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r] || [];
@@ -248,6 +229,7 @@ export function csvRowsToItems(rows) {
       _row: r + 1,
       name,
       domain: col.domain >= 0 ? row[col.domain] : '',
+      project: col.project >= 0 ? row[col.project] : '',
       priority: col.priority >= 0 ? row[col.priority] : '',
       timepressure: col.pressure >= 0 ? row[col.pressure] : '',
       slot: col.slot >= 0 ? row[col.slot] : '',
@@ -312,6 +294,7 @@ function escapeHtml(s) {
 }
 
 export function commitImportedTasks(tasks, reports) {
+  ensureProjectsMigrated();
   const existing = new Set(state.tasks.map(t => (t.name + '|' + (t.date || '')).toLowerCase()));
   let added = 0;
   tasks.forEach(t => {
@@ -325,7 +308,7 @@ export function commitImportedTasks(tasks, reports) {
   deps.render();
   if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
   showImportReport(document.getElementById('week-plan-msg'), added, reports);
-  deps.switchPhase('dashboard');
+  deps.switchPhase('plan');
   return added;
 }
 

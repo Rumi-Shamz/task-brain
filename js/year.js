@@ -7,8 +7,8 @@ import {
   mondayOnOrBefore, formatClock, hoursBetween, snapMin, clampVisibleMin, defaultWorkSchedule,
   normalizeWorkSchedule, workWindowFromMonth, seasonSpec, hourLabel, monthsLabel, workWindowLabel,
   workWindowRuleText, seasonalWorkShadeRange, statsBuckets, newHourLogId, formatHHMM, parseHHMM,
-  snapCalMins, clampCalStart, CAL_DAY_START, CAL_DAY_END, CAL_MIN_DURATION, projectClass,
-  projectColStyleAttr, chipControlsHTML, esc, pad2, allProjects, LANES
+  snapCalMins, clampCalStart, clampHour, clampWeekdayIdx, CAL_DAY_START, CAL_DAY_END, CAL_MIN_DURATION,
+  projectClass, projectColStyleAttr, chipControlsHTML, esc, pad2, allProjects, LANES
 } from './state.js';
 import { weekTaskBlocksHTML, weekTaskTrayHTML, yearWeekColDragAttrs } from './dashboard.js';
 import { deps } from './deps.js';
@@ -69,11 +69,34 @@ export function nudgeYearMonth(delta) {
   deps.renderYear();
 }
 
+/** First Monday after the 28-day deep rest = rhythm W1. */
+export function firstWorkWeekMonday(rhythm) {
+  const r = rhythm || state.yearRhythm;
+  if (!r || !r.deepRest) return 0;
+  const after = clampDay((r.deepRest.startDay || 0) + DEEP_REST_DAYS);
+  return mondayOfWeek(after);
+}
+
+/** 1-based week number after deep rest; null if before W1. */
+export function rhythmWeekNumber(dayIndex, rhythm) {
+  const start = firstWorkWeekMonday(rhythm);
+  const di = mondayOfWeek(clampDay(dayIndex));
+  if (di < start) return null;
+  return Math.floor((di - start) / 7) + 1;
+}
+
+export function formatRhythmWeek(dayIndex, rhythm) {
+  const n = rhythmWeekNumber(dayIndex, rhythm);
+  return n == null ? 'W–' : `W${n}`;
+}
+
 export function pickYearWeek(value) {
   const n = parseInt(value, 10);
   if (!Number.isFinite(n)) return;
-  const week = Math.max(1, Math.min(52, n));
-  state.yearWeekMonday = (week - 1) * 7;
+  const origin = firstWorkWeekMonday();
+  const maxW = Math.max(1, Math.floor((YEAR_DAYS - 1 - origin) / 7) + 1);
+  const week = Math.max(1, Math.min(maxW, n));
+  state.yearWeekMonday = clampDay(origin + (week - 1) * 7);
   deps.renderYear();
 }
 
@@ -276,6 +299,7 @@ export function resetWorkScheduleDefaults() { state.yearRhythm.workSchedule = de
 export function renderYear() {
   if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
   state.yearWeekMonday = mondayOfWeek(state.yearWeekMonday || 0);
+  renderYearScheduleControls();
   const cells = paintYear(state.yearRhythm);
   const anchorEl = document.getElementById('year-anchor');
   if (anchorEl) anchorEl.value = state.yearRhythm.yearStartMonday;
@@ -300,7 +324,7 @@ export function renderYear() {
     callout.innerHTML = `<h3>Outside this personal year</h3>
       <p>Today is outside the 364-day window starting ${ esc(state.yearRhythm.yearStartMonday) }. Adjust the year start Monday, or roll into the next revolving year.</p>`;
   } else {
-    const week = Math.floor(todayIdx / 7) + 1;
+    const week = formatRhythmWeek(todayIdx);
     const cell = cells[todayIdx];
     const date = dateForDay(state.yearRhythm.yearStartMonday, todayIdx);
     const workSched = (state.yearRhythm && state.yearRhythm.workSchedule) || defaultWorkSchedule();
@@ -316,7 +340,7 @@ export function renderYear() {
     else if (cell.kind === 'conflict') detail = 'Conflict — overlapping protocols on this day.';
     else if (cell.kind === 'work') detail = `Seasonal work overlay · ${ workWindowRuleText(spec) }.`;
     else detail = `Seasonal off · ${ workWindowRuleText(spec) }.`;
-    callout.innerHTML = `<h3>Today · ${ esc(dateStr) } · W${ week }</h3>
+    callout.innerHTML = `<h3>Today · ${ esc(dateStr) } · ${ week }</h3>
       <p><strong>${ esc(cell.labels.join(' · ') || cell.kind) }</strong> — ${ esc(detail) }</p>`;
   }
 
@@ -340,16 +364,23 @@ export function renderYear() {
   const weekEnd = Math.min(YEAR_DAYS - 1, weekStart + 6);
   const weekA = dateForDay(state.yearRhythm.yearStartMonday, weekStart);
   const weekB = dateForDay(state.yearRhythm.yearStartMonday, weekEnd);
+  const wNum = rhythmWeekNumber(weekStart);
   if (weekLabel) {
     const a = weekA ? `${ MONTHS[weekA.getMonth()] } ${ weekA.getDate() }` : `D${ weekStart }`;
     const b = weekB ? `${ MONTHS[weekB.getMonth()] } ${ weekB.getDate() }` : `D${ weekEnd }`;
-    weekLabel.textContent = `W${ Math.floor(weekStart / 7) + 1 } · ${ a } – ${ b }`;
+    weekLabel.textContent = `${ formatRhythmWeek(weekStart) } · ${ a } – ${ b }`;
   }
   if (monthLabel) {
     monthLabel.textContent = `${ MONTHS[state.yearMonthCursor.month] } ${ state.yearMonthCursor.year }`;
   }
   const weekPicker = document.getElementById('year-week-picker');
-  if (weekPicker) weekPicker.value = String(Math.floor(weekStart / 7) + 1);
+  if (weekPicker) {
+    const origin = firstWorkWeekMonday();
+    const maxW = Math.max(1, Math.floor((YEAR_DAYS - 1 - origin) / 7) + 1);
+    weekPicker.min = '1';
+    weekPicker.max = String(maxW);
+    weekPicker.value = wNum != null ? String(wNum) : '1';
+  }
 
   const start = parseYmd(state.yearRhythm.yearStartMonday);
   const mid = start ? addDaysLocal(start, Math.floor(YEAR_DAYS / 2)) : null;
@@ -437,7 +468,7 @@ export function renderYear() {
       const cell = cells[di];
       const date = dateForDay(state.yearRhythm.yearStartMonday, di);
       return `<button type="button" class="year-week-head yc-${ cell.kind }" onclick="markYearWeek(${ di })">
-        <span class="wd">${ WEEKDAYS[weekdayOfDay(di)] }</span>
+        <span class="wd">${ formatRhythmWeek(di) } · ${ WEEKDAYS[weekdayOfDay(di)] }</span>
         <span class="dd">${date ? `${ MONTHS[date.getMonth()] } ${ date.getDate() }` : `D${ di }`}</span>
         <span class="lbl">${ esc(cell.labels[0] || cell.kind) }</span>
       </button>`;
@@ -496,11 +527,11 @@ export function renderYear() {
       </div>
       ${ weekTaskTrayHTML(weekDates) }
       <div class="year-week-frame">
-        <div class="year-week-hourly year-week-heads">
-          <div></div>${ heads }
-        </div>
         <div class="year-week-scroll" id="year-week-scroll">
-          <div class="year-week-hourly">
+          <div class="year-week-hourly year-week-heads">
+            <div class="year-week-gutter-spacer"></div>${ heads }
+          </div>
+          <div class="year-week-hourly year-week-body">
             <div class="year-week-gutter" style="min-height:${ WEEK_COL_H }px">${ gutterMarks.join('') }</div>
             ${ cols }
           </div>
@@ -516,7 +547,9 @@ export function renderYear() {
   }
 
   if (state.yearCalendarView === 'month') {
-    if (sectionLabel) sectionLabel.textContent = 'Month view · click day · double-click → week';
+    const monthDays = dayIndexesForMonth(state.yearMonthCursor.year, state.yearMonthCursor.month);
+    const midDay = monthDays.length ? monthDays[Math.floor(monthDays.length / 2)] : weekStart;
+    if (sectionLabel) sectionLabel.textContent = `Month view · ${ formatRhythmWeek(midDay) } band · click day · double-click → week`;
     const days = dayIndexesForMonth(state.yearMonthCursor.year, state.yearMonthCursor.month);
     const monthCounts = { fast:0, restore:0, sprint:0, deepRest:0, vacation:0, work:0, free:0, conflict:0 };
     days.forEach(di => { monthCounts[cells[di].kind] = (monthCounts[cells[di].kind] || 0) + 1; });
@@ -533,7 +566,7 @@ export function renderYear() {
     return;
   }
 
-  if (sectionLabel) sectionLabel.textContent = 'Year · 12 months · 3×4 · deep rest band · click month title → month · double-click day → week';
+  if (sectionLabel) sectionLabel.textContent = 'Year · W1 after deep rest · click month title → month · double-click day → week';
   const slots = [];
   for (let month = 0; month < 12; month++) {
     slots.push({ year: calYear, month, days: dayIndexesForMonth(calYear, month) });

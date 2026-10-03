@@ -3,14 +3,13 @@ import { save, load } from './storage.js';
 import {
   ghConnect, ghPull, ghPush, ghDisconnect, toggleSyncPanel, refreshSyncForm, ghConnected, bindLogoSync
 } from './sync.js';
-import * as triage from './triage.js';
-import * as organize from './organize.js';
-import * as scheduleMod from './schedule.js';
+import * as plan from './plan.js';
 import * as year from './year.js';
 import * as dashboard from './dashboard.js';
 import { render, switchPhase, clearAll } from './ui.js';
 import { deps } from './deps.js';
-import { ensureProjectsMigrated } from './projects.js';
+import { ensureProjectsMigrated, mergeProjects } from './projects.js';
+import { applyGroupSchedule, ensureGroups } from './groups.js';
 import {
   ensureSkills, addSkillFromForm, renderSkillsPanel, onTaskDoneMaybeLearn,
   ensureWeeklyLearnBlock,
@@ -26,18 +25,22 @@ deps.switchPhase = switchPhase;
 deps.renderDashboard = dashboard.renderDashboard;
 deps.renderYear = year.renderYear;
 deps.ensureYearWeekMonday = year.ensureYearWeekMonday;
-deps.renderOrganize = organize.renderOrganize;
-deps.renderSchedule = scheduleMod.renderSchedule;
 deps.renderDayCalendar = dashboard.renderDayCalendar;
 deps.renderProjectBoard = dashboard.renderProjectBoard;
 deps.ghConnected = ghConnected;
 deps.ghPush = ghPush;
 
-Object.assign(window, triage, organize, scheduleMod, year, dashboard, {
+window.deps = deps;
+
+Object.assign(window, plan, year, dashboard, {
   switchPhase,
   clearAll,
   render,
   addCustomProject,
+  addDomainFromForm: dashboard.addDomainFromForm,
+  toggleDomainCol: dashboard.toggleDomainCol,
+  expandAllDomains: dashboard.expandAllDomains,
+  collapseAllDomains: dashboard.collapseAllDomains,
   setHideDone,
   toggleTaskDone,
   startTaskTimer,
@@ -56,18 +59,24 @@ Object.assign(window, triage, organize, scheduleMod, year, dashboard, {
   somedayConvert,
   somedayDelete,
   somedayDefer,
+  applyGroupSchedule: (id) => { applyGroupSchedule(id); save(); plan.renderPlan(); },
+  mergeProjects,
   save,
+  // legacy phase names
+  renderTriage: plan.renderPlan,
+  renderOrganize: plan.renderPlan,
+  renderSchedule: () => {},
 });
 
 bindLogoSync();
 
 load();
 ensureProjectsMigrated();
+ensureGroups();
 ensureSkills();
 (appState.skills || []).filter(s => s.quadrant === 'schedule').forEach(ensureWeeklyLearnBlock);
 year.ensureYearWeekMonday();
 ensureTimerTick();
-render();
+switchPhase('plan');
 refreshSyncForm();
-// Remote sync only via authenticated API against the private data repo.
 if (ghConnected()) ghPull();

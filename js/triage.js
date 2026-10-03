@@ -1,5 +1,5 @@
 import {
-  state, esc, chipControlsHTML, projectClass, newTask,
+  state, esc, chipControlsHTML, projectClass, newTask, uid,
 } from './state.js';
 import { deps } from './deps.js';
 
@@ -12,7 +12,7 @@ export {
   DOMAINS,
 } from './import-plan.js';
 
-export function uid() { return Math.random().toString(36).slice(2, 8); }
+export { uid };
 
 export function addSingle() {
   const inp = document.getElementById('single-input');
@@ -78,13 +78,8 @@ export function toggleTriageForm(id) {
 
 
 export function groupSelected() {
-  const checked = [...document.querySelectorAll('.group-cb:checked')].map(el => el.dataset.id);
-  if (checked.length < 2) return;
-  state.groupCounter++;
-  const gName = `Group ${state.groupCounter}`;
-  state.groups[gName] = checked;
-  checked.forEach(id => { const t = state.tasks.find(t => t.id === id); if (t) t.group = gName; });
-  deps.save(); deps.renderOrganize();
+  /* Legacy Organize UI — batches now live in Plan wizard (js/plan.js + js/groups.js). */
+  deps.switchPhase('plan');
 }
 
 export function clearSelection() { document.querySelectorAll('.group-cb').forEach(cb => cb.checked = false);

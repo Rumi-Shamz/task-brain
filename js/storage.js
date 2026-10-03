@@ -3,6 +3,8 @@ import {
   normalizeCustomProjects, normalizeWorkSchedule, seedYearRhythm, rhythmWithHours,
 } from './state.js';
 import { ensureProjectsMigrated } from './projects.js';
+import { normalizeGroups } from './groups.js';
+import { normalizeCustomDomains } from './domains.js';
 import { deps } from './deps.js';
 
 export function save() {
@@ -27,6 +29,8 @@ export function getPersistPayload() {
     customProjects: state.customProjects,
     projects: state.projects || [],
     skills: state.skills || [],
+    customDomains: state.customDomains || [],
+    collapsedDomains: state.collapsedDomains,
   };
 }
 
@@ -34,8 +38,9 @@ export function applyPersistPayload(d) {
   if (!d || typeof d !== 'object') return;
   // v3 → v4: ensure status/reviewAt/domain on tasks (normalizeTask handles defaults)
   state.tasks = (d.tasks || []).map(normalizeTask);
-  state.groups = d.groups || {};
+  state.groups = normalizeGroups(d.groups);
   state.groupCounter = d.groupCounter || 0;
+  state.planWizardIndex = d.planWizardIndex || 0;
   state.schedule = d.schedule || [];
   state.yearRhythm = normalizeRhythm(d.yearRhythm);
   state.yearHourLogs = normalizeHourLogs(
@@ -44,6 +49,8 @@ export function applyPersistPayload(d) {
   state.customProjects = normalizeCustomProjects(d.customProjects);
   state.projects = Array.isArray(d.projects) ? d.projects : [];
   state.skills = Array.isArray(d.skills) ? d.skills : [];
+  state.customDomains = normalizeCustomDomains(d.customDomains);
+  state.collapsedDomains = Array.isArray(d.collapsedDomains) ? d.collapsedDomains : null;
   if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
   state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
   ensureProjectsMigrated();

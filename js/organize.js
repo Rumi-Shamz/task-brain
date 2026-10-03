@@ -1,4 +1,4 @@
-import { state, esc, chipControlsHTML } from './state.js';
+import { state, esc, chipControlsHTML, uid } from './state.js';
 import { deps } from './deps.js';
 
 export function renderOrganize() {

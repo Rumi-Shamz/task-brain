@@ -309,6 +309,20 @@
     .bottom-actions { margin-top: 1.5rem; display: flex; gap: 8px; flex-wrap: wrap; }
 
     body.year-active { max-width: min(1400px, 100%); }
+    body.plan-active {
+      max-width: none !important;
+      width: 100%;
+      margin: 0;
+      padding: 0.75rem 1.25rem 1.5rem;
+      box-sizing: border-box;
+    }
+    body.plan-active #app,
+    body.plan-active #phase-plan,
+    body.plan-active .plan-wizard {
+      max-width: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
     body.dashboard-active {
       max-width: none;
       width: 100%;
@@ -424,17 +438,48 @@
     .year-week-hourly {
       display: grid;
       grid-template-columns: 48px repeat(7, minmax(0, 1fr));
-      gap: 4px;
+      column-gap: 4px;
+      row-gap: 0;
       align-items: stretch;
       min-width: 720px;
+      width: 100%;
     }
-    .year-week-heads { margin-bottom: 4px; }
+    .year-week-heads {
+      margin-bottom: 4px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--bg);
+      padding-bottom: 2px;
+    }
+    .year-week-gutter-spacer { min-height: 1px; }
     .year-week-scroll {
       overflow-y: auto;
-      height: calc(var(--view-hours) * var(--hour-h));
-      max-height: 70vh;
+      overflow-x: hidden;
+      height: calc(var(--view-hours) * var(--hour-h) + 72px);
+      max-height: 75vh;
       border-radius: var(--radius);
+      scrollbar-gutter: stable;
     }
+    .year-config {
+      margin-top: 1.5rem;
+      padding: 0 12px 12px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--card);
+    }
+    .year-config > summary {
+      cursor: pointer;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--txt3);
+      padding: 10px 0;
+      list-style: none;
+      user-select: none;
+    }
+    .year-config > summary::-webkit-details-marker { display: none; }
+    .year-config[open] > summary { margin-bottom: 8px; }
     .year-week-head {
       border-radius: var(--radius); border: 0.5px solid var(--border-md);
       padding: 6px 4px; text-align: left; font-family: inherit; cursor: pointer; color: var(--txt);
@@ -534,6 +579,162 @@
       max-height: min(36vh, 320px);
       overflow: auto;
     }
+    .plan-wizard {
+      margin-top: 0.75rem;
+      padding: 0.85rem 1rem;
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: none;
+      box-sizing: border-box;
+    }
+    .plan-progress {
+      display: flex; flex-direction: column; gap: 4px;
+      margin-bottom: 0.65rem;
+      font-size: 12px; color: var(--txt3);
+    }
+    .plan-progress-bar {
+      height: 4px; background: var(--bg); border-radius: 99px; overflow: hidden;
+    }
+    .plan-progress-bar i {
+      display: block; height: 100%; background: var(--txt2);
+      border-radius: 99px;
+    }
+    .plan-task-head {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+      margin-bottom: 0.65rem;
+    }
+    .plan-task-name {
+      margin: 0;
+      font-size: 1.05rem; font-weight: 600; color: var(--txt);
+    }
+    .plan-row {
+      display: grid;
+      gap: 10px 14px;
+      margin-bottom: 0.55rem;
+      align-items: start;
+    }
+    .plan-row-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .plan-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .plan-row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .plan-row-full { grid-template-columns: 1fr; }
+    @media (max-width: 900px) {
+      .plan-row-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 720px) {
+      .plan-row-4, .plan-row-3, .plan-row-2 { grid-template-columns: 1fr; }
+    }
+    .plan-choices {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0;
+    }
+    .plan-choices.compact .btn { padding: 4px 10px; font-size: 12px; }
+    .plan-field {
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--txt3); margin-bottom: 0;
+      min-width: 0;
+    }
+    .plan-field input, .plan-field select, .plan-field textarea,
+    .plan-pair select, .plan-pair input,
+    .merge-grid select {
+      font-size: 13px; text-transform: none; letter-spacing: 0;
+      padding: 6px 8px; border: 0.5px solid var(--border-md);
+      border-radius: var(--radius); background: var(--bg); color: var(--txt);
+      font-family: var(--sans);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .plan-field textarea {
+      min-height: 4.5rem;
+      resize: vertical;
+      line-height: 1.35;
+    }
+    .plan-note-col { gap: 6px; }
+    .plan-combo {
+      position: relative;
+      min-width: 0;
+    }
+    .plan-combo-q { width: 100%; }
+    .plan-combo-list {
+      position: absolute;
+      z-index: 40;
+      left: 0; right: 0; top: calc(100% + 3px);
+      margin: 0; padding: 4px 0;
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
+      background: var(--card);
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    }
+    .plan-combo-list[hidden] { display: none !important; }
+    .plan-combo-opt {
+      padding: 7px 10px;
+      font-size: 13px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--txt);
+      cursor: pointer;
+    }
+    .plan-combo-opt:hover,
+    .plan-combo-opt.active { background: var(--surface); }
+    .plan-combo-opt.create { color: var(--txt2); font-style: italic; }
+    .plan-combo-empty {
+      padding: 8px 10px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--txt3);
+    }
+    .plan-subtasks {
+      display: flex; flex-direction: column; gap: 4px;
+      margin-top: 2px;
+    }
+    .plan-subtasks-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--txt3);
+    }
+    .plan-subtasks .subtask-list { margin-top: 0; }
+    .plan-step-actions {
+      display: flex; gap: 8px; margin-top: 0.55rem; flex-wrap: wrap;
+    }
+    .plan-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      align-items: start;
+    }
+    .plan-pair > .plan-field { margin: 0; }
+    .plan-batch-list {
+      list-style: none; padding: 0; margin: 0.5rem 0 0;
+      font-size: 13px; color: var(--txt2);
+    }
+    .plan-batch-list li {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      padding: 6px 0; border-bottom: 0.5px solid var(--border);
+    }
+    .merge-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+      margin: 8px 0;
+    }
+    .chip-proj-mark {
+      font-size: 10px; color: var(--txt3); white-space: nowrap;
+    }
+    .domain-col[data-domain="ALFA"] .project-dot,
+    .domain-chip[data-domain="ALFA"] .project-dot { background: var(--p-alfa); }
+    .domain-col[data-domain="Dorst"] .project-dot,
+    .domain-chip[data-domain="Dorst"] .project-dot { background: var(--p-dorst); }
+    .domain-col[data-domain="SwingShuffle"] .project-dot,
+    .domain-chip[data-domain="SwingShuffle"] .project-dot { background: var(--p-swing); }
+    .domain-col[data-domain="SwingSociety"] .project-dot,
+    .domain-chip[data-domain="SwingSociety"] .project-dot { background: #D4537E; }
+    .domain-col[data-domain="Dev"] .project-dot,
+    .domain-chip[data-domain="Dev"] .project-dot { background: #5B8DEF; }
+    .domain-col[data-domain="Personal"] .project-dot,
+    .domain-chip[data-domain="Personal"] .project-dot { background: var(--p-personal); }
+
     .lno-week-stat {
       font-size: 13px; color: var(--txt2); margin: 0 0 10px;
       padding: 8px 10px; background: var(--bg); border-radius: var(--radius);
@@ -824,28 +1025,56 @@
       overflow-y: auto;
     }
     .dash-inbox-empty { font-size: 11px; color: var(--txt3); margin-top: 6px; }
+    .domain-chip-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
+      margin-bottom: 8px;
+      min-height: 0;
+    }
+    .domain-chip-strip[hidden] { display: none !important; }
+    .domain-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: 999px;
+      color: var(--txt);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+    }
+    .domain-chip:hover { border-color: var(--border-md); background: var(--surface); }
+    .domain-chip .domain-chip-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .domain-chip .domain-count { font-weight: 500; }
     .project-board {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+      grid-auto-rows: minmax(0, 1fr);
       gap: 8px;
       min-width: 0;
       min-height: 0;
       flex: 1;
       align-items: stretch;
-      overflow: hidden;
+      overflow: auto;
     }
     .project-col {
       background: var(--card);
       border: 0.5px solid var(--border);
       border-radius: var(--radius-lg);
       min-width: 0;
-      min-height: 0;
+      min-height: 200px;
       height: 100%;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
-    .project-col-header {
+    .project-col-header, button.project-col-header {
       padding: 10px 10px 8px;
       border-bottom: 0.5px solid var(--border);
       font-size: 11px;
@@ -855,7 +1084,20 @@
       align-items: center;
       gap: 6px;
       flex-shrink: 0;
+      width: 100%;
+      background: transparent;
+      border-left: none; border-right: none; border-top: none;
+      color: inherit;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
     }
+    .domain-toggle-label { flex: 1; min-width: 0; }
+    .domain-count {
+      font-size: 10px; color: var(--txt3); font-weight: 500;
+    }
+    .domain-chevron { color: var(--txt3); font-size: 12px; }
+    .board-domain-tools { display: flex; gap: 6px; flex-wrap: wrap; }
     .project-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--pc, var(--txt3)); }
     .project-col[data-project="swing-shuffle"] .project-dot { background: var(--p-swing); }
     .project-col[data-project="alfa"] .project-dot { background: var(--p-alfa); }
