@@ -10,6 +10,10 @@ import {
 } from './projects.js';
 import { createGroup, addTaskToGroup, applyGroupSchedule, listGroups, ensureGroups } from './groups.js';
 import { deps } from './deps.js';
+import {
+  placementsFor, applyPlacement, currentPlacementId, thisWeekWorkDates,
+  weekdayNameFromYmd, stampActivityFromBlock, suggestRule, saveActivityRule,
+} from './blocks.js';
 
 export {
   importWeeklyPlanFile,
@@ -49,11 +53,64 @@ export function planStopEdit() {
   renderPlan();
 }
 
+export function planSetActivity(activity) {
+  const t = currentPlanTask();
+  if (!t) return;
+  const prev = t.activity;
+  t.activity = activity;
+  t.lane = activity;
+  t.activitySource = 'manual';
+  if (prev !== activity) {
+    const suggestion = suggestRule(t, activity);
+    state.ruleOffer = suggestion ? { ...suggestion, taskId: t.id } : null;
+  }
+  deps.save();
+  renderPlanWizard();
+}
+
+export function planAcceptRule() {
+  const offer = state.ruleOffer;
+  if (offer) saveActivityRule(offer);
+  state.ruleOffer = null;
+  deps.save();
+  renderPlanWizard();
+}
+
+export function planDismissRule() {
+  state.ruleOffer = null;
+  renderPlanWizard();
+}
+
+export function planScheduleChanged() {
+  const t = currentPlanTask();
+  if (!t) return;
+  const ymd = document.getElementById('plan-ymd')?.value || '';
+  const place = document.getElementById('plan-place')?.value || '';
+  const free = document.getElementById('plan-free-start')?.value || '09:00';
+  if (!place) {
+    if (t.replacesBlockId && t.date) {
+      state.blockSkips = (state.blockSkips || []).filter(s => !(s.date === t.date && s.blockId === t.replacesBlockId && s.taskId === t.id));
+    }
+    t.date = null;
+    t.start = null;
+    t.blockId = null;
+    t.replacesBlockId = null;
+  } else if (ymd) {
+    applyPlacement(t, ymd, place, free);
+    state.dashCalDate = ymd;
+  }
+  deps.save();
+  renderPlanWizard();
+  if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
+}
+
 export function planSaveEdit() {
   const t = currentPlanTask();
   if (!t) return;
   commitDomainProject(t);
   commitParent(t);
+  commitSchedule(t);
+  if (t.date) state.dashCalDate = t.date;
   t.triaged = true;
   state.planEditId = null;
   deps.save();
@@ -188,6 +245,46 @@ function wouldCreateParentCycle(taskId, parentId) {
   return false;
 }
 
+function scheduleFieldsHTML(t) {
+  const dates = thisWeekWorkDates();
+  const selected = dates.includes(t.date) ? t.date : '';
+  const opts = selected ? placementsFor(t, selected) : (dates[0] ? placementsFor(t, dates[0]) : []);
+  const shownDay = selected || dates[0] || '';
+  const cur = selected ? currentPlacementId(t) : '';
+  return `<div class="plan-pair">
+    <label class="plan-field">Day
+      <select id="plan-ymd" onchange="planScheduleChanged()">
+        ${dates.map(d => `<option value="${d}" ${d === shownDay ? 'selected' : ''}>${weekdayNameFromYmd(d)} ${d.slice(5)}</option>`).join('') || '<option value="">No open work day</option>'}
+      </select>
+    </label>
+    <label class="plan-field">Place
+      <select id="plan-place" onchange="planScheduleChanged()">
+        <option value="" ${!cur ? 'selected' : ''}>Leave open</option>
+        ${opts.map(o => `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+      </select>
+    </label>
+    <label class="plan-field" id="plan-free-wrap" style="${cur === 'free' ? '' : 'display:none'}">Start
+      <input type="time" id="plan-free-start" value="${esc((cur === 'free' && t.start) || '09:00')}" onchange="planScheduleChanged()" />
+    </label>
+  </div>`;
+}
+
+function ruleOfferHTML(t) {
+  const offer = state.ruleOffer;
+  if (!offer || offer.taskId !== t.id) return '';
+  return `<p class="bulk-hint">Save a rule so ${esc(offer.label)} maps to ${esc(offer.activity)}?
+    <button type="button" class="btn" onclick="planAcceptRule()">Save rule</button>
+    <button type="button" class="btn" onclick="planDismissRule()">Not now</button></p>`;
+}
+
+function commitSchedule(t) {
+  const ymd = document.getElementById('plan-ymd')?.value || '';
+  const place = document.getElementById('plan-place')?.value || '';
+  const free = document.getElementById('plan-free-start')?.value || t.start || '09:00';
+  if (!ymd || !place) return;
+  applyPlacement(t, ymd, place, free);
+}
+
 function singleCardHTML(t) {
   ensureProjectsMigrated();
   ensureGroups();
@@ -218,6 +315,20 @@ function singleCardHTML(t) {
           <button type="button" class="btn ${!t.lno ? 'primary' : ''}" onclick="planPatch({lno:null})" title="Unset">—</button>
         </div>
       </div>
+      <div class="plan-field plan-length-pills">Length
+        <div class="plan-choices compact">
+          ${[15, 30, 60, 180].map(n =>
+            `<button type="button" class="btn ${Number(t.duration) === n ? 'primary' : ''}" onclick="planPatch({duration:${n}})">${n}</button>`
+          ).join('')}
+        </div>
+      </div>
+      <label class="plan-field plan-length-select">Length
+        <select onchange="planPatch({duration:Number(this.value)})">
+          ${[15, 30, 60, 180].map(n =>
+            `<option value="${n}" ${Number(t.duration) === n ? 'selected' : ''}>${n} min</option>`
+          ).join('')}
+        </select>
+      </label>
       <div class="plan-field">Blocking
         <div class="plan-choices compact">
           <button type="button" class="btn ${t.blocking === true ? 'primary' : ''}" onclick="planPatch({blocking:true})">Yes</button>
@@ -269,23 +380,20 @@ function singleCardHTML(t) {
       </div>
     </div>
 
+    <div class="plan-row plan-row-full">
+      <div class="plan-field">Activity
+        <div class="plan-choices compact">
+          ${['research', 'communicate', 'act', 'learn'].map(a =>
+            `<button type="button" class="btn ${t.activity === a ? 'primary' : ''}" onclick="planSetActivity('${a}')">${a[0].toUpperCase()}${a.slice(1)}</button>`
+          ).join('')}
+        </div>
+        ${ruleOfferHTML(t)}
+      </div>
+    </div>
+
     <div class="plan-row plan-row-2">
       <div class="plan-field">Schedule
-        <div class="plan-pair">
-          <label class="plan-field">Weekday
-            <select id="plan-weekday">
-              ${['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map(d =>
-                `<option value="${d}">${d}</option>`).join('')}
-            </select>
-          </label>
-          <label class="plan-field">Slot
-            <select id="plan-slot">
-              <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
-            </select>
-          </label>
-        </div>
+        ${scheduleFieldsHTML(t)}
       </div>
       <div class="plan-field">Batch
         <div class="plan-pair">
@@ -727,6 +835,7 @@ function commitDomainProject(t) {
   const blockingNote = document.getElementById('plan-blocking-note');
   if (blockingNote) t.blockingNote = blockingNote.value.trim();
   else if (!t.blocking) t.blockingNote = '';
+  stampActivityFromBlock(t);
 }
 
 function commitParent(t) {
@@ -752,19 +861,18 @@ export function planFinish(mode) {
   if (!t) return;
   commitDomainProject(t);
   commitParent(t);
-  const day = (document.getElementById('plan-weekday')?.value || 'monday').toLowerCase();
-  const slot = (document.getElementById('plan-slot')?.value || 'morning').toLowerCase();
+  const day = (weekdayNameFromYmd(document.getElementById('plan-ymd')?.value) || 'monday').toLowerCase();
+  const slot = 'afternoon';
 
   if (mode === 'none') {
     t.date = null;
     t.start = null;
+    t.blockId = null;
+    t.replacesBlockId = null;
   } else if (mode === 'slot') {
-    if (DAY_OFFSET[day] != null && SLOT_START[slot] != null) {
-      const mon = mondayOnOrBefore(new Date());
-      t.date = formatYmd(addDaysLocal(mon, DAY_OFFSET[day]));
-      t.start = formatHHMM(SLOT_START[slot]);
-      if (!t.duration) t.duration = 30;
-    }
+    commitSchedule(t);
+    if (t.date) state.dashCalDate = t.date;
+    if (!t.duration) t.duration = 30;
   } else if (mode === 'batch') {
     let gid = document.getElementById('plan-group')?.value;
     if (!gid) {

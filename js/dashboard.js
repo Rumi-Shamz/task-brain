@@ -13,6 +13,9 @@ import {
 } from './domains.js';
 import { getProject, ACTIVITIES, projectsInDomain, ensureProjectForDomain } from './projects.js';
 import { deps } from './deps.js';
+import {
+  blocksOnDate, placementsFor, applyPlacement, currentPlacementId, isTaskDay,
+} from './blocks.js';
 
 const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
 const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
@@ -110,26 +113,19 @@ export function saveDashEdit() {
   t.lane = act === 'research' ? 'research' : act;
   t.note = (document.getElementById('de-note')?.value || '').trim();
   t.done = !!document.getElementById('de-done')?.checked;
-  const mode = document.getElementById('de-sched-mode')?.value || 'none';
-  if (mode === 'none') {
+  const ymd = document.getElementById('de-ymd')?.value || '';
+  const place = document.getElementById('de-place')?.value || '';
+  const free = document.getElementById('de-free-start')?.value || t.start || '09:00';
+  const dur = parseInt(document.getElementById('de-duration')?.value || '', 10);
+  if (Number.isFinite(dur) && dur > 0) t.duration = dur;
+  if (!place || !ymd) {
     t.date = null;
     t.start = null;
-  } else if (mode === 'slot') {
-    const day = (document.getElementById('de-weekday')?.value || 'monday').toLowerCase();
-    const slot = (document.getElementById('de-slot')?.value || 'morning').toLowerCase();
-    if (DAY_OFFSET[day] != null && SLOT_START[slot] != null) {
-      const mon = mondayOnOrBefore(new Date());
-      t.date = formatYmd(addDaysLocal(mon, DAY_OFFSET[day]));
-      t.start = formatHHMM(SLOT_START[slot]);
-      if (!t.duration) t.duration = DEFAULT_DURATION;
-    }
-  } else if (mode === 'exact') {
-    const date = document.getElementById('de-date')?.value || '';
-    const start = document.getElementById('de-start')?.value || '';
-    const dur = parseInt(document.getElementById('de-duration')?.value || '', 10);
-    if (date) t.date = date;
-    if (start) t.start = start.length === 5 ? start : formatHHMM(parseHHMM(start) ?? 9 * 60);
-    if (Number.isFinite(dur) && dur > 0) t.duration = dur;
+    t.blockId = null;
+    t.replacesBlockId = null;
+  } else {
+    applyPlacement(t, ymd, place, free);
+    state.dashCalDate = ymd;
   }
   deps.save();
   closeDashEdit();
@@ -184,14 +180,9 @@ export function renderDashEditSheet() {
           `<option value="${a.id}" ${a.id === act ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
         </select>
       </label>
-      <label class="plan-field">Schedule
-        <select id="de-sched-mode" onchange="dashEditSchedMode(this.value)">
-          <option value="none" ${schedMode === 'none' ? 'selected' : ''}>Unscheduled</option>
-          <option value="slot" ${schedMode === 'slot' ? 'selected' : ''}>Weekday + slot</option>
-          <option value="exact" ${schedMode === 'exact' ? 'selected' : ''}>Date + start</option>
-        </select>
-      </label>
-      <div id="de-sched-fields">${dashEditSchedFieldsHTML(schedMode, t)}</div>
+      <div class="plan-field">Schedule
+        ${dashPlacementHTML(t)}
+      </div>
       <label class="plan-field">Note
         <textarea id="de-note" rows="3">${esc(t.note || '')}</textarea>
       </label>
@@ -203,41 +194,54 @@ export function renderDashEditSheet() {
     </div>`;
 }
 
-export function dashEditSchedMode(mode) {
+export function dashEditDayChanged() {
   const t = state.tasks.find(x => x.id === state.dashEditId);
-  const box = document.getElementById('de-sched-fields');
-  if (box) box.innerHTML = dashEditSchedFieldsHTML(mode, t || {});
+  const ymd = document.getElementById('de-ymd')?.value || '';
+  const box = document.getElementById('de-place');
+  if (!t || !box) return;
+  const opts = ymd ? placementsFor({ ...t, date: ymd }, ymd) : [];
+  const cur = t.date === ymd ? currentPlacementId(t) : '';
+  box.innerHTML = `<option value="">Leave open</option>` + opts.map(o =>
+    `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.label)}</option>`
+  ).join('');
+  const free = document.getElementById('de-free-wrap');
+  if (free) free.style.display = cur === 'free' ? '' : 'none';
 }
 
-function dashEditSchedFieldsHTML(mode, t) {
-  if (mode === 'slot') {
-    return `<div class="plan-pair">
-      <label class="plan-field">Weekday
-        <select id="de-weekday">${WEEKDAYS.map(d => `<option value="${d}">${d}</option>`).join('')}</select>
-      </label>
-      <label class="plan-field">Slot
-        <select id="de-slot">
-          <option value="morning">Morning</option>
-          <option value="afternoon">Afternoon</option>
-          <option value="evening">Evening</option>
-        </select>
-      </label>
-    </div>`;
+function dashPlacementHTML(t) {
+  const ymd = t.date || ensureDashCalDate();
+  const opts = placementsFor(t, ymd);
+  const cur = t.date ? currentPlacementId(t) : '';
+  const open = isTaskDay(ymd);
+  return `<div class="plan-pair">
+    <label class="plan-field">Day
+      <input type="date" id="de-ymd" value="${esc(ymd)}" onchange="dashEditDayChanged()" />
+    </label>
+    <label class="plan-field">Place
+      <select id="de-place" onchange="document.getElementById('de-free-wrap').style.display=this.value==='free'?'':'none'">
+        <option value="">Leave open</option>
+        ${open ? opts.map(o => `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.label)}</option>`).join('') : ''}
+      </select>
+    </label>
+    <label class="plan-field" id="de-free-wrap" style="${cur === 'free' ? '' : 'display:none'}">Start
+      <input type="time" id="de-free-start" value="${esc(t.start || '09:00')}" />
+    </label>
+    <label class="plan-field">Duration
+      <select id="de-duration">
+        ${[15, 30, 60, 180].map(n => `<option value="${n}" ${Number(t.duration) === n ? 'selected' : ''}>${n} min</option>`).join('')}
+      </select>
+    </label>
+  </div>${open ? '' : '<p class="bulk-hint">That day is not a work or sprint day. Pick another day, or leave it open.</p>'}`;
+}
+
+export function shiftDashDay(delta) {
+  if (!delta) {
+    state.dashCalDate = todayYmd();
+  } else {
+    const cur = parseYmd(ensureDashCalDate()) || new Date();
+    state.dashCalDate = formatYmd(addDaysLocal(cur, delta));
   }
-  if (mode === 'exact') {
-    return `<div class="plan-pair">
-      <label class="plan-field">Date
-        <input type="date" id="de-date" value="${esc(t.date || todayYmd())}" />
-      </label>
-      <label class="plan-field">Start
-        <input type="time" id="de-start" value="${esc(t.start || '09:00')}" />
-      </label>
-      <label class="plan-field">Duration (min)
-        <input type="number" id="de-duration" min="5" step="5" value="${t.duration || DEFAULT_DURATION}" />
-      </label>
-    </div>`;
-  }
-  return '';
+  renderDayCalendar();
 }
 
 export function renderDayCalendar() {
@@ -246,7 +250,7 @@ export function renderDayCalendar() {
   const prevScroll = root.scrollTop;
   const ymd = ensureDashCalDate();
   const title = document.getElementById('dash-day-title');
-  if (title) title.textContent = ymd + ' · viewport 06:00–22:00 (scroll for full day)';
+  if (title) title.textContent = ymd === todayYmd() ? `Today · ${ymd}` : ymd;
   const hours = [];
   for (let h = 0; h < 24; h++) {
     hours.push(`<div class="day-hour" data-hour="${ h }">
@@ -280,7 +284,14 @@ export function renderDayCalendar() {
       <div class="cal-resize" data-resize="1"></div>
     </div>`;
   }).join('');
-  root.innerHTML = `<div class="day-hours">${ hours.join('') }</div><div class="cal-blocks">${ blocks }</div>`;
+  const bands = blocksOnDate(ymd).map(b => {
+    const top = minsToY(b.startMin);
+    const height = durationToH(b.endMin - b.startMin);
+    return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="top:${top}px;height:${height}px" title="${esc(b.name)}">
+      <span>${esc(b.name)}</span>
+    </div>`;
+  }).join('');
+  root.innerHTML = `<div class="day-hours">${ hours.join('') }</div><div class="cal-blocks">${ bands }${ blocks }</div>`;
   if (state.dayCalScrolledOnce) root.scrollTop = prevScroll;
   else { root.scrollTop = VIEW_SCROLL_TOP; state.dayCalScrolledOnce = true; }
 }
@@ -351,7 +362,7 @@ export function renderProjectBoard() {
     ).join('')}
   </div>`;
 
-  board.innerHTML = filterChips + (expandedDoms.map(dom => {
+  const domainStacks = expandedDoms.map(dom => {
     const roots = visible(state.tasks.filter(t =>
       t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id && matchesActivityFilter(t)
     ));
@@ -371,7 +382,18 @@ export function renderProjectBoard() {
       </button>
       <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">No tasks in this filter.</div>'}</div>
     </div>`;
-  }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>');
+  }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
+
+  let grouped = '';
+  if (filter !== 'all') {
+    const rows = visible(state.tasks.filter(t =>
+      t.status !== 'someday' && isTopLevelTask(t) && matchesActivityFilter(t)
+    ));
+    grouped = `<div class="domain-task-rows">${rows.length
+      ? rows.map(t => boardRowHTML(t) + visible(childTasksOf(t.id).filter(matchesActivityFilter)).map(c => boardRowHTML(c, { nested: true })).join('')).join('')
+      : '<div class="dash-inbox-empty">No tasks in this group.</div>'}</div>`;
+  }
+  board.innerHTML = filterChips + (filter === 'all' ? domainStacks : grouped);
 
   const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday' && isTopLevelTask(t)));
   const inboxEl = document.getElementById('dash-inbox-chips');

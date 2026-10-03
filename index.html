@@ -12,8 +12,8 @@
     <h1 id="app-logo" title="Triple-tap to sync settings">Day Planner</h1>
     <div class="phase-tabs">
       <button class="phase-tab active" onclick="switchPhase('plan')">01 Plan</button>
-      <button class="phase-tab" onclick="switchPhase('dashboard')">02 Dashboard</button>
-      <button class="phase-tab" onclick="switchPhase('skills')">03 Skills</button>
+      <button class="phase-tab" onclick="switchPhase('dashboard')">02 Today</button>
+      <button class="phase-tab" onclick="switchPhase('skills')">03 Upskill</button>
       <button class="phase-tab" onclick="switchPhase('year')">04 Year</button>
     </div>
     <span id="sync-status" class="sync-status" aria-live="polite"></span>
@@ -82,8 +82,13 @@
     <div class="dash-layout">
       <aside class="day-panel" id="dash-day-panel">
         <div class="day-panel-header">
-          <h2 id="dash-day-title">Today · 00:00–24:00</h2>
-          <span class="day-hint">drop to schedule · drag body to move · bottom edge to resize</span>
+          <div class="day-nav">
+            <button type="button" class="btn" onclick="shiftDashDay(-1)">←</button>
+            <h2 id="dash-day-title">Today</h2>
+            <button type="button" class="btn" onclick="shiftDashDay(1)">→</button>
+            <button type="button" class="btn" onclick="shiftDashDay(0)">Today</button>
+          </div>
+          <span class="day-hint">click a block to edit · drag body to move · bottom edge to resize</span>
         </div>
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
@@ -127,33 +132,26 @@
     <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
     <div id="skills-panel" class="skills-panel"></div>
     <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('dashboard')">‹ Dashboard</button>
+      <button class="btn" onclick="switchPhase('dashboard')">‹ Today</button>
       <button class="btn" onclick="switchPhase('year')">Year ›</button>
     </div>
   </div>
 
   <!-- 04 YEAR -->
   <div id="phase-year" class="phase">
-    <div class="year-view-toggle">
-      <button class="btn active year-view-desktop-only" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
+    <div class="year-view-toggle year-nav-row">
+      <button class="btn" type="button" onclick="yearNav(-1)">← Prev</button>
+      <button class="btn year-view-desktop-only" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
       <button class="btn" id="year-view-month" onclick="setYearCalendarView('month')">Month</button>
       <button class="btn" id="year-view-week" onclick="setYearCalendarView('week')">Week</button>
-      <span class="year-week-nav" id="year-month-nav" style="display:none;">
-        <button class="btn" onclick="nudgeYearMonth(-1)">← Prev</button>
-        <button class="btn" onclick="nudgeYearMonth(1)">Next →</button>
-        <span class="year-week-label" id="year-month-label"></span>
-      </span>
-      <span class="year-week-nav" id="year-week-nav" style="display:none;">
-        <button class="btn" onclick="nudgeYearWeek(-7)">← Prev</button>
-        <button class="btn" onclick="nudgeYearWeek(7)">Next →</button>
-        <label style="font-size:12px;color:var(--txt2);display:inline-flex;gap:6px;align-items:center;">
-          Week
-          <input type="number" id="year-week-picker" min="1" max="52" style="width:64px;padding:4px 6px;border:0.5px solid var(--border-md);border-radius:var(--radius);background:var(--card);color:var(--txt);" onchange="pickYearWeek(this.value)" />
-        </label>
-        <span class="year-week-label" id="year-week-label"></span>
-      </span>
+      <label class="year-week-num" id="year-week-nav">
+        <input type="number" id="year-week-picker" min="1" max="52" aria-label="Week number" onchange="pickYearWeek(this.value)" />
+      </label>
+      <button class="btn" type="button" onclick="yearNav(1)">Next →</button>
+      <span class="year-week-label" id="year-month-label" hidden></span>
+      <span class="year-week-label" id="year-week-label" hidden></span>
     </div>
-    <div class="section-label" id="year-section-label">12 months · W1 starts after deep rest</div>
+    <div class="section-label" id="year-section-label"></div>
     <div class="year-grid-wrap">
       <div class="year-months" id="year-grid"></div>
     </div>
@@ -179,6 +177,7 @@
         Week numbers: <strong>W1</strong> is the first week after the 28-day deep rest.
         <span id="year-schedule-rule">Configure working schedule below.</span>
       </div>
+      <div id="year-protocol-editor" class="year-protocol"></div>
       <div class="year-controls" id="year-schedule-controls" style="margin-top:0.75rem;"></div>
       <div class="year-legend">
         <span><i class="year-swatch yc-sprint"></i>Sprint (protocol · Work)</span>
@@ -209,6 +208,6 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script type="module" src="js/app.js?v=20261003g"></script>
+<script type="module" src="js/app.js?v=20261004a"></script>
 </body>
 </html>

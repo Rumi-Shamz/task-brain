@@ -4,6 +4,7 @@ import {
 } from './state.js';
 import { ensureProjectsMigrated } from './projects.js';
 import { normalizeGroups } from './groups.js';
+import { normalizeDayBlocks, normalizeActivityRules } from './blocks.js';
 import { normalizeCustomDomains } from './domains.js';
 import { deps } from './deps.js';
 
@@ -32,6 +33,8 @@ export function getPersistPayload() {
     skills: state.skills || [],
     customDomains: state.customDomains || [],
     collapsedDomains: state.collapsedDomains,
+    activityRules: state.activityRules || [],
+    blockSkips: state.blockSkips || [],
   };
 }
 
@@ -54,6 +57,9 @@ export function applyPersistPayload(d) {
   state.collapsedDomains = Array.isArray(d.collapsedDomains) ? d.collapsedDomains : null;
   if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
   state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
+  state.yearRhythm.dayBlocks = normalizeDayBlocks(state.yearRhythm.dayBlocks || d.dayBlocks);
+  state.activityRules = normalizeActivityRules(d.activityRules);
+  state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   ensureProjectsMigrated();
 }
 

@@ -17,6 +17,10 @@ export const state = {
   yearHourLogs: [],
   yearCalendarView: 'year',
   yearWeekMonday: 0,
+  yearFocusMonday: null,
+  activityRules: [],
+  blockSkips: [],
+  ruleOffer: null,
   yearMonthCursor: { year: new Date().getFullYear(), month: new Date().getMonth() },
   yearSelectedLogId: null,
   yearHourDrag: null,
@@ -343,7 +347,11 @@ export function normalizeRhythm(raw) {
         return { startWeekday, startDay: snapToWeekday(clampDay(v.startDay), startWeekday) };
       })
     : base.vacations;
-  return { version: 1, yearStartMonday, cycles, deepRest, vacations, workSchedule: normalizeWorkSchedule(raw.workSchedule) };
+  return {
+    version: 1, yearStartMonday, cycles, deepRest, vacations,
+    workSchedule: normalizeWorkSchedule(raw.workSchedule),
+    dayBlocks: Array.isArray(raw.dayBlocks) ? raw.dayBlocks : null,
+  };
 }
 export function rhythmWithHours() {
   return { ...state.yearRhythm, hourLogs: state.yearHourLogs };
@@ -390,8 +398,7 @@ export function dayIndexToday(rhythm) {
   const today = new Date();
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const diff = Math.round((t0 - start) / 86400000);
-  if (diff < 0 || diff >= YEAR_DAYS) return null;
-  return diff;
+  return ((diff % YEAR_DAYS) + YEAR_DAYS) % YEAR_DAYS;
 }
 
 
@@ -406,6 +413,10 @@ export function normalizeTask(t) {
     domain: t.domain ?? null,
     lane: t.activity || t.lane || null,
     activity: t.activity || t.lane || 'act',
+    activitySource: t.activitySource === 'manual' || t.activitySource === 'block' || t.activitySource === 'rule'
+      ? t.activitySource : null,
+    blockId: t.blockId ? String(t.blockId) : null,
+    replacesBlockId: t.replacesBlockId ? String(t.replacesBlockId) : null,
     start: t.start ?? null,
     duration: t.duration ?? DEFAULT_DURATION,
     date: t.date ?? null,
