@@ -499,6 +499,20 @@
     .skills-quad { margin-top: 8px; }
     .skills-quad h4 { font-size: 12px; color: var(--txt3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
     .skills-quad ul { margin: 0; padding-left: 1.1rem; font-size: 13px; color: var(--txt2); }
+    .someday-panel {
+      margin-bottom: 12px; padding: 10px 12px;
+      border: 0.5px solid var(--border); border-radius: var(--radius-lg);
+      background: var(--card);
+    }
+    .someday-title { font-size: 13px; font-weight: 600; margin: 0 0 4px; }
+    .someday-hint { font-size: 12px; color: var(--txt3); margin: 0 0 8px; }
+    .someday-card {
+      border-top: 0.5px solid var(--border); padding: 8px 0;
+    }
+    .someday-card.delete-candidate { background: rgba(226, 75, 74, 0.06); margin: 0 -8px; padding: 8px; border-radius: var(--radius); }
+    .someday-name { font-size: 13px; font-weight: 500; }
+    .someday-meta { font-size: 11px; color: var(--txt3); margin: 2px 0 6px; }
+    .someday-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
     .sync-status {
       font-size: 11px; color: var(--txt3); margin-left: auto;
