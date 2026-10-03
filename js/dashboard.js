@@ -81,9 +81,42 @@ export function renderProjectBoard() {
   ensureTimerTick();
 }
 
-export function renderDashboard() { ensureDashCalDate();
+export function weekLnoStats() {
+  const mon = (() => {
+    const d = new Date();
+    const day = d.getDay();
+    const back = day === 0 ? 6 : day - 1;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - back);
+  })();
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const x = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + i);
+    dates.push(formatYmd(x));
+  }
+  let total = 0, lMins = 0;
+  state.tasks.forEach(t => {
+    if (!t.date || !t.start || !dates.includes(t.date)) return;
+    if (t.status === 'someday') return;
+    const dur = t.duration || DEFAULT_DURATION;
+    total += dur;
+    if (t.lno === 'L') lMins += dur;
+  });
+  const pct = total ? Math.round((lMins / total) * 100) : 0;
+  return { total, lMins, pct };
+}
+
+export function renderDashboard() {
+  ensureDashCalDate();
   deps.renderDayCalendar();
-  deps.renderProjectBoard(); }
+  deps.renderProjectBoard();
+  const el = document.getElementById('lno-week-stat');
+  if (el) {
+    const s = weekLnoStats();
+    el.textContent = s.total
+      ? `This week: ${s.pct}% of scheduled minutes on L (${s.lMins}m / ${s.total}m)`
+      : 'This week: no scheduled minutes yet — tag tasks L/N/O in Triage.';
+  }
+}
 
 export function dashChipDragStart(e) {
   if (e.target.closest('input, button, .chip-actions, .cal-block-controls')) { e.preventDefault();

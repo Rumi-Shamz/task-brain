@@ -49,7 +49,18 @@ export function setSize(id, size) {
 }
 
 export function setBlocking(id, val) { const t = state.tasks.find(t => t.id === id); if (t) { t.blocking = val; deps.save(); deps.render(); } }
-export function setLT(id, val) { const t = state.tasks.find(t => t.id === id); if (t) { t.lt = val; deps.save(); deps.render(); } }
+export function setLT(id, val) {
+  // Legacy bridge: yes→L, no→N
+  setLNO(id, val === true ? 'L' : val === false ? 'N' : null);
+}
+export function setLNO(id, val) {
+  const t = state.tasks.find(t => t.id === id);
+  if (!t) return;
+  const next = val === 'L' || val === 'N' || val === 'O' ? val : null;
+  t.lno = t.lno === next ? null : next;
+  t.lt = t.lno === 'L' ? true : t.lno === 'N' ? false : null;
+  deps.save(); deps.render();
+}
 export function updateWho(id, val) { const t = state.tasks.find(t => t.id === id); if (t) { t.who = val; deps.save(); } }
 export function addSubtask(id) { const t = state.tasks.find(t => t.id === id); if (t && t.subtasks.length < 9) { t.subtasks.push({ id: uid(), text: '' }); deps.save(); deps.render(); } }
 export function updateSubtask(tid, sid, val) { const t = state.tasks.find(t => t.id === tid); if (t) { const s = t.subtasks.find(s => s.id === sid); if (s) { s.text = val; deps.save(); } } }
@@ -122,11 +133,15 @@ export function renderTriage() {
             </div>
           </div>
           <div class="triage-field">
-            <span class="triage-label">Long-term value</span>
-            <div class="lt-toggle">
-              <span class="pill ${t.lt === true ? 'active-yn' : ''}" onclick="setLT('${t.id}',true)">Yes</span>
-              <span class="pill ${t.lt === false ? 'active-yn' : ''}" onclick="setLT('${t.id}',false)">No</span>
+            <span class="triage-label">LNO</span>
+            <div class="lno-toggle">
+              <span class="pill ${t.lno === 'L' ? 'active-yn' : ''}" title="10x return, give it your best energy" onclick="setLNO('${t.id}','L')">L</span>
+              <span class="pill ${t.lno === 'N' ? 'active-yn' : ''}" title="do it well enough" onclick="setLNO('${t.id}','N')">N</span>
+              <span class="pill ${t.lno === 'O' ? 'active-yn' : ''}" title="minimize, batch, delegate first" onclick="setLNO('${t.id}','O')">O</span>
             </div>
+            <span class="triage-label" style="margin-top:4px;font-weight:400;text-transform:none;letter-spacing:0;">${
+              t.lno === 'L' ? '10x return — best energy' : t.lno === 'N' ? 'Do it well enough' : t.lno === 'O' ? 'Minimize / batch / delegate' : 'Pick leverage'
+            }</span>
           </div>
           <div class="triage-field">
             <span class="triage-label">Size</span>
