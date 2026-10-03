@@ -449,16 +449,24 @@ export function setHideDone(v) {
 export function toggleTaskDone(id, checked) {
   const t = state.tasks.find(x => x.id === id);
   if (!t) return;
+  const becameDone = !!checked && !t.done;
   t.done = !!checked;
+  if (t.done) t.status = 'done';
+  else if (t.status === 'done') t.status = 'todo';
   if (t.done && t.timerStartedAt) { t.trackedMs = taskElapsedMs(t);
     t.timerStartedAt = null; }
-  save();
+  if (becameDone && typeof window.onTaskDoneMaybeLearn === 'function') {
+    window.onTaskDoneMaybeLearn(t, true);
+  }
+  if (typeof window.save === 'function') window.save();
+  else if (typeof localStorage !== 'undefined') {
+    try { /* persist via deps if wired */ } catch (e) {}
+  }
   ensureTimerTick();
-  const yearActive = document.getElementById('phase-year')?.classList.contains('active');
-  const dashActive = document.getElementById('phase-dashboard')?.classList.contains('active');
-  if (dashActive) renderDashboard();
-  if (yearActive) renderYear();
-  if (!dashActive && !yearActive) renderDashboard();
+  if (typeof window.renderDashboard === 'function') window.renderDashboard();
+  if (typeof window.renderYear === 'function' && document.getElementById('phase-year')?.classList.contains('active')) {
+    window.renderYear();
+  }
 }
 export function startTaskTimer(id) {
   const t = state.tasks.find(x => x.id === id);

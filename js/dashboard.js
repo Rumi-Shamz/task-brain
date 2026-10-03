@@ -116,6 +116,9 @@ export function renderDashboard() {
       ? `This week: ${s.pct}% of scheduled minutes on L (${s.lMins}m / ${s.total}m)`
       : 'This week: no scheduled minutes yet — tag tasks L/N/O in Triage.';
   }
+  if (typeof window.renderSkillsPanel === 'function') {
+    window.renderSkillsPanel(document.getElementById('skills-panel'));
+  }
 }
 
 export function dashChipDragStart(e) {

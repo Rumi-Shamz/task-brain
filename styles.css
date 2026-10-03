@@ -486,6 +486,19 @@
       border: 0.5px solid var(--border);
     }
     .lno-toggle { display: flex; gap: 6px; flex-wrap: wrap; }
+    .skills-panel {
+      margin-bottom: 12px; padding: 10px 12px;
+      border: 0.5px solid var(--border); border-radius: var(--radius-lg);
+      background: var(--card);
+    }
+    .skills-add { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; align-items: center; }
+    .skills-add input, .skills-add select {
+      font-size: 13px; padding: 6px 8px; border: 0.5px solid var(--border-md);
+      border-radius: var(--radius); background: var(--bg); color: var(--txt); font-family: var(--sans);
+    }
+    .skills-quad { margin-top: 8px; }
+    .skills-quad h4 { font-size: 12px; color: var(--txt3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .skills-quad ul { margin: 0; padding-left: 1.1rem; font-size: 13px; color: var(--txt2); }
 
     .sync-status {
       font-size: 11px; color: var(--txt3); margin-left: auto;
