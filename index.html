@@ -174,9 +174,6 @@
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
       <section class="board-panel">
-        <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
-        <div id="skills-panel" class="skills-panel"></div>
-        <div id="someday-panel" class="someday-panel"></div>
         <div class="board-toolbar">
           <div class="add-project">
             <input type="text" id="new-project-input" placeholder="New project…"
@@ -188,6 +185,12 @@
             Hide done
           </label>
         </div>
+        <details class="dash-extras">
+          <summary>Skills · Someday · week LNO</summary>
+          <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
+          <div id="skills-panel" class="skills-panel"></div>
+          <div id="someday-panel" class="someday-panel"></div>
+        </details>
         <div class="dash-inbox" id="dash-inbox"
           ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnInbox(event)">
           <div class="section-label" style="margin-bottom:0;">Inbox — unassigned</div>

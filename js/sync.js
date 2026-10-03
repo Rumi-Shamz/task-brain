@@ -16,10 +16,26 @@ export function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 // Personal data lives only in the private data repo — never the public Pages app repo.
 export const DEFAULT_DATA_OWNER = 'Rumi-Shamz';
 export const DEFAULT_DATA_REPO = 'task-brain-data';
+export const PUBLIC_APP_REPO = 'task-brain';
 export function guessRepo() {
   return { owner: DEFAULT_DATA_OWNER, repo: DEFAULT_DATA_REPO };
 }
+/** If a device still points at the public Pages repo, rewrite to the private data repo. */
+export function migrateStoredRepo() {
+  const repo = (lsGet(LS_GH_REPO) || '').trim();
+  if (repo.toLowerCase() === PUBLIC_APP_REPO) {
+    lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
+  }
+  const owner = (lsGet(LS_GH_OWNER) || '').trim();
+  if (owner && owner.toLowerCase() === DEFAULT_DATA_OWNER.toLowerCase() && owner !== DEFAULT_DATA_OWNER) {
+    lsSet(LS_GH_OWNER, DEFAULT_DATA_OWNER);
+  }
+}
+export function isPublicAppRepo(owner, repo) {
+  return String(repo || '').toLowerCase() === PUBLIC_APP_REPO;
+}
 export function ghCfg() {
+  migrateStoredRepo();
   const g = guessRepo();
   return { token: lsGet(LS_GH_TOKEN), owner: lsGet(LS_GH_OWNER) || g.owner, repo: lsGet(LS_GH_REPO) || g.repo };
 }
@@ -43,8 +59,8 @@ export function refreshSyncForm() {
   const own = document.getElementById('su-owner');
   const rep = document.getElementById('su-repo');
   if (tok && !tok.value) tok.value = c.token;
-  if (own && !own.value) own.value = c.owner;
-  if (rep && !rep.value) rep.value = c.repo;
+  if (own) own.value = c.owner;
+  if (rep) rep.value = c.repo;
   setSyncStatus(ghConnected() ? 'Synced · data.json' : 'Local only');
 }
 export function toggleSyncPanel(force) {
@@ -78,10 +94,21 @@ export function ghApi(c, method, body) {
     }
   );
 }
+export function pullErrorMessage(e) {
+  if (typeof e === 'string') return e;
+  if (e && e.message) return 'Pull failed: ' + e.message;
+  return 'Pull failed. Use private repo task-brain-data, then Connect & pull.';
+}
 export function ghPull() {
   const c = ghCfg();
   if (!c.token || !c.owner || !c.repo) {
     setSyncMsg('Connect with a token first.', 'err');
+    return Promise.resolve();
+  }
+  if (isPublicAppRepo(c.owner, c.repo)) {
+    lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
+    setSyncMsg('Repo was the public Pages app. Switched to task-brain-data — Connect & pull again.', 'err');
+    refreshSyncForm();
     return Promise.resolve();
   }
   setSyncMsg('Pulling…');
@@ -94,17 +121,23 @@ export function ghPull() {
     applyPersistPayload(JSON.parse(b64dec(j.content)));
     try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
     deps.render();
-    if (typeof renderDashboard === 'function') deps.renderDashboard();
-    if (typeof renderYear === 'function') deps.renderYear();
+    deps.renderDashboard();
+    deps.renderYear();
     setSyncMsg('Pulled latest data.json.', 'ok');
     setSyncStatus('Synced · data.json');
-  }).catch(e => { setSyncMsg(typeof e === 'string' ? e : 'Pull failed.', 'err'); });
+  }).catch(e => { setSyncMsg(pullErrorMessage(e), 'err'); });
 }
 export function ghPush(opts) {
   const quiet = opts && opts.quiet;
   const c = ghCfg();
   if (!c.token || !c.owner || !c.repo) {
     if (!quiet) setSyncMsg('Connect with a token first.', 'err');
+    return Promise.resolve();
+  }
+  if (isPublicAppRepo(c.owner, c.repo)) {
+    lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
+    if (!quiet) setSyncMsg('Refusing to save into the public Pages repo. Switched to task-brain-data.', 'err');
+    refreshSyncForm();
     return Promise.resolve();
   }
   if (state.ghSaving) return Promise.resolve();
@@ -141,9 +174,16 @@ export function ghPush(opts) {
 }
 export function ghConnect() {
   const t = (document.getElementById('su-token') || {}).value.trim();
-  const o = (document.getElementById('su-owner') || {}).value.trim();
-  const r = (document.getElementById('su-repo') || {}).value.trim();
+  let o = (document.getElementById('su-owner') || {}).value.trim();
+  let r = (document.getElementById('su-repo') || {}).value.trim();
   if (!t || !o || !r) { setSyncMsg('Fill token, owner, and repo.', 'err'); return; }
+  if (isPublicAppRepo(o, r)) {
+    r = DEFAULT_DATA_REPO;
+    const rep = document.getElementById('su-repo');
+    if (rep) rep.value = r;
+    setSyncMsg('Use private repo task-brain-data (not the public Pages app). Corrected — connecting…');
+  }
+  if (o.toLowerCase() === DEFAULT_DATA_OWNER.toLowerCase()) o = DEFAULT_DATA_OWNER;
   lsSet(LS_GH_TOKEN, t); lsSet(LS_GH_OWNER, o); lsSet(LS_GH_REPO, r);
   setSyncMsg('Connected. Pulling…');
   ghPull().then(() => {

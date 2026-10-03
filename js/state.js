@@ -1,3 +1,5 @@
+import { deps } from './deps.js';
+
 // Shared mutable app state
 export const state = {
   tasks: [],
@@ -118,11 +120,15 @@ export function addCustomProject() {
   const id = slugProjectId(label);
   const color = PROJECT_PALETTE[state.customProjects.length % PROJECT_PALETTE.length];
   state.customProjects.push({ id, label, color });
+  if (!Array.isArray(state.projects)) state.projects = [];
+  if (!state.projects.some(p => p.id === id)) {
+    state.projects.push({ id, name: label, domain: 'Other', objective: '', deadline: null, status: 'active', people: [], links: [], color });
+  }
   if (inp) { inp.value = '';
     inp.placeholder = 'New project…'; }
-  save();
-  switchPhase('dashboard');
-  renderDashboard();
+  deps.save();
+  deps.switchPhase('dashboard');
+  deps.renderDashboard();
   const col = document.querySelector(`.project-col[data-project="${ CSS.escape(id) }"]`);
   if (col) col.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
 }
@@ -444,7 +450,7 @@ export function setHideDone(v) {
   state.hideDone = !!v;
   const toggle = document.getElementById('hide-done-toggle');
   if (toggle) toggle.checked = state.hideDone;
-  renderDashboard();
+  deps.renderDashboard();
 }
 export function toggleTaskDone(id, checked) {
   const t = state.tasks.find(x => x.id === id);
@@ -458,41 +464,38 @@ export function toggleTaskDone(id, checked) {
   if (becameDone && typeof window.onTaskDoneMaybeLearn === 'function') {
     window.onTaskDoneMaybeLearn(t, true);
   }
-  if (typeof window.save === 'function') window.save();
-  else if (typeof localStorage !== 'undefined') {
-    try { /* persist via deps if wired */ } catch (e) {}
-  }
+  deps.save();
   ensureTimerTick();
-  if (typeof window.renderDashboard === 'function') window.renderDashboard();
-  if (typeof window.renderYear === 'function' && document.getElementById('phase-year')?.classList.contains('active')) {
-    window.renderYear();
+  deps.renderDashboard();
+  if (document.getElementById('phase-year')?.classList.contains('active')) {
+    deps.renderYear();
   }
 }
 export function startTaskTimer(id) {
   const t = state.tasks.find(x => x.id === id);
   if (!t || t.done) return;
   if (!t.timerStartedAt) t.timerStartedAt = Date.now();
-  save();
+  deps.save();
   ensureTimerTick();
-  renderDashboard();
+  deps.renderDashboard();
 }
 export function pauseTaskTimer(id) {
   const t = state.tasks.find(x => x.id === id);
   if (!t || !t.timerStartedAt) return;
   t.trackedMs = taskElapsedMs(t);
   t.timerStartedAt = null;
-  save();
+  deps.save();
   ensureTimerTick();
-  renderDashboard();
+  deps.renderDashboard();
 }
 export function stopTaskTimer(id) {
   const t = state.tasks.find(x => x.id === id);
   if (!t) return;
   if (t.timerStartedAt) t.trackedMs = taskElapsedMs(t);
   t.timerStartedAt = null;
-  save();
+  deps.save();
   ensureTimerTick();
-  renderDashboard();
+  deps.renderDashboard();
 }
 export function chipControlsHTML(t) {
   const running = !!t.timerStartedAt;
