@@ -11,6 +11,11 @@ import * as dashboard from './dashboard.js';
 import { render, switchPhase, clearAll } from './ui.js';
 import { deps } from './deps.js';
 import { ensureProjectsMigrated } from './projects.js';
+import {
+  ensureSkills, addSkillFromForm, renderSkillsPanel, onTaskDoneMaybeLearn,
+  ensureWeeklyLearnBlock,
+} from './skills.js';
+import { state as appState } from './state.js';
 
 deps.save = save;
 deps.render = render;
@@ -40,12 +45,18 @@ Object.assign(window, triage, organize, scheduleMod, year, dashboard, {
   ghPush: () => { clearTimeout(state.ghPushTimer); return ghPush({ quiet: false }); },
   ghDisconnect,
   toggleSyncPanel,
+  addSkillFromForm,
+  renderSkillsPanel,
+  onTaskDoneMaybeLearn,
+  save,
 });
 
 bindLogoSync();
 
 load();
 ensureProjectsMigrated();
+ensureSkills();
+(appState.skills || []).filter(s => s.quadrant === 'schedule').forEach(ensureWeeklyLearnBlock);
 year.ensureYearWeekMonday();
 ensureTimerTick();
 render();
