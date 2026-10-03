@@ -1,0 +1,52 @@
+import {
+  state, normalizeTask, normalizeRhythm, normalizeHourLogs,
+  normalizeCustomProjects, normalizeWorkSchedule, seedYearRhythm, rhythmWithHours,
+} from './state.js';
+import { deps } from './deps.js';
+
+export function save() {
+  try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
+  if (deps.ghConnected && deps.ghConnected()) {
+    // Debounced quiet push so rapid edits don't spam the Contents API.
+    clearTimeout(state.ghPushTimer);
+    state.ghPushTimer = setTimeout(() => deps.ghPush({ quiet: true }), 1800);
+  }
+}
+
+export function getPersistPayload() {
+  return { version: 3, updatedAt: new Date().toISOString(), tasks: state.tasks, groups: state.groups, groupCounter: state.groupCounter, schedule: state.schedule, yearRhythm: rhythmWithHours(), yearHourLogs: state.yearHourLogs, customProjects: state.customProjects };
+}
+
+export function applyPersistPayload(d) {
+  if (!d || typeof d !== 'object') return;
+  state.tasks = (d.tasks || []).map(normalizeTask);
+  state.groups = d.groups || {};
+  state.groupCounter = d.groupCounter || 0;
+  state.schedule = d.schedule || [];
+  state.yearRhythm = normalizeRhythm(d.yearRhythm);
+  state.yearHourLogs = normalizeHourLogs(
+    d.yearHourLogs || (d.yearRhythm && d.yearRhythm.hourLogs) || []
+  );
+  state.customProjects = normalizeCustomProjects(d.customProjects);
+  if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
+  state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
+}
+
+export function load() {
+  try {
+    let d = JSON.parse(localStorage.getItem('dayplanner_v3') || 'null');
+    if (!d) {
+      const v2 = JSON.parse(localStorage.getItem('dayplanner_v2') || 'null');
+      if (v2) d = v2;
+    }
+    if (d) applyPersistPayload(d);
+    else { state.yearRhythm = seedYearRhythm();
+      state.yearHourLogs = [];
+      state.customProjects = []; }
+  } catch (e) { state.yearRhythm = seedYearRhythm();
+    state.yearHourLogs = [];
+    state.customProjects = []; }
+  if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
+  state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
+}
+
