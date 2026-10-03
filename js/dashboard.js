@@ -254,8 +254,19 @@ export function weekLnoStats() {
   return { total, lMins, pct };
 }
 
+export function setDashMobileScreen(screen) {
+  state.dashMobileScreen = screen === 'board' ? 'board' : 'day';
+  document.body.classList.toggle('dash-show-board', state.dashMobileScreen === 'board');
+  document.body.classList.toggle('dash-show-day', state.dashMobileScreen !== 'board');
+  const dayTab = document.getElementById('dash-tab-day');
+  const boardTab = document.getElementById('dash-tab-board');
+  if (dayTab) dayTab.classList.toggle('active', state.dashMobileScreen === 'day');
+  if (boardTab) boardTab.classList.toggle('active', state.dashMobileScreen === 'board');
+}
+
 export function renderDashboard() {
   ensureDashCalDate();
+  setDashMobileScreen(state.dashMobileScreen || 'day');
   deps.renderDayCalendar();
   deps.renderProjectBoard();
   if (typeof window.renderSomedayPanel === 'function') {

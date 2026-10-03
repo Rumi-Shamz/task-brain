@@ -28,6 +28,9 @@ export function switchPhase(phase) {
   document.body.classList.toggle('year-active', phase === 'year');
   document.body.classList.toggle('dashboard-active', phase === 'dashboard');
   document.body.classList.toggle('plan-active', phase === 'plan');
+  if (phase !== 'dashboard') {
+    document.body.classList.remove('dash-show-day', 'dash-show-board');
+  }
 
   if (phase === 'plan') renderPlan();
   if (phase === 'dashboard') renderDashboard();
@@ -43,6 +46,11 @@ export function switchPhase(phase) {
   }
   if (phase === 'year') {
     ensureYearWeekMonday();
+    // Phones land on Month, not the 12-month Year overview
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 720px)').matches
+        && state.yearCalendarView === 'year') {
+      state.yearCalendarView = 'month';
+    }
     renderYear();
   }
 }

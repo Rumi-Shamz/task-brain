@@ -52,8 +52,22 @@ export async function exportYearJson() {
     msg.textContent = 'Could not copy — JSON placed in the textarea.'; }
 }
 
-export function setYearCalendarView(view) { state.yearCalendarView = view === 'week' ? 'week' : view === 'month' ? 'month' : 'year';
-  deps.renderYear(); }
+export function isMobileYearLayout() {
+  return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+}
+
+export function setYearCalendarView(view) {
+  let v = view === 'week' ? 'week' : view === 'month' ? 'month' : 'year';
+  // Year overview is desktop-only — on phones default to Month (Google Calendar style)
+  if (v === 'year' && isMobileYearLayout()) v = 'month';
+  state.yearCalendarView = v;
+  deps.renderYear();
+}
+
+export function setYearMobileDay(offset) {
+  state.yearMobileDay = Math.max(0, Math.min(6, Number(offset) || 0));
+  deps.renderYear();
+}
 
 export function openYearMonthView(year, month) {
   state.yearMonthCursor = { year: Number(year), month: Number(month) };
@@ -458,8 +472,17 @@ export function renderYear() {
     return `<div class="year-month-card${ large ? ' large' : '' }"><h4>${ titleClick }</h4><div class="year-month-hint">${ seasonHint }</div><div class="year-month-grid">${ head }${ body }</div></div>`;
   }
 
+  // Mobile never shows 12-month year overview
+  if (state.yearCalendarView === 'year' && isMobileYearLayout()) {
+    state.yearCalendarView = 'month';
+  }
+
   if (state.yearCalendarView === 'week') {
-    if (sectionLabel) sectionLabel.textContent = 'Week · viewport 06:00–22:00 (scroll for full day) · drag hours · drop tasks · shaded = seasonal work';
+    if (sectionLabel) {
+      sectionLabel.textContent = isMobileYearLayout()
+        ? 'Week · pick a day · scroll hours (Google Calendar style)'
+        : 'Week · viewport 06:00–22:00 (scroll for full day) · drag hours · drop tasks · shaded = seasonal work';
+    }
     const days = [];
     for (let di = weekStart; di <= weekEnd; di++) days.push(di);
     const weekDates = days.map(di => {
@@ -471,23 +494,12 @@ export function renderYear() {
     const weekKinds = days.map(di => cells[di].kind);
     const wb = statsBuckets({ work: weekKinds.filter(k => k === 'work').length, sprint: weekKinds.filter(k => k === 'sprint').length, free: weekKinds.filter(k => k === 'free').length, vacation: weekKinds.filter(k => k === 'vacation').length, fast: weekKinds.filter(k => k === 'fast').length, restore: weekKinds.filter(k => k === 'restore').length, deepRest: weekKinds.filter(k => k === 'deepRest').length, conflict: weekKinds.filter(k => k === 'conflict').length });
 
-    const heads = days.map(di => {
-      const cell = cells[di];
-      const date = dateForDay(state.yearRhythm.yearStartMonday, di);
-      return `<button type="button" class="year-week-head yc-${ cell.kind }" onclick="markYearWeek(${ di })">
-        <span class="wd">${ formatRhythmWeek(di) } · ${ WEEKDAYS[weekdayOfDay(di)] }</span>
-        <span class="dd">${date ? `${ MONTHS[date.getMonth()] } ${ date.getDate() }` : `D${ di }`}</span>
-        <span class="lbl">${ esc(cell.labels[0] || cell.kind) }</span>
-      </button>`;
-    }).join('');
-
-    // Pixel grid (same HOUR_H as Dashboard) so phone/desktop hour slots align
     const gutterMarks = [];
     for (let h = WEEK_HOUR_START; h < WEEK_HOUR_END; h++) {
       gutterMarks.push(`<span style="top:${ h * HOUR_H }px">${ pad2(h) }:00</span>`);
     }
 
-    const cols = days.map(di => {
+    function weekColHtml(di) {
       const cell = cells[di];
       const date = dateForDay(state.yearRhythm.yearStartMonday, di);
       const ymd = date ? formatYmd(date) : '';
@@ -521,12 +533,63 @@ export function renderYear() {
         onmousemove="yearHourDragMove('${ ymd }', event)"
         ${ yearWeekColDragAttrs(ymd) }
         style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ blocks }${ taskBlocks }</div>`;
+    }
+
+    const grid = document.getElementById('year-grid');
+    if (!grid) return;
+
+    // Mobile: one day at a time with day chips (Google Calendar phone week)
+    if (isMobileYearLayout()) {
+      if (state.yearMobileDay == null || state.yearMobileDay < 0 || state.yearMobileDay > 6) state.yearMobileDay = 0;
+      const focusDi = days[state.yearMobileDay] ?? days[0];
+      const focusDate = dateForDay(state.yearRhythm.yearStartMonday, focusDi);
+      const dayPills = days.map((di, i) => {
+        const cell = cells[di];
+        const date = dateForDay(state.yearRhythm.yearStartMonday, di);
+        return `<button type="button" class="year-day-pill yc-${ cell.kind } ${ i === state.yearMobileDay ? 'active' : '' }"
+          onclick="setYearMobileDay(${ i })">
+          <span class="ydp-wd">${ WEEKDAYS[weekdayOfDay(di)] }</span>
+          <span class="ydp-dd">${ date ? date.getDate() : '·' }</span>
+        </button>`;
+      }).join('');
+      const prevScroll = document.getElementById('year-week-scroll')?.scrollTop;
+      grid.innerHTML = `
+        <div class="year-mobile-week">
+          <div class="year-day-pills">${ dayPills }</div>
+          <p class="year-mobile-day-label">${ focusDate ? `${ WEEKDAYS[weekdayOfDay(focusDi)] } · ${ MONTHS[focusDate.getMonth()] } ${ focusDate.getDate() }` : '' }
+            · ${ esc(cells[focusDi].labels[0] || cells[focusDi].kind) }</p>
+          ${ weekTaskTrayHTML(weekDates) }
+          <div class="year-week-frame year-week-frame-mobile">
+            <div class="year-week-scroll" id="year-week-scroll">
+              <div class="year-week-hourly year-week-body year-week-body-mobile">
+                <div class="year-week-gutter" style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ gutterMarks.join('') }</div>
+                ${ weekColHtml(focusDi) }
+              </div>
+            </div>
+          </div>
+        </div>`;
+      const weekScroll = document.getElementById('year-week-scroll');
+      if (weekScroll) {
+        if (typeof prevScroll === 'number' && state.yearWeekScrolledOnce) weekScroll.scrollTop = prevScroll;
+        else { weekScroll.scrollTop = VIEW_SCROLL_TOP; state.yearWeekScrolledOnce = true; }
+      }
+      renderYearHourEdit();
+      return;
+    }
+
+    const heads = days.map(di => {
+      const cell = cells[di];
+      const date = dateForDay(state.yearRhythm.yearStartMonday, di);
+      return `<button type="button" class="year-week-head yc-${ cell.kind }" onclick="markYearWeek(${ di })">
+        <span class="wd">${ formatRhythmWeek(di) } · ${ WEEKDAYS[weekdayOfDay(di)] }</span>
+        <span class="dd">${date ? `${ MONTHS[date.getMonth()] } ${ date.getDate() }` : `D${ di }`}</span>
+        <span class="lbl">${ esc(cell.labels[0] || cell.kind) }</span>
+      </button>`;
     }).join('');
+    const cols = days.map(di => weekColHtml(di)).join('');
 
     const prevScroll = document.getElementById('year-week-scroll')?.scrollTop;
     const prevScrollX = document.getElementById('year-week-scroll')?.scrollLeft;
-    const grid = document.getElementById('year-grid');
-    if (!grid) return;
     grid.innerHTML = `
       <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:10px;">
         <div><div class="year-stat">${ weekTotal.toFixed(1) }h</div><div class="year-stat-label">Tracked</div></div>
@@ -563,7 +626,11 @@ export function renderYear() {
   if (state.yearCalendarView === 'month') {
     const monthDays = dayIndexesForMonth(state.yearMonthCursor.year, state.yearMonthCursor.month);
     const midDay = monthDays.length ? monthDays[Math.floor(monthDays.length / 2)] : weekStart;
-    if (sectionLabel) sectionLabel.textContent = `Month view · ${ formatRhythmWeek(midDay) } band · click day · double-click → week`;
+    if (sectionLabel) {
+      sectionLabel.textContent = isMobileYearLayout()
+        ? 'Month · tap day · double-tap opens week'
+        : `Month view · ${ formatRhythmWeek(midDay) } band · click day · double-click → week`;
+    }
     const days = dayIndexesForMonth(state.yearMonthCursor.year, state.yearMonthCursor.month);
     const monthCounts = { fast:0, restore:0, sprint:0, deepRest:0, vacation:0, work:0, free:0, conflict:0 };
     days.forEach(di => { monthCounts[cells[di].kind] = (monthCounts[cells[di].kind] || 0) + 1; });
@@ -571,12 +638,14 @@ export function renderYear() {
     const monthGrid = document.getElementById('year-grid');
     if (!monthGrid) return;
     monthGrid.innerHTML = `
-      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:10px;">
-        <div><div class="year-stat">${ mb.work }</div><div class="year-stat-label">Work</div></div>
-        <div><div class="year-stat">${ mb.free }</div><div class="year-stat-label">Free</div></div>
-        <div><div class="year-stat">${ mb.reset }</div><div class="year-stat-label">Reset</div></div>
+      <div class="year-month-mobile-wrap">
+        <div class="year-mobile-stats">
+          <div><div class="year-stat">${ mb.work }</div><div class="year-stat-label">Work</div></div>
+          <div><div class="year-stat">${ mb.free }</div><div class="year-stat-label">Free</div></div>
+          <div><div class="year-stat">${ mb.reset }</div><div class="year-stat-label">Reset</div></div>
+        </div>
+        ${monthCardHtml({ year: state.yearMonthCursor.year, month: state.yearMonthCursor.month, days }, true)}
       </div>
-      ${monthCardHtml({ year: state.yearMonthCursor.year, month: state.yearMonthCursor.month, days }, true)}
     `;
     renderYearHourEdit();
     return;

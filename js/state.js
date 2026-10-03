@@ -27,6 +27,8 @@ export const state = {
   skills: [],
   dayCalScrolledOnce: false,
   yearWeekScrolledOnce: false,
+  dashMobileScreen: 'day', // 'day' | 'board' — mobile dashboard split
+  yearMobileDay: 0, // 0–6 offset within current week (mobile week day picker)
   ghPushTimer: null,
   fileSha: null,
   ghSaving: false,

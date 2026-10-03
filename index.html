@@ -75,15 +75,19 @@
 
   <!-- 02 DASHBOARD -->
   <div id="phase-dashboard" class="phase">
+    <div class="dash-mobile-tabs" role="tablist" aria-label="Dashboard screen">
+      <button type="button" class="btn dash-m-tab active" id="dash-tab-day" onclick="setDashMobileScreen('day')">Day</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-board" onclick="setDashMobileScreen('board')">Domains</button>
+    </div>
     <div class="dash-layout">
-      <aside class="day-panel">
+      <aside class="day-panel" id="dash-day-panel">
         <div class="day-panel-header">
           <h2 id="dash-day-title">Today · 00:00–24:00</h2>
           <span class="day-hint">drop to schedule · drag body to move · bottom edge to resize</span>
         </div>
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
-      <section class="board-panel">
+      <section class="board-panel" id="dash-board-panel">
         <div class="board-toolbar">
           <div class="add-project">
             <input type="text" id="new-domain-input" placeholder="New domain…"
@@ -131,7 +135,7 @@
   <!-- 04 YEAR -->
   <div id="phase-year" class="phase">
     <div class="year-view-toggle">
-      <button class="btn active" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
+      <button class="btn active year-view-desktop-only" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
       <button class="btn" id="year-view-month" onclick="setYearCalendarView('month')">Month</button>
       <button class="btn" id="year-view-week" onclick="setYearCalendarView('week')">Week</button>
       <span class="year-week-nav" id="year-month-nav" style="display:none;">
@@ -205,6 +209,6 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script type="module" src="js/app.js?v=20261003c"></script>
+<script type="module" src="js/app.js?v=20261003d"></script>
 </body>
 </html>

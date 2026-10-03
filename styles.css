@@ -1311,15 +1311,136 @@
       word-break: break-word;
     }
     .year-week-col.task-drop-hover { outline: 2px solid var(--accent); }
+    /* —— Plan LNO full words (until memorized) —— */
+    .plan-lno .btn {
+      display: inline-flex; flex-direction: column; align-items: flex-start;
+      gap: 2px; text-align: left; line-height: 1.2;
+    }
+    .plan-lno .lno-letter { font-weight: 600; }
+    .plan-lno .lno-words {
+      font-size: 10px; font-weight: 400; text-transform: none; letter-spacing: 0;
+      color: inherit; opacity: 0.85; white-space: normal; max-width: 9.5rem;
+    }
+    .plan-lno .btn.primary .lno-words { opacity: 0.9; }
+
+    .dash-mobile-tabs { display: none; }
+
     @media (max-width: 900px) {
       body.dashboard-active {
-        height: auto;
-        overflow: auto;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        padding: 0.5rem 0.65rem 0.5rem;
       }
-      .dash-layout { grid-template-columns: 1fr; }
-      .day-panel { height: auto; max-height: 55vh; }
-      .day-calendar { min-height: 320px; }
-      .project-board { grid-template-columns: repeat(2, 1fr); min-height: 50vh; }
+      body.dashboard-active .header { margin-bottom: 0.5rem; padding-bottom: 0.5rem; }
+      body.dashboard-active #phase-dashboard.phase.active {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column;
+      }
+      body.dashboard-active #phase-dashboard .bottom-actions {
+        flex-shrink: 0; margin-top: 0.4rem;
+      }
+      .dash-mobile-tabs {
+        display: flex; gap: 6px; flex-shrink: 0; margin-bottom: 8px;
+      }
+      .dash-mobile-tabs .dash-m-tab { flex: 1; }
+      .dash-mobile-tabs .dash-m-tab.active {
+        background: var(--txt); color: var(--bg); border-color: var(--txt);
+      }
+      .dash-layout {
+        grid-template-columns: 1fr;
+        flex: 1; min-height: 0;
+        gap: 0;
+      }
+      /* Day = full screen; Domains = separate screen */
+      body.dash-show-day .board-panel { display: none !important; }
+      body.dash-show-board .day-panel { display: none !important; }
+      body.dash-show-day .day-panel,
+      body.dash-show-board .board-panel {
+        display: flex !important;
+        height: 100%;
+        max-height: none;
+        min-height: 0;
+      }
+      .day-panel { border-radius: var(--radius); }
+      .day-hint { display: none; }
+      .day-calendar {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+      }
+      .board-panel { min-height: 0; overflow: auto; }
+      .project-board {
+        grid-template-columns: 1fr;
+        min-height: 0;
+        flex: 1;
+      }
+
+      /* Plan denser on phones */
+      .plan-lno { flex-direction: column; align-items: stretch; }
+      .plan-lno .btn { width: 100%; }
+      .plan-lno .lno-words { max-width: none; font-size: 11px; }
+      body.plan-active { padding: 0.5rem 0.75rem 1.25rem; }
+      .input-row { flex-wrap: wrap; }
+      .input-row input { min-width: 0; flex: 1 1 100%; }
+
+      /* Year: no Year overview on mobile */
+      .year-view-desktop-only { display: none !important; }
+      body.year-active { max-width: none; width: 100%; padding: 0.5rem 0.65rem 1rem; }
+      .year-month-mobile-wrap .year-month-card.large {
+        border: none; padding: 0; background: transparent;
+      }
+      .year-month-mobile-wrap .year-month-grid {
+        gap: 3px;
+      }
+      .year-month-card.large .year-cell {
+        height: 44px; font-size: 14px; border-radius: 8px;
+      }
+      .year-mobile-stats {
+        display: flex; gap: 1rem; margin-bottom: 10px;
+      }
+      .year-day-pills {
+        display: flex; gap: 4px; margin-bottom: 8px;
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        padding-bottom: 2px;
+      }
+      .year-day-pill {
+        flex: 1 0 auto; min-width: 44px;
+        display: flex; flex-direction: column; align-items: center;
+        gap: 2px; padding: 8px 6px;
+        border: 0.5px solid var(--border-md); border-radius: 10px;
+        background: var(--card); color: var(--txt);
+        font: inherit; cursor: pointer;
+      }
+      .year-day-pill .ydp-wd { font-size: 10px; color: var(--txt3); text-transform: uppercase; }
+      .year-day-pill .ydp-dd { font-size: 16px; font-weight: 600; }
+      .year-day-pill.active {
+        outline: 2px solid var(--txt); background: var(--surface);
+      }
+      .year-mobile-day-label {
+        font-size: 13px; color: var(--txt2); margin: 0 0 8px;
+      }
+      .year-week-frame-mobile { min-width: 0; }
+      .year-week-body-mobile {
+        grid-template-columns: 40px 1fr !important;
+        min-width: 0 !important;
+        width: 100% !important;
+      }
+      .year-week-scroll {
+        height: calc(100dvh - 220px);
+        max-height: none;
+        overflow-x: hidden;
+      }
+      .year-config { margin-top: 0.75rem; }
     }
 
-  
+    @media (min-width: 901px) {
+      .dash-mobile-tabs { display: none !important; }
+      body.dash-show-day .board-panel,
+      body.dash-show-board .day-panel,
+      body.dash-show-day .day-panel,
+      body.dash-show-board .board-panel {
+        display: flex !important;
+      }
+    }
+

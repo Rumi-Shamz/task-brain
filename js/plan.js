@@ -159,11 +159,19 @@ function singleCardHTML(t) {
         </div>
       </div>
       <div class="plan-field">LNO
-        <div class="plan-choices compact">
-          <button type="button" class="btn ${t.lno === 'L' ? 'primary' : ''}" onclick="planPatch({lno:'L'})">L</button>
-          <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" onclick="planPatch({lno:'N'})">N</button>
-          <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" onclick="planPatch({lno:'O'})">O</button>
-          <button type="button" class="btn ${!t.lno ? 'primary' : ''}" onclick="planPatch({lno:null})">—</button>
+        <div class="plan-choices compact plan-lno">
+          <button type="button" class="btn ${t.lno === 'L' ? 'primary' : ''}" onclick="planPatch({lno:'L'})" title="10x return — best energy">
+            <span class="lno-letter">L</span><span class="lno-words">Leverage · best energy</span>
+          </button>
+          <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" onclick="planPatch({lno:'N'})" title="Do it well enough">
+            <span class="lno-letter">N</span><span class="lno-words">Neutral · well enough</span>
+          </button>
+          <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" onclick="planPatch({lno:'O'})" title="Minimize, batch, delegate first">
+            <span class="lno-letter">O</span><span class="lno-words">Optional · batch / delegate</span>
+          </button>
+          <button type="button" class="btn ${!t.lno ? 'primary' : ''}" onclick="planPatch({lno:null})">
+            <span class="lno-letter">—</span><span class="lno-words">Unset</span>
+          </button>
         </div>
       </div>
       <div class="plan-field">Blocking
