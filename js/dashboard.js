@@ -119,6 +119,9 @@ export function renderDashboard() {
   if (typeof window.renderSkillsPanel === 'function') {
     window.renderSkillsPanel(document.getElementById('skills-panel'));
   }
+  if (typeof window.renderSomedayPanel === 'function') {
+    window.renderSomedayPanel(document.getElementById('someday-panel'));
+  }
 }
 
 export function dashChipDragStart(e) {

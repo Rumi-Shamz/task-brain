@@ -15,6 +15,9 @@ import {
   ensureSkills, addSkillFromForm, renderSkillsPanel, onTaskDoneMaybeLearn,
   ensureWeeklyLearnBlock,
 } from './skills.js';
+import {
+  renderSomedayPanel, somedayDelegate, somedayConvert, somedayDelete, somedayDefer,
+} from './someday.js';
 import { state as appState } from './state.js';
 
 deps.save = save;
@@ -48,6 +51,11 @@ Object.assign(window, triage, organize, scheduleMod, year, dashboard, {
   addSkillFromForm,
   renderSkillsPanel,
   onTaskDoneMaybeLearn,
+  renderSomedayPanel,
+  somedayDelegate,
+  somedayConvert,
+  somedayDelete,
+  somedayDefer,
   save,
 });
 
