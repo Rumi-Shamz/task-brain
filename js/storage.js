@@ -2,6 +2,7 @@ import {
   state, normalizeTask, normalizeRhythm, normalizeHourLogs,
   normalizeCustomProjects, normalizeWorkSchedule, seedYearRhythm, rhythmWithHours,
 } from './state.js';
+import { ensureProjectsMigrated } from './projects.js';
 import { deps } from './deps.js';
 
 export function save() {
@@ -14,7 +15,19 @@ export function save() {
 }
 
 export function getPersistPayload() {
-  return { version: 4, updatedAt: new Date().toISOString(), tasks: state.tasks, groups: state.groups, groupCounter: state.groupCounter, schedule: state.schedule, yearRhythm: rhythmWithHours(), yearHourLogs: state.yearHourLogs, customProjects: state.customProjects };
+  return {
+    version: 5,
+    updatedAt: new Date().toISOString(),
+    tasks: state.tasks,
+    groups: state.groups,
+    groupCounter: state.groupCounter,
+    schedule: state.schedule,
+    yearRhythm: rhythmWithHours(),
+    yearHourLogs: state.yearHourLogs,
+    customProjects: state.customProjects,
+    projects: state.projects || [],
+    skills: state.skills || [],
+  };
 }
 
 export function applyPersistPayload(d) {
@@ -29,8 +42,11 @@ export function applyPersistPayload(d) {
     d.yearHourLogs || (d.yearRhythm && d.yearRhythm.hourLogs) || []
   );
   state.customProjects = normalizeCustomProjects(d.customProjects);
+  state.projects = Array.isArray(d.projects) ? d.projects : [];
+  state.skills = Array.isArray(d.skills) ? d.skills : [];
   if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
   state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
+  ensureProjectsMigrated();
 }
 
 export function load() {
