@@ -1,6 +1,6 @@
 {
   "version": 8,
-  "updatedAt": "2026-10-03T12:47:39.090Z",
+  "updatedAt": "2026-10-03T12:47:52.231Z",
   "tasks": [
     {
       "id": "sgdm56",
@@ -903,6 +903,11 @@
       "id": "alfa-2",
       "label": "ALFA",
       "color": "#C17A3A"
+    },
+    {
+      "id": "alfa-3",
+      "label": "ALFA",
+      "color": "#2A9D8F"
     }
   ],
   "projects": [
@@ -982,6 +987,17 @@
       "people": [],
       "links": [],
       "color": "#5B8DEF"
+    },
+    {
+      "id": "alfa-2",
+      "name": "ALFA",
+      "domain": "Other",
+      "objective": "",
+      "deadline": null,
+      "status": "active",
+      "people": [],
+      "links": [],
+      "color": "#C17A3A"
     }
   ],
   "skills": []
