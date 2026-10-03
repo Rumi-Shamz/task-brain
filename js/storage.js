@@ -14,11 +14,12 @@ export function save() {
 }
 
 export function getPersistPayload() {
-  return { version: 3, updatedAt: new Date().toISOString(), tasks: state.tasks, groups: state.groups, groupCounter: state.groupCounter, schedule: state.schedule, yearRhythm: rhythmWithHours(), yearHourLogs: state.yearHourLogs, customProjects: state.customProjects };
+  return { version: 4, updatedAt: new Date().toISOString(), tasks: state.tasks, groups: state.groups, groupCounter: state.groupCounter, schedule: state.schedule, yearRhythm: rhythmWithHours(), yearHourLogs: state.yearHourLogs, customProjects: state.customProjects };
 }
 
 export function applyPersistPayload(d) {
   if (!d || typeof d !== 'object') return;
+  // v3 → v4: ensure status/reviewAt/domain on tasks (normalizeTask handles defaults)
   state.tasks = (d.tasks || []).map(normalizeTask);
   state.groups = d.groups || {};
   state.groupCounter = d.groupCounter || 0;

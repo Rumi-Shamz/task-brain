@@ -48,7 +48,7 @@
         <button class="btn" onclick="toggleBulk()">Bulk</button>
         <label class="btn" style="cursor:pointer;display:inline-flex;align-items:center;">
           Import week plan
-          <input type="file" id="week-plan-file" accept=".csv,.xlsx,.xls" hidden onchange="importWeeklyPlanFile(this)" />
+          <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden onchange="importWeeklyPlanFile(this)" />
         </label>
       </div>
       <div id="bulk-area" style="display:none;">
@@ -60,6 +60,7 @@
         </div>
       </div>
       <p class="bulk-hint" id="week-plan-msg"></p>
+      <div id="week-plan-report" class="import-report-wrap"></div>
     </div>
     <div id="task-list" class="task-list"></div>
     <div id="triage-actions" style="margin-top:1.5rem;display:none;">
