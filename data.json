@@ -1,6 +1,6 @@
 {
   "version": 8,
-  "updatedAt": "2026-10-03T12:33:10.619Z",
+  "updatedAt": "2026-10-03T12:47:39.090Z",
   "tasks": [
     {
       "id": "sgdm56",
@@ -898,6 +898,11 @@
       "id": "swing-society",
       "label": "Swing Society",
       "color": "#5B8DEF"
+    },
+    {
+      "id": "alfa-2",
+      "label": "ALFA",
+      "color": "#C17A3A"
     }
   ],
   "projects": [
