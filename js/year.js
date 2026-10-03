@@ -1,15 +1,16 @@
 import {
   state, YEAR_DAYS, FAST_DAYS, RESTORE_DAYS, SPRINT_DAYS, CYCLE_DAYS, DEEP_REST_DAYS, VACATION_DAYS,
-  HOUR_H, WEEK_COL_H, VIEW_SCROLL_TOP, VIEW_HOUR_START, VIEW_HOUR_END, DAY_START_MIN, DAY_END_MIN,
-  VISIBLE_MINUTES, SLOT_MINUTES, WEEKDAY_SHORT, MONTH_SHORT_WS, DEFAULT_DURATION,
-  seedYearRhythm, normalizeRhythm, paintYear, dateForDay, mondayOfWeek, clampDay, weekdayOfDay,
-  dayIndexToday, formatYmd, parseYmd, addDaysLocal, mondayOnOrBefore, formatClock, hoursBetween,
-  snapMin, clampVisibleMin, defaultWorkSchedule, normalizeWorkSchedule, workWindowFromMonth,
-  seasonSpec, hourLabel, monthsLabel, workWindowLabel, workWindowRuleText, seasonalWorkShadeRange,
-  statsBuckets, newHourLogId, formatHHMM, parseHHMM, snapCalMins, clampCalStart,
-  CAL_DAY_START, CAL_DAY_END, CAL_MIN_DURATION, projectClass, projectColStyleAttr,
-  chipControlsHTML, esc, pad2, allProjects, LANES
+  HOUR_H, WEEK_COL_H, WEEK_HOUR_START, WEEK_HOUR_END, VIEW_SCROLL_TOP, VIEW_HOUR_START, VIEW_HOUR_END,
+  DAY_START_MIN, DAY_END_MIN, VISIBLE_MINUTES, SLOT_MINUTES, WEEKDAY_SHORT, MONTH_SHORT_WS, DEFAULT_DURATION,
+  seedYearRhythm, normalizeRhythm, normalizeHourLogs, rhythmWithHours, paintYear, dateForDay,
+  mondayOfWeek, clampDay, weekdayOfDay, dayIndexToday, formatYmd, parseYmd, addDaysLocal,
+  mondayOnOrBefore, formatClock, hoursBetween, snapMin, clampVisibleMin, defaultWorkSchedule,
+  normalizeWorkSchedule, workWindowFromMonth, seasonSpec, hourLabel, monthsLabel, workWindowLabel,
+  workWindowRuleText, seasonalWorkShadeRange, statsBuckets, newHourLogId, formatHHMM, parseHHMM,
+  snapCalMins, clampCalStart, CAL_DAY_START, CAL_DAY_END, CAL_MIN_DURATION, projectClass,
+  projectColStyleAttr, chipControlsHTML, esc, pad2, allProjects, LANES
 } from './state.js';
+import { weekTaskBlocksHTML, weekTaskTrayHTML, yearWeekColDragAttrs } from './dashboard.js';
 import { deps } from './deps.js';
 
 export function setYearAnchor(value) {
@@ -53,6 +54,11 @@ export async function exportYearJson() {
 
 export function setYearCalendarView(view) { state.yearCalendarView = view === 'week' ? 'week' : view === 'month' ? 'month' : 'year';
   deps.renderYear(); }
+
+export function openYearMonthView(year, month) {
+  state.yearMonthCursor = { year: Number(year), month: Number(month) };
+  setYearCalendarView('month');
+}
 
 export function nudgeYearWeek(delta) { state.yearWeekMonday = mondayOfWeek(clampDay(state.yearWeekMonday + delta));
   deps.renderYear(); }
@@ -410,7 +416,7 @@ export function renderYear() {
     }).join('');
     const titleClick = large
       ? `${ MONTHS[slot.month] } ${ slot.year }`
-      : `<button type="button" class="btn" style="padding:0;border:none;background:none;font:inherit;font-weight:600;cursor:pointer;color:var(--txt)" onclick="yearMonthCursor={year:${ slot.year },month:${ slot.month }};setYearCalendarView('month')">${ MONTHS[slot.month] } ${ slot.year }</button>`;
+      : `<button type="button" class="btn" style="padding:0;border:none;background:none;font:inherit;font-weight:600;cursor:pointer;color:var(--txt)" onclick="openYearMonthView(${ slot.year },${ slot.month })">${ MONTHS[slot.month] } ${ slot.year }</button>`;
     return `<div class="year-month-card${ large ? ' large' : '' }"><h4>${ titleClick }</h4><div class="year-month-hint">${ seasonHint }</div><div class="year-month-grid">${ head }${ body }</div></div>`;
   }
 
@@ -550,37 +556,4 @@ export function renderYear() {
   renderYearHourEdit();
 }
 
-
-/* —— Dashboard calendar (state.tasks on hours) —— */
-export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
-export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 18); }
-export function yToMins(y) { return CAL_DAY_START + (y / HOUR_H) * 60; }
-
-export function chipHTML(t) {
-  const scheduled = !!(t.start && t.date);
-  const running = !!t.timerStartedAt;
-  return `<div class="board-chip ${ scheduled ? 'scheduled' : '' } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }"
-      draggable="true" data-id="${ t.id }"
-      ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
-    <div class="board-chip-main">
-      <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
-        onpointerdown="event.stopPropagation()"
-        onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)"
-        title="Mark done" aria-label="Mark done" />
-      <span class="board-chip-name">${ esc(t.name) }</span>
-      ${scheduled ? `<span class="chip-sched-mark">${ esc(t.date.slice(5)) } ${ esc(t.start) }</span>` : ''}
-    </div>
-    ${ chipControlsHTML(t) }
-  </div>`;
-}
-
-export function applyCalBlockStyle(el, t) {
-  const startMins = parseHHMM(t.start);
-  if (startMins == null) return;
-  const dur = t.duration || DEFAULT_DURATION;
-  el.style.top = minsToY(startMins) + 'px';
-  el.style.height = durationToH(dur) + 'px';
-  const timeEl = el.querySelector('.cal-block-time');
-  if (timeEl) timeEl.textContent = t.start + '–' + formatHHMM(startMins + dur);
-}
 

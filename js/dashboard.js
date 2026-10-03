@@ -1,12 +1,42 @@
 import {
   state, LANES, HOUR_H, VIEW_HOUR_START, VIEW_HOUR_END, VIEW_HOURS, VIEW_SCROLL_TOP,
   DAY_START_MIN, DAY_END_MIN, VISIBLE_MINUTES, DEFAULT_DURATION, CAL_DAY_START, CAL_DAY_END,
-  CAL_SNAP, CAL_MIN_DURATION, allProjects, projectClass, projectColStyleAttr, chipControlsHTML,
+  CAL_SNAP, CAL_MIN_DURATION, allProjects, projectClass, projectCssVars, projectColStyleAttr, chipControlsHTML,
   esc, pad2, formatYmd, parseYmd, parseHHMM, formatHHMM, snapCalMins, clampCalStart, todayYmd,
   ensureDashCalDate, formatTracked, taskElapsedMs, setHideDone, toggleTaskDone,
   startTaskTimer, pauseTaskTimer, stopTaskTimer, ensureTimerTick
 } from './state.js';
 import { deps } from './deps.js';
+
+export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
+export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 18); }
+export function yToMins(y) { return CAL_DAY_START + (y / HOUR_H) * 60; }
+export function applyCalBlockStyle(el, t) {
+  const startMins = parseHHMM(t.start);
+  if (startMins == null) return;
+  const dur = t.duration || DEFAULT_DURATION;
+  el.style.top = minsToY(startMins) + 'px';
+  el.style.height = durationToH(dur) + 'px';
+  const timeEl = el.querySelector('.cal-block-time');
+  if (timeEl) timeEl.textContent = t.start + '–' + formatHHMM(startMins + dur);
+}
+export function chipHTML(t) {
+  const scheduled = !!(t.start && t.date);
+  const running = !!t.timerStartedAt;
+  return `<div class="board-chip ${ scheduled ? 'scheduled' : '' } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }"
+      draggable="true" data-id="${ t.id }"
+      ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
+    <div class="board-chip-main">
+      <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
+        onpointerdown="event.stopPropagation()"
+        onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)"
+        title="Mark done" aria-label="Mark done" />
+      <span class="board-chip-name">${ esc(t.name) }</span>
+      ${scheduled ? `<span class="chip-sched-mark">${ esc(t.date.slice(5)) } ${ esc(t.start) }</span>` : ''}
+    </div>
+    ${ chipControlsHTML(t) }
+  </div>`;
+}
 
 export function renderDayCalendar() {
   const root = document.getElementById('day-calendar');
@@ -338,7 +368,10 @@ export function yearWeekTaskDrop(e, ymd) {
   e.currentTarget.classList.remove('task-drop-hover');
   const id = e.dataTransfer.getData('application/x-task-id') || e.dataTransfer.getData('text/plain') || state.dashDragId;
   if (!id || !ymd) return;
-  const startMin = yearMinFromY(e.clientY, e.currentTarget);
+  const rect = e.currentTarget.getBoundingClientRect();
+  const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+  const ratio = rect.height > 0 ? y / rect.height : 0;
+  const startMin = snapCalMins(DAY_START_MIN + ratio * VISIBLE_MINUTES);
   scheduleTaskOnDate(id, ymd, startMin);
   deps.renderYear();
 }
