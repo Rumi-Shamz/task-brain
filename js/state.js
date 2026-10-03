@@ -30,6 +30,9 @@ export const state = {
   ghPushTimer: null,
   fileSha: null,
   ghSaving: false,
+  /** boot: waiting for first pull; ready: may auto-push; blocked: pull failed; local: no GitHub */
+  syncGate: 'boot',
+  lastSyncAt: null,
 };
 
 export const BUILTIN_PROJECTS = [

@@ -9,8 +9,9 @@ import { deps } from './deps.js';
 
 export function save() {
   try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
-  if (deps.ghConnected && deps.ghConnected()) {
-    // Debounced quiet push so rapid edits don't spam the Contents API.
+  // Only auto-push after a successful boot pull (or confirmed empty remote).
+  // Prevents one device's localStorage from overwriting the shared data.json.
+  if (deps.ghConnected && deps.ghConnected() && state.syncGate === 'ready') {
     clearTimeout(state.ghPushTimer);
     state.ghPushTimer = setTimeout(() => deps.ghPush({ quiet: true }), 1800);
   }

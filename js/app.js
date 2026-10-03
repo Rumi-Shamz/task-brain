@@ -1,7 +1,7 @@
 import { state, addCustomProject, ensureTimerTick, setHideDone, toggleTaskDone, startTaskTimer, pauseTaskTimer, stopTaskTimer } from './state.js';
 import { save, load } from './storage.js';
 import {
-  ghConnect, ghPull, ghPush, ghDisconnect, toggleSyncPanel, refreshSyncForm, ghConnected, bindLogoSync
+  ghConnect, ghPull, ghPush, ghDisconnect, toggleSyncPanel, refreshSyncForm, ghConnected, bindLogoSync, bootSync,
 } from './sync.js';
 import * as plan from './plan.js';
 import * as year from './year.js';
@@ -74,9 +74,12 @@ load();
 ensureProjectsMigrated();
 ensureGroups();
 ensureSkills();
-(appState.skills || []).filter(s => s.quadrant === 'schedule').forEach(ensureWeeklyLearnBlock);
 year.ensureYearWeekMonday();
 ensureTimerTick();
 switchPhase('plan');
 refreshSyncForm();
-if (ghConnected()) ghPull();
+
+// Pull remote BEFORE learn-block seeding / auto-push, so phone and desktop share one source of truth.
+bootSync().finally(() => {
+  (appState.skills || []).filter(s => s.quadrant === 'schedule').forEach(ensureWeeklyLearnBlock);
+});

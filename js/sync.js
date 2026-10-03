@@ -43,6 +43,38 @@ export function ghConnected() {
   const c = ghCfg();
   return !!(c.token && c.owner && c.repo);
 }
+
+export function canAutoPush() {
+  return ghConnected() && state.syncGate === 'ready' && !state.ghSaving;
+}
+
+function formatSyncTime(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch (e) { return ''; }
+}
+
+export function refreshSyncStatus() {
+  if (!ghConnected()) {
+    state.syncGate = 'local';
+    setSyncStatus('Local only');
+    return;
+  }
+  if (state.syncGate === 'boot') {
+    setSyncStatus('Pulling…');
+    return;
+  }
+  if (state.syncGate === 'blocked') {
+    setSyncStatus('Not synced — Pull required');
+    return;
+  }
+  const when = formatSyncTime(state.lastSyncAt);
+  setSyncStatus(when ? `Synced · ${when}` : 'Synced · data.json');
+}
+
 export function setSyncMsg(text, kind) {
   const el = document.getElementById('sync-msg');
   if (!el) return;
@@ -61,7 +93,7 @@ export function refreshSyncForm() {
   if (tok && !tok.value) tok.value = c.token;
   if (own) own.value = c.owner;
   if (rep) rep.value = c.repo;
-  setSyncStatus(ghConnected() ? 'Synced · data.json' : 'Local only');
+  refreshSyncStatus();
 }
 export function toggleSyncPanel(force) {
   const panel = document.getElementById('sync-panel');
@@ -77,7 +109,7 @@ export function b64enc(str) {
   return btoa(bin);
 }
 export function b64dec(b64) {
-  const bin = atob(String(b64 || '').replace(/\s/g, ''));
+  const bin = atob(String(b64 || '').replace(/\s+/g, ''));
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
@@ -99,35 +131,59 @@ export function pullErrorMessage(e) {
   if (e && e.message) return 'Pull failed: ' + e.message;
   return 'Pull failed. Use private repo task-brain-data, then Connect & pull.';
 }
+
+function applyRemoteAndRender(j) {
+  state.fileSha = j.sha;
+  applyPersistPayload(JSON.parse(b64dec(j.content)));
+  try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
+  state.lastSyncAt = (getPersistPayload().updatedAt) || new Date().toISOString();
+  try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after pull', e); }
+  try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after pull', e); }
+  try { if (typeof deps.renderYear === 'function') deps.renderYear(); } catch (e) { console.warn('year after pull', e); }
+}
+
 export function ghPull() {
   const c = ghCfg();
   if (!c.token || !c.owner || !c.repo) {
     setSyncMsg('Connect with a token first.', 'err');
-    return Promise.resolve();
+    state.syncGate = 'local';
+    refreshSyncStatus();
+    return Promise.resolve({ ok: false, reason: 'no-creds' });
   }
   if (isPublicAppRepo(c.owner, c.repo)) {
     lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
     setSyncMsg('Repo was the public Pages app. Switched to task-brain-data — Connect & pull again.', 'err');
     refreshSyncForm();
-    return Promise.resolve();
+    return Promise.resolve({ ok: false, reason: 'public-repo' });
   }
   setSyncMsg('Pulling…');
+  if (state.syncGate === 'boot') setSyncStatus('Pulling…');
   return ghApi(c, 'GET').then(r => {
-    if (r.status === 404) throw 'No data.json in repo yet — Push save to create it.';
+    if (r.status === 404) {
+      // No remote file yet — safe to push local as the first copy
+      state.fileSha = null;
+      state.syncGate = 'ready';
+      state.lastSyncAt = null;
+      setSyncMsg('No data.json yet — Push save to create it from this device.', 'ok');
+      refreshSyncStatus();
+      return { ok: true, empty: true };
+    }
     if (!r.ok) throw 'GitHub error ' + r.status;
-    return r.json();
-  }).then(j => {
-    state.fileSha = j.sha;
-    applyPersistPayload(JSON.parse(b64dec(j.content)));
-    try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
-    // Re-render safely — a missing DOM node must not fail the pull
-    try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after pull', e); }
-    try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after pull', e); }
-    try { if (typeof deps.renderYear === 'function') deps.renderYear(); } catch (e) { console.warn('year after pull', e); }
-    setSyncMsg('Pulled latest data.json.', 'ok');
-    setSyncStatus('Synced · data.json');
-  }).catch(e => { setSyncMsg(pullErrorMessage(e), 'err'); });
+    return r.json().then(j => {
+      applyRemoteAndRender(j);
+      state.syncGate = 'ready';
+      setSyncMsg('Pulled latest data.json.', 'ok');
+      refreshSyncStatus();
+      return { ok: true, empty: false };
+    });
+  }).catch(e => {
+    state.syncGate = 'blocked';
+    setSyncMsg(pullErrorMessage(e), 'err');
+    refreshSyncStatus();
+    return { ok: false, reason: e };
+  });
 }
+
 export function ghPush(opts) {
   const quiet = opts && opts.quiet;
   const c = ghCfg();
@@ -139,6 +195,10 @@ export function ghPush(opts) {
     lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
     if (!quiet) setSyncMsg('Refusing to save into the public Pages repo. Switched to task-brain-data.', 'err');
     refreshSyncForm();
+    return Promise.resolve();
+  }
+  // Never auto-push until a successful pull (or confirmed empty remote)
+  if (quiet && state.syncGate !== 'ready') {
     return Promise.resolve();
   }
   if (state.ghSaving) return Promise.resolve();
@@ -153,6 +213,8 @@ export function ghPush(opts) {
     if (!r.ok) throw r.status;
     return r.json();
   }).then(j => {
+    // Remote exists but this device never pulled — refuse overwrite (esp. quiet push)
+    if (!state.fileSha && j.sha) throw 'need-pull';
     if (state.fileSha && j.sha && j.sha !== state.fileSha) throw 'stale';
     return put(j.sha);
   }).then(r => {
@@ -161,18 +223,29 @@ export function ghPush(opts) {
   }).then(j => {
     state.fileSha = j.content && j.content.sha;
     state.ghSaving = false;
-    if (!quiet) setSyncMsg('Saved to GitHub. Sites usually update within a few minutes.', 'ok');
-    setSyncStatus('Synced · data.json');
+    state.syncGate = 'ready';
+    state.lastSyncAt = new Date().toISOString();
+    if (!quiet) setSyncMsg('Saved to GitHub.', 'ok');
+    refreshSyncStatus();
   }).catch(e => {
     state.ghSaving = false;
+    if (e === 'stale' || e === 'need-pull') {
+      // Auto-pull so devices reconverge; do not overwrite remote with local
+      setSyncMsg(e === 'stale'
+        ? 'Newer version on GitHub — pulling it…'
+        : 'Remote data exists — pulling before any save…', 'err');
+      return ghPull().then(() => {
+        if (!quiet) setSyncMsg('Pulled newer data. Re-apply your edit if it was lost, then Push.', 'err');
+      });
+    }
     if (quiet) return;
-    if (e === 'stale') setSyncMsg('Newer version exists on GitHub. Pull first, then Push.', 'err');
-    else if (e === 401) setSyncMsg('Token rejected. Disconnect and reconnect with a fresh PAT.', 'err');
+    if (e === 401) setSyncMsg('Token rejected. Disconnect and reconnect with a fresh PAT.', 'err');
     else if (e === 403 || e === 404) setSyncMsg('Token needs Contents: Read and write on this repo.', 'err');
     else if (e === 409) setSyncMsg('Save clash. Pull, then Push again.', 'err');
     else setSyncMsg('Could not save' + (typeof e === 'number' ? ' (error ' + e + ')' : '') + '.', 'err');
   });
 }
+
 export function ghConnect() {
   const t = (document.getElementById('su-token') || {}).value.trim();
   let o = (document.getElementById('su-owner') || {}).value.trim();
@@ -186,20 +259,36 @@ export function ghConnect() {
   }
   if (o.toLowerCase() === DEFAULT_DATA_OWNER.toLowerCase()) o = DEFAULT_DATA_OWNER;
   lsSet(LS_GH_TOKEN, t); lsSet(LS_GH_OWNER, o); lsSet(LS_GH_REPO, r);
+  state.syncGate = 'boot';
+  state.fileSha = null;
   setSyncMsg('Connected. Pulling…');
-  ghPull().then(() => {
-    if (!state.fileSha) ghPush();
+  refreshSyncStatus();
+  ghPull().then(res => {
+    if (res && res.ok && res.empty) ghPush({ quiet: false });
   });
 }
 export function ghDisconnect() {
   lsDel(LS_GH_TOKEN); lsDel(LS_GH_OWNER); lsDel(LS_GH_REPO);
   state.fileSha = null;
+  state.syncGate = 'local';
+  state.lastSyncAt = null;
   setSyncMsg('Disconnected. Local-only mode.', 'ok');
-  setSyncStatus('Local only');
+  refreshSyncStatus();
   const tok = document.getElementById('su-token');
   if (tok) tok.value = '';
 }
 
+/** Startup: pull remote before any auto-push can run. */
+export function bootSync() {
+  if (!ghConnected()) {
+    state.syncGate = 'local';
+    refreshSyncStatus();
+    return Promise.resolve({ ok: false, local: true });
+  }
+  state.syncGate = 'boot';
+  refreshSyncStatus();
+  return ghPull();
+}
 
 export function bindLogoSync() {
   let taps = 0, last = 0;
