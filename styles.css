@@ -434,15 +434,18 @@
       background: transparent; padding: 0; font-family: inherit;
     }
     .year-cell.in-week { outline: 1px solid var(--txt); }
-    .year-week-frame { min-width: 720px; }
+    .year-week-frame {
+      width: 100%;
+      min-width: 0;
+    }
     .year-week-hourly {
       display: grid;
-      grid-template-columns: 48px repeat(7, minmax(0, 1fr));
+      grid-template-columns: 48px repeat(7, minmax(88px, 1fr));
       column-gap: 4px;
       row-gap: 0;
       align-items: stretch;
       min-width: 720px;
-      width: 100%;
+      width: max(100%, 720px);
     }
     .year-week-heads {
       margin-bottom: 4px;
@@ -454,12 +457,12 @@
     }
     .year-week-gutter-spacer { min-height: 1px; }
     .year-week-scroll {
-      overflow-y: auto;
-      overflow-x: hidden;
+      overflow: auto;
       height: calc(var(--view-hours) * var(--hour-h) + 72px);
       max-height: 75vh;
       border-radius: var(--radius);
       scrollbar-gutter: stable;
+      -webkit-overflow-scrolling: touch;
     }
     .year-config {
       margin-top: 1.5rem;
@@ -489,14 +492,18 @@
     .year-week-head .dd { font-size: 11px; color: var(--txt2); display: block; }
     .year-week-head .lbl { font-size: 10px; color: var(--txt3); display: block; }
     .year-week-gutter {
-      position: relative; min-height: calc(24 * var(--hour-h));
+      position: relative;
+      height: calc(24 * var(--hour-h));
+      min-height: calc(24 * var(--hour-h));
       font-size: 10px; color: var(--txt3);
     }
     .year-week-gutter span {
       position: absolute; left: 0; transform: translateY(-50%);
     }
     .year-week-col {
-      position: relative; min-height: calc(24 * var(--hour-h));
+      position: relative;
+      height: calc(24 * var(--hour-h));
+      min-height: calc(24 * var(--hour-h));
       border: 0.5px solid var(--border-md); border-radius: var(--radius);
       background: var(--card); overflow: hidden; cursor: crosshair;
     }

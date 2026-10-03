@@ -441,11 +441,11 @@ export function weekTaskBlocksHTML(ymd) {
     if (startMins == null) return '';
     const dur = t.duration || DEFAULT_DURATION;
     const endMins = Math.min(CAL_DAY_END, startMins + dur);
-    const top = ((Math.max(startMins, DAY_START_MIN) - DAY_START_MIN) / VISIBLE_MINUTES) * 100;
-    const height = ((Math.min(endMins, DAY_END_MIN) - Math.max(startMins, DAY_START_MIN)) / VISIBLE_MINUTES) * 100;
+    const top = Math.max(startMins, DAY_START_MIN) / 60 * HOUR_H;
+    const height = Math.max(0, (Math.min(endMins, DAY_END_MIN) - Math.max(startMins, DAY_START_MIN)) / 60 * HOUR_H);
     const endLabel = formatHHMM(startMins + dur);
     return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ t.id }" data-ymd="${ esc(ymd) }"
-        style="${ projectCssVars(t.project) }top:${ top }%;height:${ Math.max(height, 3.5) }%"
+        style="${ projectCssVars(t.project) }top:${ top }px;height:${ Math.max(height, 18) }px"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
         onpointerdown="weekTaskPointerDown(event)"
         ondblclick="event.stopPropagation();unscheduleTask('${ t.id }');renderYear();">
@@ -496,8 +496,15 @@ export function weekTaskPointerDown(e) {
   const col = block.closest('.year-week-col');
   const startMins = parseHHMM(t.start) ?? DAY_START_MIN;
   const colRect = col.getBoundingClientRect();
-  const yRatio = (startMins - DAY_START_MIN) / VISIBLE_MINUTES;
-  state.calPointer = { id, mode: 'move', source: 'week', startX: e.clientX, startY: e.clientY, origStart: startMins, origDuration: t.duration || DEFAULT_DURATION, grabOffset: e.clientY - (colRect.top + yRatio * colRect.height), moved: false, block, ymd: block.dataset.ymd };
+  const colH = 24 * HOUR_H;
+  const scale = colRect.height / colH;
+  const startY = (startMins / 60) * HOUR_H * scale;
+  state.calPointer = {
+    id, mode: 'move', source: 'week', startX: e.clientX, startY: e.clientY,
+    origStart: startMins, origDuration: t.duration || DEFAULT_DURATION,
+    grabOffset: e.clientY - (colRect.top + startY),
+    moved: false, block, ymd: block.dataset.ymd,
+  };
   block.classList.add('moving');
   e.preventDefault();
 }
@@ -506,18 +513,18 @@ export function onWeekTaskPointerMove(e, t) {
   const col = document.querySelector(`.year-week-col[data-ymd="${ state.calPointer.ymd }"]`);
   if (!col) return;
   const rect = col.getBoundingClientRect();
-  const grabRatio = (state.calPointer.origStart - DAY_START_MIN) / VISIBLE_MINUTES;
-  const grabPx = grabRatio * rect.height;
+  const colH = 24 * HOUR_H;
+  const scale = rect.height / colH;
+  const grabPx = (state.calPointer.origStart / 60) * HOUR_H * scale;
   const offset = state.calPointer.startY - (rect.top + grabPx);
-  const newTop = e.clientY - rect.top - offset;
-  const ratio = rect.height > 0 ? Math.max(0, Math.min(1, newTop / rect.height)) : 0;
-  const mins = clampCalStart(snapCalMins(DAY_START_MIN + ratio * VISIBLE_MINUTES), t.duration || DEFAULT_DURATION);
+  const newTopPx = (e.clientY - rect.top - offset) / scale;
+  const mins = clampCalStart(snapCalMins(newTopPx / HOUR_H * 60), t.duration || DEFAULT_DURATION);
   t.start = formatHHMM(mins);
   const dur = t.duration || DEFAULT_DURATION;
   const endMins = Math.min(DAY_END_MIN, mins + dur);
   const block = state.calPointer.block;
-  block.style.top = ((mins - DAY_START_MIN) / VISIBLE_MINUTES) * 100 + '%';
-  block.style.height = ((endMins - mins) / VISIBLE_MINUTES) * 100 + '%';
+  block.style.top = (mins / 60) * HOUR_H + 'px';
+  block.style.height = Math.max(18, ((endMins - mins) / 60) * HOUR_H) + 'px';
   const timeEl = block.querySelector('.yt-time');
   if (timeEl) timeEl.textContent = t.start + '–' + formatHHMM(mins + dur);
 }

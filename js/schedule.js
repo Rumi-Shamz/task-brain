@@ -5,6 +5,7 @@ import { deps } from './deps.js';
 export function renderSchedule() {
   const el = document.getElementById('schedule-list');
   const summary = document.getElementById('plan-summary');
+  if (!el || !summary) return;
   summary.innerHTML = `<h3>Today at a glance</h3>
     <div class="plan-stats">
       <div><div class="plan-stat">${ state.tasks.length }</div><div class="plan-stat-label">state.tasks</div></div>

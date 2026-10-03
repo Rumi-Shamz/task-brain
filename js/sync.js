@@ -120,9 +120,10 @@ export function ghPull() {
     state.fileSha = j.sha;
     applyPersistPayload(JSON.parse(b64dec(j.content)));
     try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
-    deps.render();
-    deps.renderDashboard();
-    deps.renderYear();
+    // Re-render safely — a missing DOM node must not fail the pull
+    try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after pull', e); }
+    try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after pull', e); }
+    try { if (typeof deps.renderYear === 'function') deps.renderYear(); } catch (e) { console.warn('year after pull', e); }
     setSyncMsg('Pulled latest data.json.', 'ok');
     setSyncStatus('Synced · data.json');
   }).catch(e => { setSyncMsg(pullErrorMessage(e), 'err'); });

@@ -3,6 +3,7 @@ import { deps } from './deps.js';
 
 export function renderOrganize() {
   const el = document.getElementById('organized-list');
+  if (!el) return;
   const sorted = [...state.tasks].sort((a, b) => {
     const sp = { complex: 0, mid: 1, simple: 2 };
     const bs = t => t.blocking ? 0 : 1;

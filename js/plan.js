@@ -458,16 +458,21 @@ export function planDomainChanged(dom) {
 export function renderPlanWizard() {
   const root = document.getElementById('plan-wizard');
   if (!root) return;
-  const t = currentPlanTask();
-  if (!t) {
-    root.innerHTML = `${progressHTML()}<div class="empty-state">All tasks triaged — open Dashboard to execute, or add more above.</div>`;
-    return;
-  }
-  root.innerHTML = progressHTML() + singleCardHTML(t);
-  if (focusSubtaskId) {
-    const inp = root.querySelector(`.subtask-input[data-sid="${focusSubtaskId}"]`);
-    if (inp) { inp.focus(); inp.select?.(); }
-    focusSubtaskId = null;
+  try {
+    const t = currentPlanTask();
+    if (!t) {
+      root.innerHTML = `${progressHTML()}<div class="empty-state">All tasks triaged — open Dashboard to execute, or add more above.</div>`;
+      return;
+    }
+    root.innerHTML = progressHTML() + singleCardHTML(t);
+    if (focusSubtaskId) {
+      const inp = root.querySelector(`.subtask-input[data-sid="${focusSubtaskId}"]`);
+      if (inp) { inp.focus(); inp.select?.(); }
+      focusSubtaskId = null;
+    }
+  } catch (e) {
+    console.error('renderPlanWizard', e);
+    root.innerHTML = `${progressHTML()}<div class="empty-state">Could not render triage card — see console.</div>`;
   }
 }
 

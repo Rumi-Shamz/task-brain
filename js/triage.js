@@ -95,6 +95,7 @@ export const setWho = updateWho;
 
 export function renderTriage() {
   const el = document.getElementById('task-list');
+  if (!el) return; // legacy list removed — Plan wizard owns triage UI
   if (!state.tasks.length) { el.innerHTML = '<div class="empty-state">No tasks yet — add one above.</div>'; return; }
   el.innerHTML = state.tasks.map(t => {
     const sizeClass = t.size ? `triaged ${t.size}` : '';

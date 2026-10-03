@@ -191,8 +191,8 @@ export function renderYearHourDraft() {
   const b = Math.max(state.yearHourDrag.startMin, state.yearHourDrag.endMin);
   const div = document.createElement('div');
   div.className = 'year-hour-draft';
-  div.style.top = ((a - DAY_START_MIN) / VISIBLE_MINUTES) * 100 + '%';
-  div.style.height = (Math.max(SLOT_MINUTES, b - a) / VISIBLE_MINUTES) * 100 + '%';
+  div.style.top = (a / 60) * HOUR_H + 'px';
+  div.style.height = (Math.max(SLOT_MINUTES, b - a) / 60) * HOUR_H + 'px';
   col.appendChild(div);
 }
 
@@ -309,18 +309,25 @@ export function renderYear() {
   const buckets = statsBuckets(counts);
   const protocol = counts.fast + counts.restore + counts.sprint + counts.deepRest + counts.vacation;
   const pct = Math.round((protocol / YEAR_DAYS) * 100);
-  document.getElementById('year-stats').innerHTML = `
+  const statsEl = document.getElementById('year-stats');
+  if (statsEl) {
+    statsEl.innerHTML = `
     <div><div class="year-stat">${ buckets.work }</div><div class="year-stat-label">Work</div></div>
     <div><div class="year-stat">${ buckets.free }</div><div class="year-stat-label">Free</div></div>
     <div><div class="year-stat">${ buckets.reset }</div><div class="year-stat-label">Reset</div></div>
     <div><div class="year-stat">${ buckets.conflict }</div><div class="year-stat-label">Conflicts</div></div>
   `;
-  document.getElementById('year-substats').textContent =
-    `Sub: seasonal work ${ counts.work } · sprint ${ counts.sprint } · seasonal off ${ counts.free } · vacation ${ counts.vacation } · fast ${ counts.fast } · restore ${ counts.restore } · deep rest ${ counts.deepRest } · protocol ${ protocol } (${ pct }%)`;
+  }
+  const substatsEl = document.getElementById('year-substats');
+  if (substatsEl) {
+    substatsEl.textContent =
+      `Sub: seasonal work ${ counts.work } · sprint ${ counts.sprint } · seasonal off ${ counts.free } · vacation ${ counts.vacation } · fast ${ counts.fast } · restore ${ counts.restore } · deep rest ${ counts.deepRest } · protocol ${ protocol } (${ pct }%)`;
+  }
 
   const todayIdx = dayIndexToday(state.yearRhythm);
   const callout = document.getElementById('year-this-week');
-  if (todayIdx == null) {
+  if (!callout) { /* skip callout */ }
+  else if (todayIdx == null) {
     callout.innerHTML = `<h3>Outside this personal year</h3>
       <p>Today is outside the 364-day window starting ${ esc(state.yearRhythm.yearStartMonday) }. Adjust the year start Monday, or roll into the next revolving year.</p>`;
   } else {
@@ -474,10 +481,10 @@ export function renderYear() {
       </button>`;
     }).join('');
 
+    // Pixel grid (same HOUR_H as Dashboard) so phone/desktop hour slots align
     const gutterMarks = [];
     for (let h = WEEK_HOUR_START; h < WEEK_HOUR_END; h++) {
-      const top = ((h * 60 - DAY_START_MIN) / VISIBLE_MINUTES) * 100;
-      gutterMarks.push(`<span style="top:${ top }%">${ pad2(h) }:00</span>`);
+      gutterMarks.push(`<span style="top:${ h * HOUR_H }px">${ pad2(h) }:00</span>`);
     }
 
     const cols = days.map(di => {
@@ -490,21 +497,20 @@ export function renderYear() {
       const shade = seasonalWorkShadeRange(cell.kind, weekdayOfDay(di), spec);
       const lines = [];
       for (let h = WEEK_HOUR_START; h < WEEK_HOUR_END; h++) {
-        const top = ((h * 60 - DAY_START_MIN) / VISIBLE_MINUTES) * 100;
-        lines.push(`<div class="year-week-hline" style="top:${ top }%"></div>`);
+        lines.push(`<div class="year-week-hline" style="top:${ h * HOUR_H }px"></div>`);
       }
       const protocol = (cell.kind !== 'work' && cell.kind !== 'free')
         ? `<div class="year-week-protocol yc-${ cell.kind }"></div>` : '';
       const season = shade
-        ? `<div class="year-week-season" title="Seasonal work · ${ esc(workWindowRuleText(spec)) }" style="top:${ ((Math.max(shade.startMin, DAY_START_MIN) - DAY_START_MIN) / VISIBLE_MINUTES) * 100 }%;height:${ ((Math.min(shade.endMin, DAY_END_MIN) - Math.max(shade.startMin, DAY_START_MIN)) / VISIBLE_MINUTES) * 100 }%"></div>`
+        ? `<div class="year-week-season" title="Seasonal work · ${ esc(workWindowRuleText(spec)) }" style="top:${ Math.max(shade.startMin, DAY_START_MIN) / 60 * HOUR_H }px;height:${ Math.max(0, (Math.min(shade.endMin, DAY_END_MIN) - Math.max(shade.startMin, DAY_START_MIN)) / 60 * HOUR_H) }px"></div>`
         : '';
       const dayLogs = ymd ? weekLogs.filter(l => l.date === ymd) : [];
       const blocks = dayLogs.map(log => {
-        const top = ((Math.max(log.startMin, DAY_START_MIN) - DAY_START_MIN) / VISIBLE_MINUTES) * 100;
-        const height = ((Math.min(log.endMin, DAY_END_MIN) - Math.max(log.startMin, DAY_START_MIN)) / VISIBLE_MINUTES) * 100;
+        const top = Math.max(log.startMin, DAY_START_MIN) / 60 * HOUR_H;
+        const height = Math.max(0, (Math.min(log.endMin, DAY_END_MIN) - Math.max(log.startMin, DAY_START_MIN)) / 60 * HOUR_H);
         const active = log.id === state.yearSelectedLogId ? ' active' : '';
         return `<button type="button" class="year-hour-block${ active }" data-hour-log="1"
-          style="top:${ top }%;height:${ Math.max(height, 2) }%"
+          style="top:${ top }px;height:${ Math.max(height, 18) }px"
           onclick="event.stopPropagation();selectYearHourLog('${ log.id }')"
           ondblclick="event.stopPropagation();deleteYearHourLog('${ log.id }')"
           title="${ esc(formatClock(log.startMin) + '–' + formatClock(log.endMin) + (log.label ? ' · ' + log.label : '')) }">${ esc(formatClock(log.startMin)) } ${ esc(log.label || '') }</button>`;
@@ -514,11 +520,14 @@ export function renderYear() {
         onmousedown="yearHourDragStart('${ ymd }', event)"
         onmousemove="yearHourDragMove('${ ymd }', event)"
         ${ yearWeekColDragAttrs(ymd) }
-        style="min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ blocks }${ taskBlocks }</div>`;
+        style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ blocks }${ taskBlocks }</div>`;
     }).join('');
 
     const prevScroll = document.getElementById('year-week-scroll')?.scrollTop;
-    document.getElementById('year-grid').innerHTML = `
+    const prevScrollX = document.getElementById('year-week-scroll')?.scrollLeft;
+    const grid = document.getElementById('year-grid');
+    if (!grid) return;
+    grid.innerHTML = `
       <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:10px;">
         <div><div class="year-stat">${ weekTotal.toFixed(1) }h</div><div class="year-stat-label">Tracked</div></div>
         <div><div class="year-stat">${ wb.work }</div><div class="year-stat-label">Work days</div></div>
@@ -532,15 +541,20 @@ export function renderYear() {
             <div class="year-week-gutter-spacer"></div>${ heads }
           </div>
           <div class="year-week-hourly year-week-body">
-            <div class="year-week-gutter" style="min-height:${ WEEK_COL_H }px">${ gutterMarks.join('') }</div>
+            <div class="year-week-gutter" style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ gutterMarks.join('') }</div>
             ${ cols }
           </div>
         </div>
       </div>`;
     const weekScroll = document.getElementById('year-week-scroll');
     if (weekScroll) {
-      if (typeof prevScroll === 'number' && state.yearWeekScrolledOnce) weekScroll.scrollTop = prevScroll;
-      else { weekScroll.scrollTop = VIEW_SCROLL_TOP; state.yearWeekScrolledOnce = true; }
+      if (typeof prevScroll === 'number' && state.yearWeekScrolledOnce) {
+        weekScroll.scrollTop = prevScroll;
+        if (typeof prevScrollX === 'number') weekScroll.scrollLeft = prevScrollX;
+      } else {
+        weekScroll.scrollTop = VIEW_SCROLL_TOP;
+        state.yearWeekScrolledOnce = true;
+      }
     }
     renderYearHourEdit();
     return;
@@ -554,7 +568,9 @@ export function renderYear() {
     const monthCounts = { fast:0, restore:0, sprint:0, deepRest:0, vacation:0, work:0, free:0, conflict:0 };
     days.forEach(di => { monthCounts[cells[di].kind] = (monthCounts[cells[di].kind] || 0) + 1; });
     const mb = statsBuckets(monthCounts);
-    document.getElementById('year-grid').innerHTML = `
+    const monthGrid = document.getElementById('year-grid');
+    if (!monthGrid) return;
+    monthGrid.innerHTML = `
       <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:10px;">
         <div><div class="year-stat">${ mb.work }</div><div class="year-stat-label">Work</div></div>
         <div><div class="year-stat">${ mb.free }</div><div class="year-stat-label">Free</div></div>
@@ -567,6 +583,8 @@ export function renderYear() {
   }
 
   if (sectionLabel) sectionLabel.textContent = 'Year · W1 after deep rest · click month title → month · double-click day → week';
+  const yearGrid = document.getElementById('year-grid');
+  if (!yearGrid) return;
   const slots = [];
   for (let month = 0; month < 12; month++) {
     slots.push({ year: calYear, month, days: dayIndexesForMonth(calYear, month) });
@@ -581,7 +599,7 @@ export function renderYear() {
 
   const top = slots.slice(0, 6).map(s => monthCardHtml(s, false)).join('');
   const bottom = slots.slice(6, 12).map(s => monthCardHtml(s, false)).join('');
-  document.getElementById('year-grid').innerHTML = `
+  yearGrid.innerHTML = `
     <div class="year-month-row">${ top }</div>
     <div class="year-rest-band"><strong>Deep rest buffer · 28 days</strong><span>${ esc(restLabel) } · ${ calYear } Jan–Dec (wraps into Jan ${ calYear + 1 })</span></div>
     <div class="year-month-row">${ bottom }</div>

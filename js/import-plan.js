@@ -305,10 +305,10 @@ export function commitImportedTasks(tasks, reports) {
     added++;
   });
   deps.save();
-  deps.render();
-  if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
+  try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after import', e); }
+  try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after import', e); }
   showImportReport(document.getElementById('week-plan-msg'), added, reports);
-  deps.switchPhase('plan');
+  try { if (typeof deps.switchPhase === 'function') deps.switchPhase('plan'); } catch (e) { console.warn('switchPhase after import', e); }
   return added;
 }
 
@@ -359,20 +359,24 @@ export function importWeeklyPlanFile(input) {
     const reader = new FileReader();
     reader.onload = () => {
       try { importWeeklyPlanRows(parseCsvText(reader.result)); }
-      catch (e) { if (msg) msg.textContent = 'CSV parse failed.'; }
+      catch (e) {
+        console.error(e);
+        if (msg) msg.textContent = 'CSV import failed: ' + (e && e.message ? e.message : String(e));
+      }
     };
     reader.readAsText(file);
   } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        if (typeof XLSX === 'undefined') throw new Error('SheetJS not loaded');
+        if (typeof XLSX === 'undefined') throw new Error('SheetJS not loaded — check network/CDN');
         const wb = XLSX.read(reader.result, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
         importWeeklyPlanRows(rows);
       } catch (e) {
-        if (msg) msg.textContent = 'XLSX parse failed — try CSV or JSON.';
+        console.error(e);
+        if (msg) msg.textContent = 'XLSX import failed: ' + (e && e.message ? e.message : String(e));
       }
     };
     reader.readAsArrayBuffer(file);
