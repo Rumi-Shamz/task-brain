@@ -18,6 +18,8 @@ export const state = {
   hideDone: false,
   timerTickId: null,
   customProjects: [],
+  projects: [],
+  skills: [],
   dayCalScrolledOnce: false,
   yearWeekScrolledOnce: false,
   ghPushTimer: null,
@@ -36,6 +38,7 @@ export const LANES = [
   { id: 'research', label: 'Research / Plan' },
   { id: 'communicate', label: 'Communicate' },
   { id: 'act', label: 'Act' },
+  { id: 'learn', label: 'Learn' },
 ];
 export const CAL_DAY_START = 0;
 export const CAL_DAY_END = 24 * 60;
@@ -377,9 +380,11 @@ export function normalizeTask(t) {
   if (!['todo', 'done', 'someday'].includes(status)) status = done ? 'done' : 'todo';
   return {
     ...t,
-    project: t.project ?? null,
+    project: t.projectId || t.project || null,
+    projectId: t.projectId || t.project || null,
     domain: t.domain ?? null,
-    lane: t.lane ?? null,
+    lane: t.activity || t.lane || null,
+    activity: t.activity || t.lane || 'act',
     start: t.start ?? null,
     duration: t.duration ?? DEFAULT_DURATION,
     date: t.date ?? null,

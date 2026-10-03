@@ -10,6 +10,7 @@ import * as year from './year.js';
 import * as dashboard from './dashboard.js';
 import { render, switchPhase, clearAll } from './ui.js';
 import { deps } from './deps.js';
+import { ensureProjectsMigrated } from './projects.js';
 
 deps.save = save;
 deps.render = render;
@@ -44,6 +45,7 @@ Object.assign(window, triage, organize, scheduleMod, year, dashboard, {
 bindLogoSync();
 
 load();
+ensureProjectsMigrated();
 year.ensureYearWeekMonday();
 ensureTimerTick();
 render();

@@ -189,16 +189,22 @@ export function validateAndBuildItems(items) {
     else if (pr.value >= 2) size = 'mid';
     else if (pr.value >= 1) size = 'simple';
 
+    const activity = item.activity && ['research', 'communicate', 'act', 'learn'].includes(item.activity)
+      ? item.activity
+      : 'act';
     const task = newTask(name, {
       project: projectId,
+      projectId,
       domain: dom.domain,
-      lane: 'act',
+      lane: activity,
+      activity,
       date,
       start,
       duration: len.value,
       done: status === 'done',
       status,
       reviewAt,
+      reviewSkips: 0,
       blocking: tp.value === 'urgent' ? true : null,
       who: String(item.description || '').trim().slice(0, 120),
       size,
