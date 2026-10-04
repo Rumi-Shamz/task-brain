@@ -18,6 +18,7 @@ import {
   renderSomedayPanel, somedayDelegate, somedayConvert, somedayDelete, somedayDefer,
 } from './someday.js';
 import { state as appState } from './state.js';
+import { deriveActivityRules } from './blocks.js';
 
 deps.save = save;
 deps.render = render;
@@ -31,6 +32,7 @@ deps.ghConnected = ghConnected;
 deps.ghPush = ghPush;
 
 window.deps = deps;
+window.deriveActivityRules = deriveActivityRules;
 
 Object.assign(window, plan, year, dashboard, {
   switchPhase,

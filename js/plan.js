@@ -1,6 +1,6 @@
 /** 01 Plan — single-screen triage + batches + merge projects. */
 import {
-  state, esc, newTask, formatYmd, addDaysLocal, mondayOnOrBefore, formatHHMM, uid, BUFFERS,
+  state, esc, newTask, formatYmd, uid, BUFFERS,
   isTopLevelTask, childTasksOf,
 } from './state.js';
 import { allDomains, domainLabel, normalizeDomainId } from './domains.js';
@@ -11,8 +11,8 @@ import {
 import { createGroup, addTaskToGroup, applyGroupSchedule, listGroups, ensureGroups } from './groups.js';
 import { deps } from './deps.js';
 import {
-  placementsFor, applyPlacement, currentPlacementId, upcomingWorkDates,
-  weekdayNameFromYmd, stampActivityFromBlock, suggestRule, saveActivityRule,
+  DAY_INTERVALS, intervalForTask, placeInInterval, upcomingWorkDates,
+  weekdayNameFromYmd, stampActivityFromBlock,
 } from './blocks.js';
 
 export {
@@ -21,9 +21,6 @@ export {
   importWeeklyPlanJson,
   parseCsvText,
 } from './import-plan.js';
-
-const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
-const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
 
 function untagedTasks() {
   return state.tasks.filter(t => t.status !== 'someday' && !t.triaged && isTopLevelTask(t));
@@ -56,28 +53,10 @@ export function planStopEdit() {
 export function planSetActivity(activity) {
   const t = currentPlanTask();
   if (!t) return;
-  const prev = t.activity;
   t.activity = activity;
   t.lane = activity;
   t.activitySource = 'manual';
-  if (prev !== activity) {
-    const suggestion = suggestRule(t, activity);
-    state.ruleOffer = suggestion ? { ...suggestion, taskId: t.id } : null;
-  }
   deps.save();
-  renderPlanWizard();
-}
-
-export function planAcceptRule() {
-  const offer = state.ruleOffer;
-  if (offer) saveActivityRule(offer);
-  state.ruleOffer = null;
-  deps.save();
-  renderPlanWizard();
-}
-
-export function planDismissRule() {
-  state.ruleOffer = null;
   renderPlanWizard();
 }
 
@@ -85,18 +64,11 @@ export function planScheduleChanged() {
   const t = currentPlanTask();
   if (!t) return;
   const ymd = document.getElementById('plan-ymd')?.value || '';
-  const place = document.getElementById('plan-place')?.value || '';
-  const free = document.getElementById('plan-free-start')?.value || '09:00';
-  if (!place) {
-    if (t.replacesBlockId && t.date) {
-      state.blockSkips = (state.blockSkips || []).filter(s => !(s.date === t.date && s.blockId === t.replacesBlockId && s.taskId === t.id));
-    }
-    t.date = null;
-    t.start = null;
-    t.blockId = null;
-    t.replacesBlockId = null;
-  } else if (ymd) {
-    applyPlacement(t, ymd, place, free);
+  const interval = document.getElementById('plan-interval')?.value || '';
+  if (!interval || !ymd) {
+    placeInInterval(t, '', '');
+  } else {
+    placeInInterval(t, ymd, interval);
   }
   deps.save();
   renderPlanWizard();
@@ -244,44 +216,32 @@ function wouldCreateParentCycle(taskId, parentId) {
 }
 
 function scheduleFieldsHTML(t) {
+  const today = formatYmd(new Date());
   const dates = upcomingWorkDates();
-  if (t.date && !dates.includes(t.date)) dates.unshift(t.date);
+  if (t.date && t.date >= today && !dates.includes(t.date)) dates.unshift(t.date);
   const selected = dates.includes(t.date) ? t.date : '';
-  const opts = selected ? placementsFor(t, selected) : (dates[0] ? placementsFor(t, dates[0]) : []);
   const shownDay = selected || dates[0] || '';
-  const cur = selected ? currentPlacementId(t) : '';
+  const cur = selected ? intervalForTask(t) : '';
   return `<div class="plan-pair">
     <label class="plan-field">Day
       <select id="plan-ymd" onchange="planScheduleChanged()">
         ${dates.map(d => `<option value="${d}" ${d === shownDay ? 'selected' : ''}>${weekdayNameFromYmd(d)} ${d.slice(5)}</option>`).join('') || '<option value="">No open work day</option>'}
       </select>
     </label>
-    <label class="plan-field">Place
-      <select id="plan-place" onchange="planScheduleChanged()">
+    <label class="plan-field">When
+      <select id="plan-interval" onchange="planScheduleChanged()">
         <option value="" ${!cur ? 'selected' : ''}>Leave open</option>
-        ${opts.map(o => `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}
+        ${DAY_INTERVALS.map(i => `<option value="${i.id}" title="${esc(i.focus)}" ${i.id === cur ? 'selected' : ''}>${esc(i.label)} · ${esc(i.focus)}</option>`).join('')}
       </select>
-    </label>
-    <label class="plan-field" id="plan-free-wrap" style="${cur === 'free' ? '' : 'display:none'}">Start
-      <input type="time" id="plan-free-start" value="${esc((cur === 'free' && t.start) || '09:00')}" onchange="planScheduleChanged()" />
     </label>
   </div>`;
 }
 
-function ruleOfferHTML(t) {
-  const offer = state.ruleOffer;
-  if (!offer || offer.taskId !== t.id) return '';
-  return `<p class="bulk-hint">Save a rule so ${esc(offer.label)} maps to ${esc(offer.activity)}?
-    <button type="button" class="btn" onclick="planAcceptRule()">Save rule</button>
-    <button type="button" class="btn" onclick="planDismissRule()">Not now</button></p>`;
-}
-
 function commitSchedule(t) {
   const ymd = document.getElementById('plan-ymd')?.value || '';
-  const place = document.getElementById('plan-place')?.value || '';
-  const free = document.getElementById('plan-free-start')?.value || t.start || '09:00';
-  if (!ymd || !place) return;
-  applyPlacement(t, ymd, place, free);
+  const interval = document.getElementById('plan-interval')?.value || '';
+  if (!ymd || !interval) return;
+  placeInInterval(t, ymd, interval);
 }
 
 function singleCardHTML(t) {
@@ -328,7 +288,7 @@ function singleCardHTML(t) {
         </div>
       </div>
       ${t.blocking === true ? `
-        <label class="plan-field">Blocks
+        <label class="plan-field plan-blocking-note">Blocks
           <input type="text" id="plan-blocking-note"
             value="${esc(t.blockingNote || '')}"
             placeholder="Who / what it blocks"
@@ -379,7 +339,6 @@ function singleCardHTML(t) {
             `<button type="button" class="btn ${t.activity === a ? 'primary' : ''}" onclick="planSetActivity('${a}')">${a[0].toUpperCase()}${a.slice(1)}</button>`
           ).join('')}
         </div>
-        ${ruleOfferHTML(t)}
       </div>
     </div>
 
@@ -857,10 +816,7 @@ export function planFinish(mode) {
   const slot = 'afternoon';
 
   if (mode === 'none') {
-    t.date = null;
-    t.start = null;
-    t.blockId = null;
-    t.replacesBlockId = null;
+    placeInInterval(t, '', '');
   } else if (mode === 'slot') {
     commitSchedule(t);
     if (!t.duration) t.duration = 30;

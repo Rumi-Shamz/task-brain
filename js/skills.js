@@ -1,5 +1,6 @@
 /** Skills backlog + Learn row helpers (T5). */
-import { state, newTask, formatYmd, addDaysLocal, mondayOnOrBefore } from './state.js';
+import { state, newTask, formatYmd, addDaysLocal } from './state.js';
+import { nextOpenWeekday } from './blocks.js';
 import { deps } from './deps.js';
 
 export function skillQuadrant(utility, timeToLearn) {
@@ -41,8 +42,7 @@ export function addSkill(name, utility, timeToLearn) {
 
 /** Place a weekly Learn activity task on this week's Monday morning if missing. */
 export function ensureWeeklyLearnBlock(skill) {
-  const mon = mondayOnOrBefore(new Date());
-  const date = formatYmd(mon);
+  const date = nextOpenWeekday(new Date(), 0);
   const name = `Learn: ${skill.name}`;
   const exists = state.tasks.some(t => t.date === date && t.name === name && t.activity === 'learn');
   if (exists) return;

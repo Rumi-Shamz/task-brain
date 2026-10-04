@@ -14,7 +14,7 @@ import {
 import { getProject, ACTIVITIES, projectsInDomain, ensureProjectForDomain } from './projects.js';
 import { deps } from './deps.js';
 import {
-  blocksOnDate, placementsFor, applyPlacement, currentPlacementId, isTaskDay,
+  blocksOnDate, DAY_INTERVALS, intervalForTask, placeInInterval, isTaskDay,
 } from './blocks.js';
 
 const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
@@ -22,7 +22,7 @@ const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
-export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 18); }
+export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 28); }
 export function yToMins(y) { return CAL_DAY_START + (y / HOUR_H) * 60; }
 export function applyCalBlockStyle(el, t) {
   const startMins = parseHHMM(t.start);
@@ -114,18 +114,11 @@ export function saveDashEdit() {
   t.note = (document.getElementById('de-note')?.value || '').trim();
   t.done = !!document.getElementById('de-done')?.checked;
   const ymd = document.getElementById('de-ymd')?.value || '';
-  const place = document.getElementById('de-place')?.value || '';
-  const free = document.getElementById('de-free-start')?.value || t.start || '09:00';
+  const interval = document.getElementById('de-interval')?.value || '';
   const dur = parseInt(document.getElementById('de-duration')?.value || '', 10);
   if (Number.isFinite(dur) && dur > 0) t.duration = dur;
-  if (!place || !ymd) {
-    t.date = null;
-    t.start = null;
-    t.blockId = null;
-    t.replacesBlockId = null;
-  } else {
-    applyPlacement(t, ymd, place, free);
-  }
+  if (!interval || !ymd) placeInInterval(t, '', '');
+  else placeInInterval(t, ymd, interval);
   deps.save();
   closeDashEdit();
   deps.renderDashboard();
@@ -193,37 +186,19 @@ export function renderDashEditSheet() {
     </div>`;
 }
 
-export function dashEditDayChanged() {
-  const t = state.tasks.find(x => x.id === state.dashEditId);
-  const ymd = document.getElementById('de-ymd')?.value || '';
-  const box = document.getElementById('de-place');
-  if (!t || !box) return;
-  const opts = ymd ? placementsFor({ ...t, date: ymd }, ymd) : [];
-  const cur = t.date === ymd ? currentPlacementId(t) : '';
-  box.innerHTML = `<option value="">Leave open</option>` + opts.map(o =>
-    `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.label)}</option>`
-  ).join('');
-  const free = document.getElementById('de-free-wrap');
-  if (free) free.style.display = cur === 'free' ? '' : 'none';
-}
-
 function dashPlacementHTML(t) {
   const ymd = t.date || ensureDashCalDate();
-  const opts = placementsFor(t, ymd);
-  const cur = t.date ? currentPlacementId(t) : '';
+  const cur = t.date ? intervalForTask(t) : '';
   const open = isTaskDay(ymd);
   return `<div class="plan-pair">
     <label class="plan-field">Day
-      <input type="date" id="de-ymd" value="${esc(ymd)}" onchange="dashEditDayChanged()" />
+      <input type="date" id="de-ymd" value="${esc(ymd)}" />
     </label>
-    <label class="plan-field">Place
-      <select id="de-place" onchange="document.getElementById('de-free-wrap').style.display=this.value==='free'?'':'none'">
+    <label class="plan-field">When
+      <select id="de-interval">
         <option value="">Leave open</option>
-        ${open ? opts.map(o => `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.label)}</option>`).join('') : ''}
+        ${DAY_INTERVALS.map(i => `<option value="${i.id}" title="${esc(i.focus)}" ${i.id === cur ? 'selected' : ''}>${esc(i.label)} · ${esc(i.focus)}</option>`).join('')}
       </select>
-    </label>
-    <label class="plan-field" id="de-free-wrap" style="${cur === 'free' ? '' : 'display:none'}">Start
-      <input type="time" id="de-free-start" value="${esc(t.start || '09:00')}" />
     </label>
     <label class="plan-field">Duration
       <select id="de-duration">
@@ -269,14 +244,14 @@ export function renderDayCalendar() {
     const endLabel = formatHHMM(startMins + dur);
     return `<div class="cal-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }" data-id="${ t.id }"
         style="${ projectCssVars(t.project) }top:${ minsToY(startMins) }px;height:${ durationToH(dur) }px;"
+        title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) }"
         onpointerdown="calBlockPointerDown(event)">
       <div class="cal-block-top">
         <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
           onpointerdown="event.stopPropagation()"
           onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)" title="Mark done" aria-label="Mark done" />
-        <div class="cal-block-time">${ esc(t.start) }–${ esc(endLabel) }</div>
+        <div class="cal-block-name">${ esc(t.name) }</div>
       </div>
-      <div class="cal-block-name">${ esc(t.name) }</div>
       <div class="cal-block-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
         ${ chipControlsHTML(t) }
       </div>
@@ -363,12 +338,19 @@ export function renderProjectBoard() {
 
   const domainStacks = expandedDoms.map(dom => {
     const roots = visible(state.tasks.filter(t =>
-      t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id && matchesActivityFilter(t)
+      t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id
     ));
-    const count = roots.length;
-    const rows = roots.map(t => {
-      const kids = visible(childTasksOf(t.id).filter(matchesActivityFilter));
-      return boardRowHTML(t) + kids.map(c => boardRowHTML(c, { nested: true })).join('');
+    const count = roots.filter(matchesActivityFilter).length;
+    const sections = activities.map(a => {
+      const inSection = roots.filter(t => (t.activity || t.lane || 'act') === a.id && matchesActivityFilter(t));
+      const rows = inSection.map(t => {
+        const kids = visible(childTasksOf(t.id).filter(c => (c.activity || c.lane || 'act') === a.id && matchesActivityFilter(c)));
+        return boardRowHTML(t) + kids.map(c => boardRowHTML(c, { nested: true })).join('');
+      }).join('');
+      return `<section class="domain-activity">
+        <div class="domain-activity-label">${esc(a.label)}</div>
+        <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">None</div>'}</div>
+      </section>`;
     }).join('');
     return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}"
         ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
@@ -379,20 +361,11 @@ export function renderProjectBoard() {
         <span class="domain-count">${count}</span>
         <span class="domain-chevron">▾</span>
       </button>
-      <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">No tasks in this filter.</div>'}</div>
+      ${sections}
     </div>`;
   }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
 
-  let grouped = '';
-  if (filter !== 'all') {
-    const rows = visible(state.tasks.filter(t =>
-      t.status !== 'someday' && isTopLevelTask(t) && matchesActivityFilter(t)
-    ));
-    grouped = `<div class="domain-task-rows">${rows.length
-      ? rows.map(t => boardRowHTML(t) + visible(childTasksOf(t.id).filter(matchesActivityFilter)).map(c => boardRowHTML(c, { nested: true })).join('')).join('')
-      : '<div class="dash-inbox-empty">No tasks in this group.</div>'}</div>`;
-  }
-  board.innerHTML = filterChips + (filter === 'all' ? domainStacks : grouped);
+  board.innerHTML = filterChips + domainStacks;
 
   const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday' && isTopLevelTask(t)));
   const inboxEl = document.getElementById('dash-inbox-chips');
@@ -683,7 +656,7 @@ export function scheduleTaskOnDate(taskId, ymd, startMin) {
 export function unscheduleTask(taskId) {
   const t = state.tasks.find(x => x.id === taskId);
   if (!t) return;
-  t.start = null; t.date = null;
+  t.start = null; t.date = null; t.interval = null; t.blockId = null; t.replacesBlockId = null;
   deps.save();
 }
 
@@ -709,7 +682,7 @@ export function weekTaskBlocksHTML(ymd) {
     const height = Math.max(0, (Math.min(endMins, DAY_END_MIN) - Math.max(startMins, DAY_START_MIN)) / 60 * HOUR_H);
     const endLabel = formatHHMM(startMins + dur);
     return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ t.id }" data-ymd="${ esc(ymd) }"
-        style="${ projectCssVars(t.project) }top:${ top }px;height:${ Math.max(height, 18) }px"
+        style="${ projectCssVars(t.project) }top:${ top }px;height:${ Math.max(height, 28) }px"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
         onpointerdown="weekTaskPointerDown(event)"
         ondblclick="event.stopPropagation();unscheduleTask('${ t.id }');renderYear();">
@@ -717,9 +690,8 @@ export function weekTaskBlocksHTML(ymd) {
         <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
           onpointerdown="event.stopPropagation()"
           onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)" title="Mark done" aria-label="Mark done" />
-        <div class="yt-time">${ esc(t.start) }–${ esc(endLabel) }</div>
+        <div class="yt-name">${ esc(t.name) }</div>
       </div>
-      <div class="yt-name">${ esc(t.name) }</div>
     </div>`;
   }).join('');
 }

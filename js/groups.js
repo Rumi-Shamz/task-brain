@@ -1,9 +1,12 @@
 /** Execution-batch groups (Plan board). */
-import { state, uid, formatYmd, addDaysLocal, mondayOnOrBefore, formatHHMM } from './state.js';
-import { deps } from './deps.js';
+import { state, uid } from './state.js';
+import { nextOpenWeekday, placeInInterval } from './blocks.js';
 
 const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
-const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
+const SLOT_INTERVAL = {
+  morning: 'start', afternoon: 'mid', evening: 'late',
+  start: 'start', mid: 'mid', late: 'late',
+};
 
 export function normalizeGroups(raw) {
   // Legacy: { "Group 1": [id, id] }
@@ -65,19 +68,16 @@ export function applyGroupSchedule(groupId) {
   if (!g || !g.preferredDay) return;
   const dayKey = String(g.preferredDay).toLowerCase();
   const slotKey = String(g.preferredStart || 'afternoon').toLowerCase();
-  if (DAY_OFFSET[dayKey] == null || SLOT_START[slotKey] == null) return;
-  const mon = mondayOnOrBefore(new Date());
-  const date = formatYmd(addDaysLocal(mon, DAY_OFFSET[dayKey]));
-  let cursor = SLOT_START[slotKey];
+  const intervalId = SLOT_INTERVAL[slotKey];
+  if (DAY_OFFSET[dayKey] == null || !intervalId) return;
+  const date = nextOpenWeekday(new Date(), DAY_OFFSET[dayKey]);
+  if (!date) return;
   g.taskIds.forEach(id => {
     const t = state.tasks.find(x => x.id === id);
     if (!t || t.done || t.status === 'someday') return;
-    // Exceptions: blocking or already has an earlier date this week
     if (t.blocking) return;
     if (t.deadline && t.deadline < date) return;
-    t.date = date;
-    t.start = formatHHMM(cursor);
-    cursor += t.duration || 30;
+    placeInInterval(t, date, intervalId);
   });
 }
 

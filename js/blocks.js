@@ -267,9 +267,160 @@ export function suggestRule(task, activity) {
 export function saveActivityRule(suggestion) {
   if (!suggestion) return;
   const rules = activityRules();
-  const exists = rules.some(r => r.kind === suggestion.kind && r.value.toLowerCase() === suggestion.value.toLowerCase() && r.activity === suggestion.activity);
-  if (exists) return;
+  const prev = rules.find(r => r.kind === suggestion.kind && r.value.toLowerCase() === String(suggestion.value).toLowerCase());
+  if (prev) {
+    prev.activity = suggestion.activity;
+    return;
+  }
   rules.push({ id: uid(), kind: suggestion.kind, value: suggestion.value, activity: suggestion.activity });
+}
+
+export const DAY_INTERVALS = [
+  { id: 'start', label: 'Start', focus: 'morning', startMin: 7 * 60, endMin: 11 * 60 },
+  { id: 'mid', label: 'Mid', focus: 'noon', startMin: 11 * 60 + 15, endMin: 15 * 60 + 30 },
+  { id: 'late', label: 'Late', focus: 'afternoon / evening', startMin: 15 * 60 + 30, endMin: 21 * 60 },
+];
+
+export function intervalById(id) {
+  return DAY_INTERVALS.find(i => i.id === id) || null;
+}
+
+export function intervalForTask(task) {
+  if (!task) return '';
+  if (intervalById(task.interval)) return task.interval;
+  const mins = parseHHMM(task.start || '');
+  if (mins == null) return '';
+  const hit = DAY_INTERVALS.find(i => mins >= i.startMin && mins < i.endMin);
+  return hit ? hit.id : '';
+}
+
+function rangesOverlap(a0, a1, b0, b1) {
+  return a0 < b1 && b0 < a1;
+}
+
+function clearReplacesSkip(task) {
+  if (!task.replacesBlockId || !task.date) return;
+  state.blockSkips = (state.blockSkips || []).filter(s => !(s.date === task.date && s.blockId === task.replacesBlockId && s.taskId === task.id));
+}
+
+/** Pick a minute inside the interval. Leverage prefers deep work; other tasks pack around events. */
+export function placeInInterval(task, ymd, intervalId) {
+  const interval = intervalById(intervalId);
+  if (!task) return;
+  if (!interval || !ymd) {
+    clearReplacesSkip(task);
+    task.date = null;
+    task.start = null;
+    task.interval = null;
+    task.blockId = null;
+    task.replacesBlockId = null;
+    return;
+  }
+  const dur = Math.max(15, Number(task.duration) || 30);
+  const blocks = blocksOnDate(ymd);
+  const events = blocks.filter(b => b.rule === 'event');
+  const leverage = task.lno === 'L'
+    ? blocks.find(b => b.rule === 'leverage' && b.startMin < interval.endMin && b.endMin > interval.startMin)
+    : null;
+  const occupied = state.tasks
+    .filter(t => t.id !== task.id && t.date === ymd && t.start)
+    .map(t => {
+      const start = parseHHMM(t.start);
+      if (start == null) return null;
+      return { start, end: start + (Number(t.duration) || 30) };
+    })
+    .filter(Boolean);
+
+  function free(start) {
+    const end = start + dur;
+    if (start < interval.startMin || end > interval.endMin) return false;
+    if (occupied.some(r => rangesOverlap(start, end, r.start, r.end))) return false;
+    if (events.some(b => rangesOverlap(start, end, b.startMin, b.endMin))) return false;
+    return true;
+  }
+
+  let chosen = null;
+  if (leverage) {
+    const prefer = Math.max(interval.startMin, leverage.startMin);
+    if (free(prefer)) chosen = prefer;
+  }
+  if (chosen == null) {
+    for (let m = interval.startMin; m + dur <= interval.endMin; m += 15) {
+      if (free(m)) { chosen = m; break; }
+    }
+  }
+  if (chosen == null) chosen = interval.startMin;
+
+  clearReplacesSkip(task);
+  task.date = ymd;
+  task.interval = interval.id;
+  task.start = formatHHMM(chosen);
+  task.replacesBlockId = null;
+  task.blockId = leverage && chosen >= leverage.startMin && chosen < leverage.endMin ? leverage.id : null;
+  stampActivityFromBlock(task);
+}
+
+export function nextWeekdayOnOrAfter(fromDate, weekday) {
+  const start = fromDate instanceof Date ? parseYmd(formatYmd(fromDate)) : parseYmd(fromDate);
+  if (!start || weekday == null || !Number.isFinite(Number(weekday))) return null;
+  const wd = weekdayIndex(formatYmd(start));
+  const delta = (Number(weekday) - wd + 7) % 7;
+  return formatYmd(addDaysLocal(start, delta));
+}
+
+/** Next open work day on that weekday, walking week by week if the first is not a task day. */
+export function nextOpenWeekday(fromDate, weekday) {
+  let date = nextWeekdayOnOrAfter(fromDate, weekday);
+  if (!date) return null;
+  const first = date;
+  for (let i = 0; i < 8; i++) {
+    if (isTaskDay(date)) return date;
+    date = formatYmd(addDaysLocal(parseYmd(date), 7));
+  }
+  return first;
+}
+
+export function rollOpenTasksForward(fromDate = new Date()) {
+  const today = formatYmd(fromDate instanceof Date ? fromDate : new Date());
+  state.tasks.forEach(t => {
+    if (!t || t.done || t.status === 'someday' || !t.date || t.date >= today) return;
+    const wd = weekdayIndex(t.date);
+    if (wd == null) return;
+    const next = nextOpenWeekday(fromDate, wd);
+    if (next) t.date = next;
+  });
+}
+
+function ruleKey(task) {
+  if (task.projectId || task.project) {
+    const value = String(task.projectId || task.project);
+    return { kind: 'project', value };
+  }
+  if (task.domain) return { kind: 'domain', value: String(task.domain) };
+  const word = String(task.name || '').toLowerCase().split(/[^a-z0-9]+/).find(w => w.length > 3);
+  if (word) return { kind: 'word', value: word };
+  return null;
+}
+
+/** Upsert activity rules once one activity is a strict majority of at least 3 done tasks. */
+export function deriveActivityRules() {
+  const groups = new Map();
+  state.tasks.forEach(t => {
+    if (!t || !t.done || !t.activity) return;
+    const key = ruleKey(t);
+    if (!key) return;
+    const id = key.kind + ':' + key.value.toLowerCase();
+    if (!groups.has(id)) groups.set(id, { ...key, counts: {} });
+    const g = groups.get(id);
+    g.counts[t.activity] = (g.counts[t.activity] || 0) + 1;
+  });
+  groups.forEach(g => {
+    const entries = Object.entries(g.counts).sort((a, b) => b[1] - a[1]);
+    if (!entries.length) return;
+    const [activity, n] = entries[0];
+    const second = entries[1] ? entries[1][1] : 0;
+    if (n >= 3 && n > second) saveActivityRule({ kind: g.kind, value: g.value, activity });
+  });
 }
 
 /** Open work days from today forward. A weekday always means the coming date. */

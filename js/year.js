@@ -75,6 +75,7 @@ function snapYearToNow(view) {
   if (view === 'month' || view === 'year') {
     state.yearMonthCursor = { year: now.getFullYear(), month: now.getMonth() };
   }
+  if (view === 'year') state.yearOverviewYear = now.getFullYear();
 }
 
 export function openCurrentMonth() {
@@ -106,7 +107,11 @@ export function nudgeYearWeek(delta) {
 
 export function yearNav(dir) {
   if (state.yearCalendarView === 'week') nudgeYearWeek(dir * 7);
-  else nudgeYearMonth(dir);
+  else if (state.yearCalendarView === 'year') {
+    const y = state.yearOverviewYear || new Date().getFullYear();
+    state.yearOverviewYear = y + dir;
+    deps.renderYear();
+  } else nudgeYearMonth(dir);
 }
 
 export function nudgeYearMonth(delta) {
@@ -432,7 +437,8 @@ export function renderYear() {
   const weekEnd = Math.min(YEAR_DAYS - 1, weekStart + 6);
   const weekA = dateForDay(state.yearRhythm.yearStartMonday, weekStart);
   const weekB = dateForDay(state.yearRhythm.yearStartMonday, weekEnd);
-  const wNum = rhythmWeekNumber(weekStart);
+  const focusIdx = cycleDayIndex(state.yearRhythm.yearStartMonday, state.yearFocusMonday || formatYmd(new Date()));
+  const wNum = focusIdx != null ? rhythmWeekNumber(focusIdx) : rhythmWeekNumber(weekStart);
   if (weekLabel) {
     const a = weekA ? `${ MONTHS[weekA.getMonth()] } ${ weekA.getDate() }` : `D${ weekStart }`;
     const b = weekB ? `${ MONTHS[weekB.getMonth()] } ${ weekB.getDate() }` : `D${ weekEnd }`;
@@ -451,8 +457,8 @@ export function renderYear() {
   }
 
   const start = parseYmd(state.yearRhythm.yearStartMonday);
-  const mid = start ? addDaysLocal(start, Math.floor(YEAR_DAYS / 2)) : null;
-  const calYear = mid ? mid.getFullYear() : (start ? start.getFullYear() : new Date().getFullYear());
+  if (state.yearOverviewYear == null) state.yearOverviewYear = new Date().getFullYear();
+  const calYear = state.yearOverviewYear;
   const indexByYmd = new Map();
   if (start) {
     for (let d = 0; d < YEAR_DAYS; d++) { indexByYmd.set(formatYmd(addDaysLocal(start, d)), d); }

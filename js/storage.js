@@ -4,7 +4,7 @@ import {
 } from './state.js';
 import { ensureProjectsMigrated } from './projects.js';
 import { normalizeGroups } from './groups.js';
-import { normalizeDayBlocks, normalizeActivityRules } from './blocks.js';
+import { normalizeDayBlocks, normalizeActivityRules, rollOpenTasksForward } from './blocks.js';
 import { normalizeCustomDomains } from './domains.js';
 import { deps } from './deps.js';
 
@@ -61,6 +61,7 @@ export function applyPersistPayload(d) {
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   ensureProjectsMigrated();
+  rollOpenTasksForward();
 }
 
 export function load() {

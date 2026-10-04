@@ -22,6 +22,7 @@ export const state = {
   blockSkips: [],
   ruleOffer: null,
   yearMonthCursor: { year: new Date().getFullYear(), month: new Date().getMonth() },
+  yearOverviewYear: null,
   yearSelectedLogId: null,
   yearHourDrag: null,
   dashDragId: null,
@@ -418,6 +419,7 @@ export function normalizeTask(t) {
     blockId: t.blockId ? String(t.blockId) : null,
     replacesBlockId: t.replacesBlockId ? String(t.replacesBlockId) : null,
     start: t.start ?? null,
+    interval: t.interval === 'start' || t.interval === 'mid' || t.interval === 'late' ? t.interval : null,
     duration: t.duration ?? DEFAULT_DURATION,
     date: t.date ?? null,
     subtasks: t.subtasks || [],
@@ -500,6 +502,9 @@ export function toggleTaskDone(id, checked) {
     t.timerStartedAt = null; }
   if (becameDone && typeof window.onTaskDoneMaybeLearn === 'function') {
     window.onTaskDoneMaybeLearn(t, true);
+  }
+  if (becameDone && typeof window.deriveActivityRules === 'function') {
+    window.deriveActivityRules();
   }
   deps.save();
   ensureTimerTick();
