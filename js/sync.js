@@ -291,13 +291,7 @@ export function bootSync() {
 }
 
 export function bindLogoSync() {
-  let taps = 0, last = 0;
-  document.addEventListener('click', e => {
-    const logo = e.target.closest('#app-logo');
-    if (!logo) return;
-    const now = Date.now();
-    taps = (now - last < 550) ? taps + 1 : 1;
-    last = now;
-    if (taps >= 3) { taps = 0; toggleSyncPanel(); }
-  });
+  const logo = document.getElementById('app-logo');
+  if (!logo) return;
+  logo.addEventListener('click', () => toggleSyncPanel());
 }

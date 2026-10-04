@@ -56,12 +56,22 @@
       flex-wrap: wrap;
     }
 
-    .header h1 {
+    .header h1,
+    .app-logo {
       font-size: 13px;
       font-weight: 500;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--txt3);
+    }
+    .app-logo {
+      font-family: inherit;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .phase-tabs { display: flex; gap: 4px; flex-wrap: wrap; }

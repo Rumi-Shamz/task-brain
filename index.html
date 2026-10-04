@@ -4,12 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Day Planner</title>
-  <link rel="stylesheet" href="styles.css?v=20261004e" />
+  <link rel="stylesheet" href="styles.css?v=20261004f" />
 </head>
 <body class="plan-active">
 <div id="app">
   <div class="header">
-    <h1 id="app-logo" title="Triple-tap to sync settings">Day Planner</h1>
+    <button type="button" id="app-logo" class="app-logo" title="Sync settings">Day Planner</button>
     <div class="phase-tabs">
       <button class="phase-tab active" onclick="switchPhase('plan')">01 Plan</button>
       <button class="phase-tab" onclick="switchPhase('dashboard')">02 Today</button>
@@ -21,7 +21,7 @@
 
   <div id="sync-panel" class="sync-panel" style="display:none;">
     <h3>Cross-device sync (private data.json)</h3>
-    <p class="sync-hint">PAT stays on this device — connect the <strong>same</strong> private repo <code>task-brain-data</code> on phone and desktop (Contents: Read and write). On open, the app pulls before it can push, so one device cannot overwrite the other with stale local data. Triple-tap the title to open/close.</p>
+    <p class="sync-hint">PAT stays on this device — connect the <strong>same</strong> private repo <code>task-brain-data</code> on phone and desktop (Contents: Read and write). On open, the app pulls before it can push, so one device cannot overwrite the other with stale local data. Tap the title to open or close this panel. A token saved on another address (the published site, or a different port) is not on this page.</p>
     <div class="sync-grid">
       <label>GitHub token<input type="password" id="su-token" placeholder="fine-grained PAT" autocomplete="off" /></label>
       <label>Owner<input type="text" id="su-owner" placeholder="Rumi-Shamz" /></label>
@@ -208,6 +208,6 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script type="module" src="js/app.js?v=20261004e"></script>
+<script type="module" src="js/app.js?v=20261004f"></script>
 </body>
 </html>
