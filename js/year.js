@@ -11,6 +11,7 @@ import {
   projectClass, projectColStyleAttr, chipControlsHTML, esc, pad2, allProjects, LANES, uid
 } from './state.js';
 import { deps } from './deps.js';
+import { weekTaskBlocksHTML } from './dashboard.js';
 import {
   cycleDayIndex, weekWorkDates, mondayOfYmd, dayBlocks, activityRules, isTaskDay,
 } from './blocks.js';
@@ -64,6 +65,26 @@ export function setYearCalendarView(view) {
   if (v === 'year' && isMobileYearLayout()) v = 'month';
   state.yearCalendarView = v;
   deps.renderYear();
+}
+
+function snapYearToNow(view) {
+  const now = new Date();
+  if (view === 'week' || view === 'year') {
+    state.yearFocusMonday = mondayOfYmd(formatYmd(now));
+  }
+  if (view === 'month' || view === 'year') {
+    state.yearMonthCursor = { year: now.getFullYear(), month: now.getMonth() };
+  }
+}
+
+export function openCurrentMonth() {
+  snapYearToNow('month');
+  setYearCalendarView('month');
+}
+
+export function openCurrentWeek() {
+  snapYearToNow('week');
+  setYearCalendarView('week');
 }
 
 export function setYearMobileDay(offset) {
@@ -163,11 +184,7 @@ export function markYearWeek(day) {
 
 export function ensureYearWeekMonday() {
   if (!state.yearRhythm) return;
-  if (!state.yearFocusMonday) state.yearFocusMonday = mondayOfYmd(formatYmd(new Date()));
-  const d = parseYmd(state.yearFocusMonday);
-  if (d && state.yearCalendarView !== 'month') {
-    state.yearMonthCursor = { year: d.getFullYear(), month: d.getMonth() };
-  }
+  snapYearToNow(state.yearCalendarView || 'month');
 }
 
 export function upsertYearHourLog(log) { state.yearHourLogs = state.yearHourLogs.filter(l => l.id !== log.id).concat([log])
@@ -555,10 +572,12 @@ export function renderYear() {
           ondblclick="event.stopPropagation();deleteYearHourLog('${ log.id }')"
           title="${ esc(formatClock(log.startMin) + '–' + formatClock(log.endMin) + (log.label ? ' · ' + log.label : '')) }">${ esc(formatClock(log.startMin)) } ${ esc(log.label || '') }</button>`;
       }).join('');
-      return `<div class="year-week-col" data-ymd="${ esc(ymd) }"
+      const taskBlocks = ymd ? weekTaskBlocksHTML(ymd) : '';
+      const todayMark = ymd === formatYmd(new Date()) ? ' is-today' : '';
+      return `<div class="year-week-col${ todayMark }" data-ymd="${ esc(ymd) }"
         onmousedown="yearHourDragStart('${ ymd }', event)"
         onmousemove="yearHourDragMove('${ ymd }', event)"
-        style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ blocks }</div>`;
+        style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ blocks }${ taskBlocks }</div>`;
     }
 
     const grid = document.getElementById('year-grid');

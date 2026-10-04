@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, todayYmd } from './state.js';
 import { deps } from './deps.js';
 import { renderPlan } from './plan.js';
 import { renderYear, ensureYearWeekMonday } from './year.js';
@@ -33,7 +33,10 @@ export function switchPhase(phase) {
   }
 
   if (phase === 'plan') renderPlan();
-  if (phase === 'dashboard') renderDashboard();
+  if (phase === 'dashboard') {
+    state.dashCalDate = todayYmd();
+    renderDashboard();
+  }
   if (phase === 'skills') {
     renderSkillsPanel(document.getElementById('skills-panel'));
     const el = document.getElementById('lno-week-stat');

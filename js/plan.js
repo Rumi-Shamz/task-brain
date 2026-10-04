@@ -11,7 +11,7 @@ import {
 import { createGroup, addTaskToGroup, applyGroupSchedule, listGroups, ensureGroups } from './groups.js';
 import { deps } from './deps.js';
 import {
-  placementsFor, applyPlacement, currentPlacementId, thisWeekWorkDates,
+  placementsFor, applyPlacement, currentPlacementId, upcomingWorkDates,
   weekdayNameFromYmd, stampActivityFromBlock, suggestRule, saveActivityRule,
 } from './blocks.js';
 
@@ -97,7 +97,6 @@ export function planScheduleChanged() {
     t.replacesBlockId = null;
   } else if (ymd) {
     applyPlacement(t, ymd, place, free);
-    state.dashCalDate = ymd;
   }
   deps.save();
   renderPlanWizard();
@@ -110,7 +109,6 @@ export function planSaveEdit() {
   commitDomainProject(t);
   commitParent(t);
   commitSchedule(t);
-  if (t.date) state.dashCalDate = t.date;
   t.triaged = true;
   state.planEditId = null;
   deps.save();
@@ -246,7 +244,8 @@ function wouldCreateParentCycle(taskId, parentId) {
 }
 
 function scheduleFieldsHTML(t) {
-  const dates = thisWeekWorkDates();
+  const dates = upcomingWorkDates();
+  if (t.date && !dates.includes(t.date)) dates.unshift(t.date);
   const selected = dates.includes(t.date) ? t.date : '';
   const opts = selected ? placementsFor(t, selected) : (dates[0] ? placementsFor(t, dates[0]) : []);
   const shownDay = selected || dates[0] || '';
@@ -299,7 +298,7 @@ function singleCardHTML(t) {
       <span class="task-del" onclick="deleteTask('${t.id}')" title="Delete">✕</span>
     </div>
 
-    <div class="plan-row ${t.blocking === true ? 'plan-row-4' : 'plan-row-3'}">
+    <div class="plan-row plan-main-row ${t.blocking === true ? 'plan-row-4' : 'plan-row-3'}">
       <div class="plan-field">Size
         <div class="plan-choices compact">
           <button type="button" class="btn ${t.size === 'simple' ? 'primary' : ''}" onclick="planPatch({size:'simple'})">Simple</button>
@@ -313,13 +312,6 @@ function singleCardHTML(t) {
           <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" onclick="planPatch({lno:'N'})" title="Do it well enough">Neutral</button>
           <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" onclick="planPatch({lno:'O'})" title="Minimize, batch, delegate first">Optional</button>
           <button type="button" class="btn ${!t.lno ? 'primary' : ''}" onclick="planPatch({lno:null})" title="Unset">—</button>
-        </div>
-      </div>
-      <div class="plan-field plan-length-pills">Length
-        <div class="plan-choices compact">
-          ${[15, 30, 60, 180].map(n =>
-            `<button type="button" class="btn ${Number(t.duration) === n ? 'primary' : ''}" onclick="planPatch({duration:${n}})">${n}</button>`
-          ).join('')}
         </div>
       </div>
       <label class="plan-field plan-length-select">Length
@@ -871,7 +863,6 @@ export function planFinish(mode) {
     t.replacesBlockId = null;
   } else if (mode === 'slot') {
     commitSchedule(t);
-    if (t.date) state.dashCalDate = t.date;
     if (!t.duration) t.duration = 30;
   } else if (mode === 'batch') {
     let gid = document.getElementById('plan-group')?.value;

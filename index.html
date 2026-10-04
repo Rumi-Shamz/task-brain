@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Day Planner</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20261004d" />
 </head>
 <body class="plan-active">
 <div id="app">
@@ -142,8 +142,8 @@
     <div class="year-view-toggle year-nav-row">
       <button class="btn" type="button" onclick="yearNav(-1)">← Prev</button>
       <button class="btn year-view-desktop-only" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
-      <button class="btn" id="year-view-month" onclick="setYearCalendarView('month')">Month</button>
-      <button class="btn" id="year-view-week" onclick="setYearCalendarView('week')">Week</button>
+      <button class="btn" id="year-view-month" onclick="openCurrentMonth()">Month</button>
+      <button class="btn" id="year-view-week" onclick="openCurrentWeek()">Week</button>
       <label class="year-week-num" id="year-week-nav">
         <input type="number" id="year-week-picker" min="1" max="52" aria-label="Week number" onchange="pickYearWeek(this.value)" />
       </label>
@@ -208,6 +208,6 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script type="module" src="js/app.js?v=20261004a"></script>
+<script type="module" src="js/app.js?v=20261004d"></script>
 </body>
 </html>

@@ -272,7 +272,20 @@ export function saveActivityRule(suggestion) {
   rules.push({ id: uid(), kind: suggestion.kind, value: suggestion.value, activity: suggestion.activity });
 }
 
+/** Open work days from today forward. A weekday always means the coming date. */
+export function upcomingWorkDates(fromDate = new Date(), limit = 5) {
+  const start = parseYmd(formatYmd(fromDate)) || new Date();
+  const dates = [];
+  for (let i = 0; i < 28 && dates.length < limit; i++) {
+    const ymd = formatYmd(addDaysLocal(start, i));
+    const wd = weekdayIndex(ymd);
+    if (!workingWeekdaysForDate(ymd).includes(wd)) continue;
+    if (!isTaskDay(ymd)) continue;
+    dates.push(ymd);
+  }
+  return dates;
+}
+
 export function thisWeekWorkDates(fromDate = new Date()) {
-  const mon = mondayOfYmd(formatYmd(fromDate));
-  return weekWorkDates(mon).filter(isTaskDay);
+  return upcomingWorkDates(fromDate);
 }

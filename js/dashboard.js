@@ -125,7 +125,6 @@ export function saveDashEdit() {
     t.replacesBlockId = null;
   } else {
     applyPlacement(t, ymd, place, free);
-    state.dashCalDate = ymd;
   }
   deps.save();
   closeDashEdit();

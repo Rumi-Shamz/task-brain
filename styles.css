@@ -450,7 +450,6 @@
     .proto-grid { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 10px; }
     .proto-grid label, .proto-block { font-size: 12px; color: var(--txt2); display: flex; gap: 6px; align-items: center; }
     .proto-block { flex-wrap: wrap; margin-bottom: 6px; }
-    .plan-length-select { display: none; }
     .day-nav { display: flex; align-items: center; gap: 6px; }
     .day-nav h2 { margin: 0; font-size: 15px; }
     .cal-protocol {
@@ -522,6 +521,7 @@
     .year-week-gutter span {
       position: absolute; left: 0; transform: translateY(-50%);
     }
+    .year-week-col.is-today { outline: 2px solid var(--txt); }
     .year-week-col {
       position: relative;
       height: calc(24 * var(--hour-h));
@@ -534,10 +534,10 @@
       pointer-events: none;
     }
     .year-week-protocol {
-      position: absolute; inset: 0; opacity: 0.28; pointer-events: none;
+      position: absolute; inset: 0; opacity: 0.28; pointer-events: none; z-index: 0;
     }
     .year-week-season {
-      position: absolute; left: 0; right: 0;
+      position: absolute; left: 0; right: 0; z-index: 1;
       background: rgba(128,128,128,0.28);
       border-left: 2px solid var(--txt3);
       pointer-events: none;
@@ -681,6 +681,8 @@
     }
     .plan-row-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .plan-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .plan-main-row.plan-row-3 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) auto; }
+    .plan-main-row.plan-row-4 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr) auto minmax(0, 0.8fr); }
     .plan-row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .plan-row-full { grid-template-columns: 1fr; }
     @media (max-width: 900px) {
@@ -688,6 +690,14 @@
     }
     @media (max-width: 720px) {
       .plan-row-4, .plan-row-3, .plan-row-2 { grid-template-columns: 1fr; }
+      .plan-main-row.plan-row-3,
+      .plan-main-row.plan-row-4 {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+      .plan-main-row > .plan-field { grid-column: 1 / -1; }
+      .plan-main-row > .plan-field:first-child { grid-column: 1; grid-row: 1; }
+      .plan-main-row > .plan-length-select { grid-column: 2; grid-row: 1; }
+      .plan-length-select select { width: 5.5rem; }
     }
     .plan-choices {
       display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0;
@@ -714,6 +724,7 @@
       resize: vertical;
       line-height: 1.35;
     }
+    .plan-length-select select { width: 6.75rem; }
     .plan-note-col { gap: 6px; }
     .plan-combo {
       position: relative;
@@ -1501,8 +1512,6 @@
       .board-row { font-size: 15px; padding: 12px 10px; }
 
       body.plan-active { padding: 0.5rem 0.75rem 1.25rem; }
-      .plan-length-pills { display: none; }
-      .plan-length-select { display: block; }
       .input-row { flex-wrap: wrap; }
       .input-row input { min-width: 0; flex: 1 1 100%; }
 
