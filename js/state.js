@@ -46,6 +46,7 @@ export const state = {
   tombstones: [],
   settingsUpdatedAt: null,
   editGen: 0,
+  imports: [],
 };
 
 export const BUILTIN_PROJECTS = [

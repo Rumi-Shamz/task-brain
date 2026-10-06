@@ -34,6 +34,14 @@
       "type": "string",
       "enum": ["morning", "afternoon", "evening"]
     },
+    "activity": {
+      "type": "string",
+      "enum": ["research", "communicate", "act", "learn"]
+    },
+    "lno": {
+      "type": "string",
+      "enum": ["L", "N", "O"]
+    },
     "weekday": {
       "type": "string",
       "enum": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -46,6 +54,8 @@
         "name": { "type": "string", "minLength": 1 },
         "domain": { "$ref": "#/$defs/domain" },
         "project": { "type": "string", "minLength": 1 },
+        "activity": { "$ref": "#/$defs/activity" },
+        "lno": { "$ref": "#/$defs/lno" },
         "priority": { "type": "integer", "minimum": 0, "maximum": 3 },
         "timepressure": { "$ref": "#/$defs/timepressure" },
         "slot": { "$ref": "#/$defs/slot" },

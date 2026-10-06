@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "weekOf": "2026-10-12",
+  "items": [
+    { "name": "Finish ALFA grant budget", "domain": "ALFA", "activity": "act", "lno": "L", "length": 180, "weekday": "monday", "slot": "morning" },
+    { "name": "Email venue about October social", "domain": "SwingSociety", "project": "Swing Buzz", "activity": "communicate", "length": 30, "weekday": "tuesday", "slot": "afternoon" },
+    { "name": "Research two packaging suppliers", "domain": "Dorst", "activity": "research", "length": 60 },
+    { "name": "Send invoice to Dorst", "domain": "Dorst", "activity": "communicate", "length": 15, "status": "done" },
+    { "name": "Call dentist for appointment", "domain": "Personal", "activity": "communicate", "length": 15, "timepressure": "urgent" },
+    { "name": "Practice Python async chapter", "domain": "SoftwareDev", "activity": "learn", "length": 60, "weekday": "thursday", "slot": "evening" },
+    { "name": "Build newsletter template", "domain": "SwingShuffle", "status": "someday" }
+  ]
+}

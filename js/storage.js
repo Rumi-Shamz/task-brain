@@ -44,6 +44,7 @@ export function getPersistPayload() {
     collapsedDomains: state.collapsedDomains,
     activityRules: state.activityRules || [],
     blockSkips: state.blockSkips || [],
+    imports: state.imports || [],
   };
 }
 
@@ -69,6 +70,7 @@ export function applyPersistPayload(d) {
   state.yearRhythm.dayBlocks = normalizeDayBlocks(state.yearRhythm.dayBlocks || d.dayBlocks);
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
+  state.imports = Array.isArray(d.imports) ? d.imports : [];
   // v8 → v9: per-record updatedAt + tombstones for merging two devices (absent = never stamped)
   state.tombstones = pruneTombstones(d.tombstones);
   state.settingsUpdatedAt = d.settingsUpdatedAt || null;
