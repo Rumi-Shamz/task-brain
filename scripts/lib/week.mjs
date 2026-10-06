@@ -4,6 +4,21 @@ const pad2 = n => String(n).padStart(2, '0');
 export const ymd = d => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
 const addDays = (d, n) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
 
+/** "2026-02-31" is not a date: JavaScript would roll it into March, so check the round trip. */
+export function realDate(text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(text || ''));
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], 12);
+  return d.getFullYear() === +m[1] && d.getMonth() === +m[2] - 1 && d.getDate() === +m[3] ? d : null;
+}
+
+/** Value after a flag, or an error when it is missing or is the next flag. */
+export function flagValue(argv, i, flag) {
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith('--')) throw new Error(`${flag} needs a value`);
+  return v;
+}
+
 export function isoWeek(d = new Date()) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const day = date.getUTCDay() || 7;

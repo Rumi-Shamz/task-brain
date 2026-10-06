@@ -74,3 +74,36 @@ test('eval scoring pairs items by name and scores fields', () => {
   assert.deepEqual(s.fields.length, { ok: 0, of: 1 });
   assert.deepEqual(s.fields.domain, { ok: 1, of: 1 });
 });
+
+import { realDate, flagValue } from '../scripts/lib/week.mjs';
+import { execFileSync, spawnSync } from 'node:child_process';
+
+test('realDate rejects dates JavaScript would roll over', () => {
+  assert.ok(realDate('2026-10-12'));
+  assert.equal(realDate('2026-02-31'), null);
+  assert.equal(realDate('2026-13-01'), null);
+  assert.equal(realDate('tomorrow'), null);
+});
+
+test('flags need a value', () => {
+  assert.equal(flagValue(['--cases', 'dir'], 0, '--cases'), 'dir');
+  assert.throws(() => flagValue(['--cases'], 0, '--cases'), /needs a value/);
+  assert.throws(() => flagValue(['--cases', '--save', 'x'], 0, '--cases'), /needs a value/);
+});
+
+test('eval scoring penalises a field the expected plan leaves out', () => {
+  const s = scoreCase([{ name: 'Call dentist', domain: 'Personal' }], [{ name: 'Call dentist', domain: 'Personal', weekday: 'monday' }]);
+  assert.deepEqual(s.fields.domain, { ok: 1, of: 1 });
+  assert.deepEqual(s.fields.weekday, { ok: 0, of: 1 });
+});
+
+test('extract_week stops on a --data file that does not exist, and on a flag without a value', () => {
+  const run = args => spawnSync(process.execPath, ['scripts/extract_week.mjs', '--prebrief-only', '--out', '/tmp/tb-test-out', ...args], { encoding: 'utf8' });
+  const missing = run(['--data', '/tmp/tb-no-such-file.json']);
+  assert.notEqual(missing.status, 0);
+  assert.match(missing.stderr, /--data file not found/);
+  const noValue = run(['--week']);
+  assert.notEqual(noValue.status, 0);
+  assert.match(noValue.stderr, /--week needs a value/);
+  assert.equal(run([]).status, 0, 'no --data is still fine');
+});

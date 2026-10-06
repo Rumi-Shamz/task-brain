@@ -11,8 +11,9 @@ const SLOT_INTERVAL = {
 export function normalizeGroups(raw) {
   // Legacy: { "Group 1": [id, id] }
   if (raw && !Array.isArray(raw) && typeof raw === 'object') {
+    // Ids come from the name so two devices normalizing the same legacy data agree (no duplicates on merge).
     return Object.keys(raw).map(name => ({
-      id: 'g-' + uid(),
+      id: 'g-' + (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'batch'),
       name,
       preferredDay: null,
       preferredStart: null,

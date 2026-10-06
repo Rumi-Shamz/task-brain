@@ -13,7 +13,7 @@ import { readFileSync, readdirSync, existsSync, writeFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateJson, providerConfig } from './lib/llm.mjs';
-import { isoWeek, extractionContext } from './lib/week.mjs';
+import { isoWeek, extractionContext, realDate, flagValue } from './lib/week.mjs';
 import { loadSchema, extractionSystemPrompt } from './extract_week.mjs';
 
 export const FIELDS = ['domain', 'project', 'activity', 'lno', 'length', 'weekday', 'slot', 'status'];
@@ -45,9 +45,9 @@ export function scoreCase(expectedItems, gotItems, threshold = 0.34) {
   });
   const fields = {};
   FIELDS.forEach(f => {
-    const relevant = matched.filter(([e]) => e[f] != null || f === 'status');
-    const ok = relevant.filter(([e, g]) => norm(f, e[f]) === norm(f, g[f])).length;
-    fields[f] = { ok, of: relevant.length };
+    // Every matched pair counts: a field the expected plan leaves out must also be left out by the extractor.
+    const ok = matched.filter(([e, g]) => norm(f, e[f]) === norm(f, g[f])).length;
+    fields[f] = { ok, of: matched.length };
   });
   return {
     expected: expectedItems.length,
@@ -63,8 +63,8 @@ const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
 
 async function main() {
   const argv = process.argv.slice(2);
-  const casesDir = resolve(argv[argv.indexOf('--cases') + 1] || 'evals/extract');
-  const savePath = argv.includes('--save') ? argv[argv.indexOf('--save') + 1] : null;
+  const casesDir = resolve(argv.includes('--cases') ? flagValue(argv, argv.indexOf('--cases'), '--cases') : 'evals/extract');
+  const savePath = argv.includes('--save') ? flagValue(argv, argv.indexOf('--save'), '--save') : null;
   const cfg = providerConfig();
   const schema = loadSchema();
   const cases = readdirSync(casesDir, { withFileTypes: true })
@@ -80,7 +80,8 @@ async function main() {
     const dir = join(casesDir, name);
     const expected = JSON.parse(readFileSync(join(dir, 'expected.json'), 'utf8'));
     const data = existsSync(join(dir, 'data.json')) ? JSON.parse(readFileSync(join(dir, 'data.json'), 'utf8')) : null;
-    const week = expected.weekOf ? isoWeek(new Date(`${expected.weekOf}T12:00:00`)) : isoWeek();
+    if (expected.weekOf && !realDate(expected.weekOf)) throw new Error(`${name}/expected.json: weekOf "${expected.weekOf}" is not a real YYYY-MM-DD date`);
+    const week = expected.weekOf ? isoWeek(realDate(expected.weekOf)) : isoWeek();
     const t0 = Date.now();
     try {
       const { value } = await generateJson({
