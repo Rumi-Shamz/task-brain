@@ -328,6 +328,16 @@ export function intervalForTask(task) {
   return hit ? hit.id : '';
 }
 
+/** <select> value on the edit sheet meaning "leave the scheduled time alone". */
+export const KEEP_TIME = '__keep';
+
+/** True when saving the edit sheet should not touch the task's placement. */
+export function placementUnchanged(task, ymd, interval) {
+  if (interval === KEEP_TIME) return true;
+  // '' is "Leave open" (unschedule), never "unchanged": a task outside every window offers KEEP_TIME instead.
+  return !!task.date && ymd === task.date && interval !== '' && interval === intervalForTask(task);
+}
+
 function rangesOverlap(a0, a1, b0, b1) {
   return a0 < b1 && b0 < a1;
 }

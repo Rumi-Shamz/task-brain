@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Review every PR, including stacked PRs whose base is another feature branch.
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - ".*"
+  path_instructions:
+    - path: "js/**"
+      instructions: |
+        Vanilla ES modules served as-is by GitHub Pages: no build step, no frameworks, no new dependencies.
+        Never put secrets or API keys in client code. Any change to the data.json shape must bump the
+        payload version in js/storage.js and migrate older data. Check two-device sync safety: edits must
+        not be lost when js/sync.js merges, pulls or pushes.
+    - path: "scripts/**"
+      instructions: |
+        Node scripts with no dependencies (plain fetch). API keys come only from the environment.
+        Model output must be validated against schema/plan.schema.json before it is written.
+    - path: ".github/workflows/**"
+      instructions: |
+        workflow_dispatch inputs must reach shell steps only through env vars, never ${{ }} inside run:.
+    - path: "tests/**"
+      instructions: |
+        Tests use node:test only (`node --test tests/*.test.mjs`). Flag tests that cannot fail.

@@ -53,7 +53,7 @@ Every record in `data.json` carries `updatedAt`, and deletions leave short-lived
 2. After the session: `node scripts/extract_week.mjs transcript.txt --data data.json --week 2026-W42` writes a validated `week-2026-W42.json`. Import it on **01 Plan**.
 3. **Import accuracy** on 01 Plan counts tasks corrected or deleted by hand after each import. v2 is done at 0 for three weeks in a row.
 
-Or run the **Extract week plan** GitHub Action: it reads `transcripts/week-<week>.txt` and `data.json` from the private data repo (`DATA_REPO_TOKEN` secret) and can commit the results to `weeks/` there.
+The **Extract week plan** GitHub Action does the same in the cloud, but only for the repository's owner: it is wired to `Rumi-Shamz/task-brain-data` (read `transcripts/week-<week>.txt` and `data.json`, commit results to `weeks/`) and needs the `DATA_REPO_TOKEN` and `ANTHROPIC_API_KEY` secrets on this repo. It does not work against a different data repository; anyone else should run the script locally as above.
 
 Model: `ANTHROPIC_API_KEY` (default `claude-opus-5-5`), or a local model with `LLM_PROVIDER=ollama LLM_MODEL=qwen2.5:7b`. Compare models with `node scripts/eval_extract.mjs --cases <dir>` (a case is `transcript.txt` + a hand-corrected `expected.json`; keep real cases in the private repo).
 

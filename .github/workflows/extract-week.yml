@@ -114,5 +114,11 @@ jobs:
           git config user.name "task-brain-bot"
           git config user.email "bot@users.noreply.github.com"
           git add weeks/
-          git commit -m "Weekly extract ${WEEK}" || echo "No changes"
-          git push
+          git commit -m "Weekly extract ${WEEK}" || { echo "No changes"; exit 0; }
+          # Another write (e.g. the app syncing data.json) may land between clone and push.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            echo "push rejected (attempt $attempt) — rebasing on the remote and retrying"
+            git pull --rebase
+          done
+          echo "could not push after 3 attempts"; exit 1
