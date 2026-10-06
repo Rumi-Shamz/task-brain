@@ -185,7 +185,7 @@ export function unscheduleTask(taskId) {
 export function weekTaskTrayHTML(weekDates) {
   const unscheduled = state.tasks.filter(t => !(t.date && t.start));
   const chips = unscheduled.length
-    ? unscheduled.map(t => `<div class="board-chip" draggable="true" data-id="${ t.id }"
+    ? unscheduled.map(t => `<div class="board-chip" draggable="true" data-id="${ esc(t.id) }"
         ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
         <span class="board-chip-name">${ esc(t.name) }</span>
       </div>`).join('')
@@ -203,15 +203,15 @@ export function weekTaskBlocksHTML(ymd) {
     const top = Math.max(startMins, DAY_START_MIN) / 60 * HOUR_H;
     const height = Math.max(0, (Math.min(endMins, DAY_END_MIN) - Math.max(startMins, DAY_START_MIN)) / 60 * HOUR_H);
     const endLabel = formatHHMM(startMins + dur);
-    return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ t.id }" data-ymd="${ esc(ymd) }"
+    return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ esc(t.id) }" data-ymd="${ esc(ymd) }"
         style="${ projectCssVars(t.project) }top:${ top }px;height:${ Math.max(height, 28) }px"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
         onpointerdown="weekTaskPointerDown(event)"
-        ondblclick="event.stopPropagation();unscheduleTask('${ t.id }');renderYear();">
+        ondblclick="event.stopPropagation();unscheduleTask(${ esc(JSON.stringify(t.id)) });renderYear();">
       <div class="yt-head">
         <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
           onpointerdown="event.stopPropagation()"
-          onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)" title="Mark done" aria-label="Mark done" />
+          onclick="event.stopPropagation(); toggleTaskDone(${ esc(JSON.stringify(t.id)) }, this.checked)" title="Mark done" aria-label="Mark done" />
         <div class="yt-name">${ esc(t.name) }</div>
       </div>
     </div>`;
