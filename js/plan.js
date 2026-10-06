@@ -14,9 +14,11 @@ import {
   DAY_INTERVALS, intervalForTask, placeInInterval, upcomingWorkDates,
   weekdayNameFromYmd, stampActivityFromBlock,
 } from './blocks.js';
+import { renderImportHealth } from './import-plan.js';
 
 export {
   importWeeklyPlanFile,
+  renderImportHealth,
   importWeeklyPlanRows,
   importWeeklyPlanJson,
   parseCsvText,
@@ -880,6 +882,7 @@ export function renderPlan() {
   ensureGroups();
   renderPlanWizard();
   renderMergePanel();
+  renderImportHealth();
   const batches = document.getElementById('plan-batches');
   if (batches) {
     const gs = listGroups();

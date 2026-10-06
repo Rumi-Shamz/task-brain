@@ -4,7 +4,7 @@
  */
 import {
   state, DEFAULT_DURATION,
-  newTask, dateForDay, mondayOfWeek, mondayOnOrBefore, addDaysLocal, formatYmd, formatHHMM,
+  newTask, dateForDay, mondayOfWeek, mondayOnOrBefore, addDaysLocal, formatYmd, formatHHMM, parseYmd, esc, uid,
 } from './state.js';
 import { normalizeDomainId, domainLabel, DOMAINS as DOMAIN_LIST } from './domains.js';
 import { ensureProjectForDomain, ensureProjectsMigrated } from './projects.js';
@@ -87,12 +87,18 @@ function normalizePressure(raw) {
   return { value: null, error: `timepressure must be urgent|important, got "${raw}"` };
 }
 
-/** @returns {{ tasks: object[], rows: {row:number, level:string, message:string}[] }} */
-export function validateAndBuildItems(items) {
+/** Fields compared against the imported copy: a difference means the import needed a hand fix. */
+export const IMPORT_FIELDS = ['name', 'domain', 'projectId', 'activity', 'duration', 'lno'];
+
+/**
+ * @param {{ monday?: Date, source?: string }} [opts] monday defaults to the selected Year week
+ * @returns {{ tasks: object[], rows: {row:number, level:string, message:string}[] }}
+ */
+export function validateAndBuildItems(items, opts = {}) {
   const reports = [];
   const tasks = [];
   const nextFree = {};
-  const mon = weekMondayForImport();
+  const mon = opts.monday || weekMondayForImport();
 
   items.forEach((item, i) => {
     const row = item._row != null ? item._row : i + 1;
@@ -185,7 +191,10 @@ export function validateAndBuildItems(items) {
       size,
       priority: pr.value,
       timepressure: tp.value,
+      lno: ['L', 'N', 'O'].includes(item.lno) ? item.lno : null,
     });
+    task.imported = { from: opts.source || formatYmd(mon) };
+    IMPORT_FIELDS.forEach(f => { task.imported[f] = task[f] ?? null; });
     tasks.push(task);
     warnings.forEach(w => reports.push({ row, level: 'warn', message: `${w} ("${name}")` }));
   });
@@ -265,11 +274,11 @@ export function parseCsvText(text) {
   return rows;
 }
 
-function showImportReport(msgEl, added, reports) {
+function showImportReport(msgEl, added, reports, monday) {
   const errors = reports.filter(r => r.level === 'error');
   const warns = reports.filter(r => r.level === 'warn');
   const lines = [
-    `Imported ${added} task${added === 1 ? '' : 's'} (week of ${formatYmd(weekMondayForImport())}).`,
+    `Imported ${added} task${added === 1 ? '' : 's'} (week of ${formatYmd(monday || weekMondayForImport())}).`,
   ];
   if (errors.length) lines.push(`${errors.length} error${errors.length === 1 ? '' : 's'}:`);
   errors.slice(0, 12).forEach(e => lines.push(`  · row ${e.row}: ${e.message}`));
@@ -293,21 +302,27 @@ function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function commitImportedTasks(tasks, reports) {
+export function commitImportedTasks(tasks, reports, monday) {
   ensureProjectsMigrated();
   const existing = new Set(state.tasks.map(t => (t.name + '|' + (t.date || '')).toLowerCase()));
-  let added = 0;
+  const ids = [];
   tasks.forEach(t => {
     const key = (t.name + '|' + (t.date || '')).toLowerCase();
     if (existing.has(key)) return;
     existing.add(key);
     state.tasks.push(t);
-    added++;
+    ids.push(t.id);
   });
+  const added = ids.length;
+  if (added) {
+    if (!Array.isArray(state.imports)) state.imports = [];
+    state.imports.push({ id: uid(), from: tasks[0].imported.from, at: new Date().toISOString(), taskIds: ids });
+  }
   deps.save();
   try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after import', e); }
   try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after import', e); }
-  showImportReport(document.getElementById('week-plan-msg'), added, reports);
+  showImportReport(document.getElementById('week-plan-msg'), added, reports, monday);
+  renderImportHealth();
   try { if (typeof deps.switchPhase === 'function') deps.switchPhase('plan'); } catch (e) { console.warn('switchPhase after import', e); }
   return added;
 }
@@ -323,7 +338,7 @@ export function importWeeklyPlanRows(rows) {
   commitImportedTasks(tasks, reports);
 }
 
-export function importWeeklyPlanJson(obj) {
+export function importWeeklyPlanJson(obj, source) {
   const msg = document.getElementById('week-plan-msg');
   if (!obj || typeof obj !== 'object') {
     if (msg) msg.textContent = 'JSON must be an object with items[].';
@@ -338,8 +353,43 @@ export function importWeeklyPlanJson(obj) {
     if (msg) msg.textContent = `Unsupported plan version ${obj.version} (need 1).`;
     return;
   }
-  const { tasks, rows: reports } = validateAndBuildItems(items);
-  commitImportedTasks(tasks, reports);
+  // weekOf in the file wins over the Year week selection, so a plan lands on the week it was made for.
+  const monday = parseYmd(obj.weekOf) ? mondayOnOrBefore(parseYmd(obj.weekOf)) : undefined;
+  const { tasks, rows: reports } = validateAndBuildItems(items, { monday, source });
+  commitImportedTasks(tasks, reports, monday);
+}
+
+/**
+ * Per import: how many tasks were corrected by hand or deleted since.
+ * v2 is done when three weekly imports in a row show zero of both.
+ */
+export function importHealth() {
+  const byId = new Map(state.tasks.map(t => [t.id, t]));
+  return (state.imports || []).slice().sort((a, b) => String(b.at).localeCompare(String(a.at))).map(imp => {
+    let fixed = 0, deleted = 0;
+    const fields = {};
+    imp.taskIds.forEach(id => {
+      const t = byId.get(id);
+      if (!t) { deleted++; return; }
+      const diff = IMPORT_FIELDS.filter(f => t.imported && (t[f] ?? null) !== (t.imported[f] ?? null));
+      if (diff.length) fixed++;
+      diff.forEach(f => { fields[f] = (fields[f] || 0) + 1; });
+    });
+    return { ...imp, count: imp.taskIds.length, fixed, deleted, fields };
+  });
+}
+
+export function renderImportHealth() {
+  const el = document.getElementById('import-health');
+  if (!el) return;
+  const rows = importHealth().slice(0, 6);
+  el.innerHTML = rows.length
+    ? `<div class="section-label">Import accuracy · goal: 3 weeks in a row with 0 fixes</div>
+      <ul class="plan-batch-list">${rows.map(r => {
+        const what = Object.entries(r.fields).map(([f, n]) => `${f} ×${n}`).join(', ');
+        return `<li><strong>${esc(r.from)}</strong> · ${r.count} imported · ${r.fixed} corrected · ${r.deleted} deleted${what ? ` — ${esc(what)}` : ''}</li>`;
+      }).join('')}</ul>`
+    : '';
 }
 
 export function importWeeklyPlanFile(input) {
@@ -351,7 +401,7 @@ export function importWeeklyPlanFile(input) {
   if (name.endsWith('.json')) {
     const reader = new FileReader();
     reader.onload = () => {
-      try { importWeeklyPlanJson(JSON.parse(reader.result)); }
+      try { importWeeklyPlanJson(JSON.parse(reader.result), file.name.replace(/\.json$/i, '')); }
       catch (e) { if (msg) msg.textContent = 'JSON parse failed.'; }
     };
     reader.readAsText(file);

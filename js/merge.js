@@ -16,6 +16,7 @@ export const COLLECTIONS = [
   { name: 'yearHourLogs', path: ['yearHourLogs'] },
   { name: 'dayBlocks', path: ['yearRhythm', 'dayBlocks'] },
   { name: 'blockSkips', path: ['blockSkips'], key: s => `${ s.date }|${ s.blockId }` },
+  { name: 'imports', path: ['imports'] },
 ];
 
 /** Payload fields outside the collections. Last writer wins as one unit. */
