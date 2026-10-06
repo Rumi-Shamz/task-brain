@@ -229,12 +229,14 @@ export function ghPush(opts, attempt = 0) {
   state.ghSaving = true;
   if (!quiet) setSyncMsg('Saving…');
   let merged = false;
+  let editGenAtSend = 0;
   return fetchRemote(c).then(({ sha, payload }) => {
     // Someone else saved since our last pull: merge record by record instead of overwriting either side.
     if (sha && sha !== state.fileSha) {
       applyPayloadAndRender(mergePayloads(getPersistPayload(), payload));
       merged = true;
     }
+    editGenAtSend = state.editGen || 0;
     const body = JSON.stringify(getPersistPayload(), null, 2) + '\n';
     return ghApi(c, 'PUT', { message: 'Update Task Brain data.json', content: b64enc(body), sha: sha || undefined });
   }).then(r => {
@@ -245,7 +247,9 @@ export function ghPush(opts, attempt = 0) {
     state.ghSaving = false;
     state.syncGate = 'ready';
     state.lastSyncAt = new Date().toISOString();
-    setDirty(false);
+    // Edits made while this request was in flight are not in the file: stay dirty and send them next.
+    if ((state.editGen || 0) === editGenAtSend) setDirty(false);
+    else { clearTimeout(state.ghPushTimer); state.ghPushTimer = setTimeout(() => ghPush({ quiet: true }), 0); }
     if (merged) setSyncMsg('Merged changes from another device and saved.', 'ok');
     else if (!quiet) setSyncMsg('Saved to GitHub.', 'ok');
     refreshSyncStatus();

@@ -45,6 +45,7 @@ export const state = {
   lastSyncAt: null,
   tombstones: [],
   settingsUpdatedAt: null,
+  editGen: 0,
 };
 
 export const BUILTIN_PROJECTS = [

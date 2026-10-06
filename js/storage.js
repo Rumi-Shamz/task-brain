@@ -12,7 +12,11 @@ import { stampChanges, markClean, pruneTombstones, setDirty } from './merge.js';
 export function save() {
   const changed = stampChanges(getPersistPayload());
   try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
-  if (changed && deps.ghConnected && deps.ghConnected()) setDirty(true);
+  if (changed) {
+    // A push in flight compares this counter to know whether newer edits arrived while it ran.
+    state.editGen = (state.editGen || 0) + 1;
+    if (deps.ghConnected && deps.ghConnected()) setDirty(true);
+  }
   // Only auto-push after a successful boot pull (or confirmed empty remote).
   // Prevents one device's localStorage from overwriting the shared data.json.
   if (deps.ghConnected && deps.ghConnected() && state.syncGate === 'ready') {
@@ -69,8 +73,14 @@ export function applyPersistPayload(d) {
   state.tombstones = pruneTombstones(d.tombstones);
   state.settingsUpdatedAt = d.settingsUpdatedAt || null;
   ensureProjectsMigrated();
-  rollOpenTasksForward();
+  // Baseline first, so the roll-forward below counts as a local edit: it gets stamped and pushed,
+  // and a later pull merges it (with its missed dates) instead of replacing it.
   markClean(getPersistPayload());
+  rollOpenTasksForward();
+  if (stampChanges(getPersistPayload())) {
+    state.editGen = (state.editGen || 0) + 1;
+    if (deps.ghConnected && deps.ghConnected()) setDirty(true);
+  }
 }
 
 export function load() {
