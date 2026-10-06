@@ -88,3 +88,20 @@ test('a startup roll-forward counts as a local edit', () => {
   assert.ok(t.updatedAt, 'stamped, so a merge keeps it');
   assert.equal(isDirty(), true, 'dirty, so the next pull merges instead of replacing');
 });
+
+test('a new device never pushes its default rhythm over the real one', async () => {
+  const { mergePayloads, markClean, stampChanges } = await import('../js/merge.js');
+  store.clear();
+  const { load } = await import('../js/storage.js');
+  state.yearRhythm = null; state.tasks = [];
+  load();                                  // nothing saved: seeds the default rhythm
+  markClean(getPersistPayload());          // what app.js does after start-up seeding
+  state.tasks.push(normalizeTask({ id: 'n', name: 'First real edit' }));
+  stampChanges(getPersistPayload());
+  const local = getPersistPayload();
+  const remote = { version: 8, tasks: [], yearRhythm: { ...seedYearRhythm('2025-12-29'), cycles: [{ startDay: 70 }, { startDay: 161 }, { startDay: 252 }, { startDay: 343 }] } };
+  const merged = mergePayloads(local, remote);
+  assert.equal(merged.yearRhythm.yearStartMonday, '2025-12-29', 'real rhythm kept');
+  assert.equal(merged.yearRhythm.cycles[0].startDay, 70);
+  assert.deepEqual(merged.tasks.map(t => t.name), ['First real edit'], 'the real edit still merges in');
+});
