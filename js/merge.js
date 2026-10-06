@@ -1,5 +1,6 @@
 /** Per-record change stamps, tombstones, and two-device merge of data.json payloads. */
 import { state } from './state.js';
+import { normalizeGroups } from './groups.js';
 
 const TOMBSTONE_DAYS = 90;
 const LS_DIRTY = 'tb-dirty';
@@ -152,6 +153,9 @@ function mergeCollection(col, localList, remoteList, tombs) {
 export function mergePayloads(local, remote) {
   const l = JSON.parse(JSON.stringify(local || {}));
   const r = JSON.parse(JSON.stringify(remote || {}));
+  // Older files store groups as { name: [taskIds] }; merge only understands arrays.
+  l.groups = normalizeGroups(l.groups);
+  r.groups = normalizeGroups(r.groups);
   const tombList = pruneTombstones([...(l.tombstones || []), ...(r.tombstones || [])]);
   const tombs = new Map();
   tombList.forEach(t => {

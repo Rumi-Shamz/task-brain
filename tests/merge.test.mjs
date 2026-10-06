@@ -93,3 +93,14 @@ test('first save without a baseline stamps everything as new', async () => {
   assert.equal(p.tasks[0].updatedAt, '2026-10-06T12:00:00.000Z');
   assert.deepEqual(state.tombstones, [], 'no baseline must not invent deletions');
 });
+
+test('legacy object-shaped groups survive a merge without duplicates', () => {
+  const legacy = { 'Group 1': ['a', 'b'] };
+  const local = payload({ groups: legacy });
+  const remote = payload({ groups: legacy });
+  const m = mergePayloads(local, remote);
+  assert.equal(m.groups.length, 1);
+  assert.equal(m.groups[0].name, 'Group 1');
+  assert.deepEqual(m.groups[0].taskIds, ['a', 'b']);
+  assert.equal(mergePayloads(payload(), remote).groups.length, 1, 'remote legacy groups are kept');
+});
