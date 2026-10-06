@@ -80,7 +80,8 @@ export function markClean(payload) {
  * tombstones for records that disappeared. Mutates live state through the payload's references.
  */
 export function stampChanges(payload, now = new Date().toISOString()) {
-  if (!snapshot) { markClean(payload); return false; }
+  // No baseline yet (first run without saved data): every record counts as new.
+  if (!snapshot) snapshot = { cols: {}, settings: null };
   let changed = false;
   if (!Array.isArray(state.tombstones)) state.tombstones = [];
   COLLECTIONS.forEach(col => {

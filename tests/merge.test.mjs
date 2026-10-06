@@ -84,3 +84,11 @@ test('old tombstones are pruned', () => {
   ], now);
   assert.deepEqual(kept.map(t => t.id), ['y']);
 });
+
+test('first save without a baseline stamps everything as new', async () => {
+  const fresh = await import('../js/merge.js?fresh=1');
+  state.tombstones = [];
+  const p = payload({ tasks: [{ id: 'n', name: 'New on a fresh device' }] });
+  assert.equal(fresh.stampChanges(p, '2026-10-06T12:00:00.000Z'), true);
+  assert.equal(p.tasks[0].updatedAt, '2026-10-06T12:00:00.000Z');
+});
