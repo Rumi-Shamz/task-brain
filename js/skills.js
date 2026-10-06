@@ -22,6 +22,7 @@ export function normalizeSkill(s) {
     utility,
     timeToLearn,
     quadrant: skillQuadrant(utility, timeToLearn),
+    ...(s.updatedAt ? { updatedAt: s.updatedAt } : {}),
   };
 }
 

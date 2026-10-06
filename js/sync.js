@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { getPersistPayload, applyPersistPayload } from './storage.js';
 import { deps } from './deps.js';
+import { mergePayloads, isDirty, setDirty } from './merge.js';
 
 /* ---------- GitHub data.json sync (bar-shifts pattern) ---------- */
 // BACKLOG: Supabase auth + per-user private sync when opening to other users.
@@ -114,14 +115,14 @@ export function b64dec(b64) {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
 }
-export function ghApi(c, method, body) {
+export function ghApi(c, method, body, accept) {
   return fetch(
     'https://api.github.com/repos/' + encodeURIComponent(c.owner) + '/' +
       encodeURIComponent(c.repo) + '/contents/' + DATA_PATH,
     {
       method,
       cache: 'no-store',
-      headers: { Authorization: 'Bearer ' + c.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+      headers: { Authorization: 'Bearer ' + c.token, Accept: accept || 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
       body: body ? JSON.stringify(body) : undefined,
     }
   );
@@ -132,14 +133,28 @@ export function pullErrorMessage(e) {
   return 'Pull failed. Use private repo task-brain-data, then Connect & pull.';
 }
 
-function applyRemoteAndRender(j) {
-  state.fileSha = j.sha;
-  applyPersistPayload(JSON.parse(b64dec(j.content)));
+function applyPayloadAndRender(payload) {
+  applyPersistPayload(payload);
   try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
-  state.lastSyncAt = (getPersistPayload().updatedAt) || new Date().toISOString();
+  state.lastSyncAt = payload.updatedAt || new Date().toISOString();
   try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after pull', e); }
   try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after pull', e); }
   try { if (typeof deps.renderYear === 'function') deps.renderYear(); } catch (e) { console.warn('year after pull', e); }
+}
+
+/** GET data.json → { sha, payload }. sha is null when the file does not exist yet. */
+function fetchRemote(c) {
+  return ghApi(c, 'GET').then(r => {
+    if (r.status === 404) return { sha: null, payload: null };
+    if (!r.ok) throw r.status;
+    return r.json().then(j => {
+      if (j.content) return { sha: j.sha, payload: JSON.parse(b64dec(j.content)) };
+      // Files over 1 MB come without inline content; fetch the raw body instead.
+      return ghApi(c, 'GET', null, 'application/vnd.github.raw+json')
+        .then(raw => { if (!raw.ok) throw raw.status; return raw.json(); })
+        .then(payload => ({ sha: j.sha, payload }));
+    });
+  });
 }
 
 export function ghPull() {
@@ -158,8 +173,8 @@ export function ghPull() {
   }
   setSyncMsg('Pulling…');
   if (state.syncGate === 'boot') setSyncStatus('Pulling…');
-  return ghApi(c, 'GET').then(r => {
-    if (r.status === 404) {
+  return fetchRemote(c).then(({ sha, payload }) => {
+    if (!sha) {
       // No remote file yet — safe to push local as the first copy
       state.fileSha = null;
       state.syncGate = 'ready';
@@ -168,23 +183,32 @@ export function ghPull() {
       refreshSyncStatus();
       return { ok: true, empty: true };
     }
-    if (!r.ok) throw 'GitHub error ' + r.status;
-    return r.json().then(j => {
-      applyRemoteAndRender(j);
-      state.syncGate = 'ready';
+    const merge = isDirty();
+    applyPayloadAndRender(merge ? mergePayloads(getPersistPayload(), payload) : payload);
+    state.fileSha = sha;
+    state.syncGate = 'ready';
+    refreshSyncStatus();
+    if (!merge) {
       setSyncMsg('Pulled latest data.json.', 'ok');
-      refreshSyncStatus();
       return { ok: true, empty: false };
+    }
+    // Edits made here before the pull are merged in; send the result back.
+    setSyncMsg('Merged edits from this device with data.json — saving…', 'ok');
+    return ghPush({ quiet: true }).then(() => {
+      setSyncMsg(isDirty()
+        ? 'Merged edits from this device, but saving failed — Push save to retry.'
+        : 'Merged edits from this device with data.json and saved.', isDirty() ? 'err' : 'ok');
+      return { ok: true, empty: false, merged: true };
     });
   }).catch(e => {
     state.syncGate = 'blocked';
-    setSyncMsg(pullErrorMessage(e), 'err');
+    setSyncMsg(pullErrorMessage(typeof e === 'number' ? 'GitHub error ' + e : e), 'err');
     refreshSyncStatus();
     return { ok: false, reason: e };
   });
 }
 
-export function ghPush(opts) {
+export function ghPush(opts, attempt = 0) {
   const quiet = opts && opts.quiet;
   const c = ghCfg();
   if (!c.token || !c.owner || !c.repo) {
@@ -204,19 +228,15 @@ export function ghPush(opts) {
   if (state.ghSaving) return Promise.resolve();
   state.ghSaving = true;
   if (!quiet) setSyncMsg('Saving…');
-  const body = JSON.stringify(getPersistPayload(), null, 2) + '\n';
-  function put(sha) {
+  let merged = false;
+  return fetchRemote(c).then(({ sha, payload }) => {
+    // Someone else saved since our last pull: merge record by record instead of overwriting either side.
+    if (sha && sha !== state.fileSha) {
+      applyPayloadAndRender(mergePayloads(getPersistPayload(), payload));
+      merged = true;
+    }
+    const body = JSON.stringify(getPersistPayload(), null, 2) + '\n';
     return ghApi(c, 'PUT', { message: 'Update Task Brain data.json', content: b64enc(body), sha: sha || undefined });
-  }
-  return ghApi(c, 'GET').then(r => {
-    if (r.status === 404) return { sha: null };
-    if (!r.ok) throw r.status;
-    return r.json();
-  }).then(j => {
-    // Remote exists but this device never pulled — refuse overwrite (esp. quiet push)
-    if (!state.fileSha && j.sha) throw 'need-pull';
-    if (state.fileSha && j.sha && j.sha !== state.fileSha) throw 'stale';
-    return put(j.sha);
   }).then(r => {
     if (!r.ok) throw r.status;
     return r.json();
@@ -225,19 +245,14 @@ export function ghPush(opts) {
     state.ghSaving = false;
     state.syncGate = 'ready';
     state.lastSyncAt = new Date().toISOString();
-    if (!quiet) setSyncMsg('Saved to GitHub.', 'ok');
+    setDirty(false);
+    if (merged) setSyncMsg('Merged changes from another device and saved.', 'ok');
+    else if (!quiet) setSyncMsg('Saved to GitHub.', 'ok');
     refreshSyncStatus();
   }).catch(e => {
     state.ghSaving = false;
-    if (e === 'stale' || e === 'need-pull') {
-      // Auto-pull so devices reconverge; do not overwrite remote with local
-      setSyncMsg(e === 'stale'
-        ? 'Newer version on GitHub — pulling it…'
-        : 'Remote data exists — pulling before any save…', 'err');
-      return ghPull().then(() => {
-        if (!quiet) setSyncMsg('Pulled newer data. Re-apply your edit if it was lost, then Push.', 'err');
-      });
-    }
+    // 409/422: another device saved between our GET and PUT. Merge again once.
+    if ((e === 409 || e === 422) && attempt < 2) return ghPush(opts, attempt + 1);
     if (quiet) return;
     if (e === 401) setSyncMsg('Token rejected. Disconnect and reconnect with a fresh PAT.', 'err');
     else if (e === 403 || e === 404) setSyncMsg('Token needs Contents: Read and write on this repo.', 'err');

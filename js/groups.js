@@ -26,6 +26,7 @@ export function normalizeGroups(raw) {
     preferredDay: g.preferredDay || null,
     preferredStart: g.preferredStart || null,
     taskIds: Array.isArray(g.taskIds) ? g.taskIds.slice() : [],
+    ...(g.updatedAt ? { updatedAt: g.updatedAt } : {}),
   }));
 }
 

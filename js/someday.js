@@ -1,6 +1,10 @@
 /** Someday review queue + discard rule (T6). */
 import { state, newTask, formatYmd, addDaysLocal, mondayOnOrBefore, esc } from './state.js';
 import { deps } from './deps.js';
+import { slippedTasks } from './blocks.js';
+
+/** Open tasks missed this many times are flagged like a thrice-skipped someday item. */
+export const SLIP_FLAG = 3;
 
 export function todayYmdLocal() {
   return formatYmd(new Date());
@@ -58,6 +62,7 @@ export function somedayDelete(id) {
   state.tasks = state.tasks.filter(x => x.id !== id);
   deps.save();
   renderSomedayPanel();
+  renderSlippedPanel();
   if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
 }
 
@@ -87,4 +92,37 @@ export function renderSomedayPanel(el) {
           <button type="button" class="btn" onclick="somedayDefer('${t.id}')">4. Push review</button>
         </div>
       </div>`).join('') : '<p class="dash-inbox-empty">No someday items due.</p>'}`;
+}
+
+export function slippedToSomeday(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.status = 'someday';
+  t.done = false;
+  t.date = null;
+  t.start = null;
+  t.interval = null;
+  t.blockId = null;
+  t.reviewAt = formatYmd(addDaysLocal(new Date(), 14));
+  deps.save();
+  renderSlippedPanel();
+  renderSomedayPanel();
+  if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
+}
+
+export function renderSlippedPanel(el) {
+  const root = el || document.getElementById('slipped-panel');
+  if (!root) return;
+  const list = slippedTasks();
+  root.innerHTML = `
+    <p class="someday-hint">Open tasks whose day passed. They moved to the next open weekday; each miss is kept.</p>
+    ${list.length ? list.map(t => `
+      <div class="someday-card ${t.missed.length >= SLIP_FLAG ? 'delete-candidate' : ''}">
+        <div class="someday-name">${esc(t.name)}${t.missed.length >= SLIP_FLAG ? ` <em>(slipped ${t.missed.length}× — still worth doing?)</em>` : ''}</div>
+        <div class="someday-meta">missed ${esc(t.missed.join(', '))} · now ${esc(t.date || '—')}</div>
+        <div class="someday-actions">
+          <button type="button" class="btn" onclick="slippedToSomeday('${t.id}')">Move to someday</button>
+          <button type="button" class="btn" onclick="somedayDelete('${t.id}')">Delete</button>
+        </div>
+      </div>`).join('') : '<p class="dash-inbox-empty">Nothing slipped.</p>'}`;
 }

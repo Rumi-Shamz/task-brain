@@ -43,6 +43,8 @@ export const state = {
   /** boot: waiting for first pull; ready: may auto-push; blocked: pull failed; local: no GitHub */
   syncGate: 'boot',
   lastSyncAt: null,
+  tombstones: [],
+  settingsUpdatedAt: null,
 };
 
 export const BUILTIN_PROJECTS = [
@@ -100,7 +102,11 @@ export function allProjects() {
 export function isBuiltinProject(id) {
   return BUILTIN_PROJECTS.some(p => p.id === id);
 }
-export function uid() { return Math.random().toString(36).slice(2, 8); }
+/** 12 hex chars: two devices creating records offline should never collide. */
+export function uid() {
+  if (globalThis.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+  return Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8);
+}
 
 export function normalizeCustomProjects(list) {
   if (!Array.isArray(list)) return [];
@@ -115,7 +121,7 @@ export function normalizeCustomProjects(list) {
     const color = String(p.color || PROJECT_PALETTE[i % PROJECT_PALETTE.length]);
     const domain = p.domain || (Array.isArray(p.domains) && p.domains[0]) || 'Personal';
     const domains = Array.isArray(p.domains) && p.domains.length ? p.domains : [domain];
-    out.push({ id, label, color, domain, domains });
+    out.push({ id, label, color, domain, domains, ...(p.updatedAt ? { updatedAt: p.updatedAt } : {}) });
   });
   return out;
 }
@@ -235,7 +241,10 @@ export function normalizeHourLogs(raw) {
     if (!Number.isFinite(startMin) || !Number.isFinite(endMin)) return null;
     startMin = Math.max(0, Math.min(24 * 60 - 1, startMin));
     endMin = Math.max(startMin + SLOT_MINUTES, Math.min(24 * 60, endMin));
-    return { id: item.id ? String(item.id) : newHourLogId(), date, startMin, endMin, label: item.label ? String(item.label) : undefined };
+    return {
+      id: item.id ? String(item.id) : newHourLogId(), date, startMin, endMin, label: item.label ? String(item.label) : undefined,
+      ...(item.updatedAt ? { updatedAt: item.updatedAt } : {}),
+    };
   }).filter(Boolean);
 }
 export function formatClock(min) {
@@ -427,6 +436,7 @@ export function normalizeTask(t) {
     done: status === 'done' || done,
     status,
     reviewAt: t.reviewAt || null,
+    missed: Array.isArray(t.missed) ? [...new Set(t.missed.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
     priority: t.priority != null ? Number(t.priority) : null,
     timepressure: t.timepressure || null,
     trackedMs: Math.max(0, Number(t.trackedMs) || 0),

@@ -7,9 +7,12 @@ import { normalizeGroups } from './groups.js';
 import { normalizeDayBlocks, normalizeActivityRules, rollOpenTasksForward } from './blocks.js';
 import { normalizeCustomDomains } from './domains.js';
 import { deps } from './deps.js';
+import { stampChanges, markClean, pruneTombstones, setDirty } from './merge.js';
 
 export function save() {
+  const changed = stampChanges(getPersistPayload());
   try { localStorage.setItem('dayplanner_v3', JSON.stringify(getPersistPayload())); } catch (e) {}
+  if (changed && deps.ghConnected && deps.ghConnected()) setDirty(true);
   // Only auto-push after a successful boot pull (or confirmed empty remote).
   // Prevents one device's localStorage from overwriting the shared data.json.
   if (deps.ghConnected && deps.ghConnected() && state.syncGate === 'ready') {
@@ -20,8 +23,10 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 8,
+    version: 9,
     updatedAt: new Date().toISOString(),
+    settingsUpdatedAt: state.settingsUpdatedAt || null,
+    tombstones: state.tombstones || [],
     tasks: state.tasks,
     groups: state.groups,
     groupCounter: state.groupCounter,
@@ -60,8 +65,12 @@ export function applyPersistPayload(d) {
   state.yearRhythm.dayBlocks = normalizeDayBlocks(state.yearRhythm.dayBlocks || d.dayBlocks);
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
+  // v8 → v9: per-record updatedAt + tombstones for merging two devices (absent = never stamped)
+  state.tombstones = pruneTombstones(d.tombstones);
+  state.settingsUpdatedAt = d.settingsUpdatedAt || null;
   ensureProjectsMigrated();
   rollOpenTasksForward();
+  markClean(getPersistPayload());
 }
 
 export function load() {

@@ -16,6 +16,7 @@ import {
 } from './skills.js';
 import {
   renderSomedayPanel, somedayDelegate, somedayConvert, somedayDelete, somedayDefer,
+  renderSlippedPanel, slippedToSomeday,
 } from './someday.js';
 import { state as appState } from './state.js';
 import { deriveActivityRules } from './blocks.js';
@@ -61,6 +62,8 @@ Object.assign(window, plan, year, dashboard, {
   somedayConvert,
   somedayDelete,
   somedayDefer,
+  renderSlippedPanel,
+  slippedToSomeday,
   applyGroupSchedule: (id) => { applyGroupSchedule(id); save(); plan.renderPlan(); },
   mergeProjects,
   save,
