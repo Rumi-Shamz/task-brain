@@ -13,8 +13,13 @@ import {
 import { deps } from './deps.js';
 import { weekTaskBlocksHTML } from './dashboard.js';
 import {
-  cycleDayIndex, weekWorkDates, mondayOfYmd, dayBlocks, activityRules, isTaskDay,
+  cycleDayIndex, weekWorkDates, mondayOfYmd, activityRules, isTaskDay, blocksOnDate, allDayOnDate,
 } from './blocks.js';
+import { domainStyleVar } from './domains.js';
+import { describeRepeat } from './recurring.js';
+import { renderRecurringEditor } from './year-events.js';
+
+export * from './year-events.js';
 
 export function setYearAnchor(value) {
   const parsed = parseYmd(value);
@@ -510,13 +515,21 @@ export function renderYear() {
       const ymd = `${ slot.year }-${ pad2(slot.month + 1) }-${ pad2(slotCell.dom) }`;
       const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
       const cell = idx == null ? { kind: 'free', labels: [] } : cells[idx];
-      const title = `${ ymd } · ${ (cell.labels || []).join(' · ') || cell.kind } · double-click → week`;
+      const appts = blocksOnDate(ymd, { includeAllDay: true }).filter(b => b.rule === 'event');
+      const apptText = appts.map(b => (b.allDay ? '' : formatHHMM(b.startMin) + ' ') + b.name).join(' · ');
+      const title = `${ ymd } · ${ (cell.labels || []).join(' · ') || cell.kind }${ apptText ? ' · ' + apptText : '' } · double-click → week`;
+      // The 12-month overview dots only what is not a plain weekly habit (monthly, yearly, one-off, every N weeks).
+      const dotted = large ? appts : appts.filter(b => b.repeat.freq !== 'weekly' || b.repeat.interval > 1);
+      const dots = dotted.length
+        ? `<span class="ydots">${ dotted.slice(0, large ? 4 : 3).map(b => `<i style="${ domainStyleVar(b.domain) }"></i>`).join('') }</span>` : '';
+      const names = large && appts.length
+        ? `<span class="ynames">${ appts.slice(0, 2).map(b => `<span style="${ domainStyleVar(b.domain) }">${ esc(b.name) }</span>`).join('') }</span>` : '';
       const todayY = formatYmd(new Date());
       const hi = ymd === todayY ? 'outline:2px solid var(--txt);' : '';
       const focusMon = state.yearFocusMonday || '';
       const inWeek = focusMon && ymd >= focusMon && ymd <= formatYmd(addDaysLocal(parseYmd(focusMon), 6)) ? ' in-week' : '';
       return `<button type="button" class="year-cell yc-${ cell.kind }${ inWeek }" title="${ esc(title) }" style="${ hi }height:${ cellH }px"
-        onclick="markYearWeekDate('${ ymd }')" ondblclick="selectYearWeekDate('${ ymd }')">${ slotCell.dom }</button>`;
+        onclick="markYearWeekDate('${ ymd }')" ondblclick="selectYearWeekDate('${ ymd }')">${ slotCell.dom }${ dots }${ names }</button>`;
     }).join('');
     const titleClick = large
       ? `${ MONTHS[slot.month] } ${ slot.year }`
@@ -533,7 +546,10 @@ export function renderYear() {
     if (sectionLabel) sectionLabel.textContent = '';
     if (!state.yearFocusMonday) state.yearFocusMonday = mondayOfYmd(formatYmd(new Date()));
     const workSched = (state.yearRhythm && state.yearRhythm.workSchedule) || defaultWorkSchedule();
-    const weekDates = weekWorkDates(state.yearFocusMonday);
+    // Work days, plus any other day of this week with an appointment (e.g. a Saturday class).
+    const workDates = weekWorkDates(state.yearFocusMonday);
+    const weekDates = Array.from({ length: 7 }, (_, i) => formatYmd(addDaysLocal(parseYmd(state.yearFocusMonday), i)))
+      .filter(ymd => workDates.includes(ymd) || blocksOnDate(ymd, { includeAllDay: true }).length);
     const midDate = parseYmd(weekDates[0] || state.yearFocusMonday);
     const seasonWin = midDate ? workWindowFromMonth(midDate.getMonth(), workSched) : 'long';
     const weekSpec = seasonSpec(workSched, seasonWin);
@@ -579,11 +595,15 @@ export function renderYear() {
           title="${ esc(formatClock(log.startMin) + '–' + formatClock(log.endMin) + (log.label ? ' · ' + log.label : '')) }">${ esc(formatClock(log.startMin)) } ${ esc(log.label || '') }</button>`;
       }).join('');
       const taskBlocks = ymd ? weekTaskBlocksHTML(ymd) : '';
+      const series = blocksOnDate(ymd).map(b => `<div class="year-week-series ${ b.rule === 'event' ? 'event' : 'open' }"
+          style="${ domainStyleVar(b.domain) }top:${ b.startMin / 60 * HOUR_H }px;height:${ Math.max(14, (b.endMin - b.startMin) / 60 * HOUR_H) }px"
+          title="${ esc(b.name) } · ${ esc(formatHHMM(b.startMin)) }–${ esc(formatHHMM(b.endMin)) } · ${ esc(describeRepeat(b)) }">
+          <span>${ esc(b.name) }</span></div>`).join('');
       const todayMark = ymd === formatYmd(new Date()) ? ' is-today' : '';
       return `<div class="year-week-col${ todayMark }" data-ymd="${ esc(ymd) }"
         onmousedown="yearHourDragStart('${ ymd }', event)"
         onmousemove="yearHourDragMove('${ ymd }', event)"
-        style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ blocks }${ taskBlocks }</div>`;
+        style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ series }${ blocks }${ taskBlocks }</div>`;
     }
 
     const grid = document.getElementById('year-grid');
@@ -595,9 +615,12 @@ export function renderYear() {
       const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
       const cell = idx == null ? { kind: 'free', labels: [] } : cells[idx];
       const wd = date ? (date.getDay() === 0 ? 6 : date.getDay() - 1) : 0;
+      const allDay = allDayOnDate(ymd).map(b =>
+        `<span class="allday-chip" style="${ domainStyleVar(b.domain) }" title="${ esc(b.name) }">${ esc(b.name) }</span>`).join('');
       return `<button type="button" class="year-week-head yc-${ cell.kind }" onclick="markYearWeekDate('${ ymd }')">
         <span class="wd">${ WEEKDAYS[wd] }</span>
         <span class="dd">${ date ? date.getDate() : '' }</span>
+        ${ allDay ? `<span class="allday-row">${ allDay }</span>` : '' }
       </button>`;
     }).join('');
     const cols = weekDates.map(ymd => weekColHtml(ymd)).join('');
@@ -694,33 +717,12 @@ export function renderProtocolEditor() {
   const vacs = (r.vacations || []).map((v, i) =>
     `<label>Vacation ${i + 1}<input type="date" value="${protocolDate(v.startDay)}" onchange="setProtocolVacation(${i}, this.value)" /></label>`
   ).join('');
-  const blocks = dayBlocks().map(b => `<div class="proto-block">
-    <input type="text" value="${esc(b.name)}" onchange="patchDayBlock('${b.id}','name',this.value)" />
-    <input type="time" value="${formatHHMM(b.startMin)}" onchange="patchDayBlock('${b.id}','start',this.value)" />
-    <input type="time" value="${formatHHMM(b.endMin)}" onchange="patchDayBlock('${b.id}','end',this.value)" />
-    <select onchange="patchDayBlock('${b.id}','rule',this.value)">
-      <option value="leverage" ${b.rule === 'leverage' ? 'selected' : ''}>Leverage only</option>
-      <option value="any" ${b.rule === 'any' ? 'selected' : ''}>Any task</option>
-      <option value="event" ${b.rule === 'event' ? 'selected' : ''}>Event</option>
-    </select>
-    <select onchange="patchDayBlock('${b.id}','activity',this.value)" ${b.rule === 'event' ? 'disabled' : ''}>
-      <option value="">No activity stamp</option>
-      ${['research','communicate','act','learn'].map(a => `<option value="${a}" ${b.activity === a ? 'selected' : ''}>${a}</option>`).join('')}
-    </select>
-    <button type="button" class="btn" onclick="removeDayBlock('${b.id}')">Remove</button>
-  </div>`).join('');
-  const rules = activityRules().map(rule => `<li>${esc(rule.kind)} “${esc(rule.value)}” → ${esc(rule.activity)}
-    <button type="button" class="btn" onclick="removeActivityRule('${rule.id}')">Remove</button></li>`).join('');
   el.innerHTML = `<div class="section-label">Protocol · repeats every 364 days</div>
     <div class="proto-grid">${cycles}
       <label>Deep rest<input type="date" value="${protocolDate(r.deepRest.startDay)}" onchange="setProtocolDeepRest(this.value)" /></label>
       ${vacs}
-    </div>
-    <div class="section-label">Recurring day blocks</div>
-    ${blocks}
-    <button type="button" class="btn" onclick="addDayBlock()">Add block</button>
-    <div class="section-label">Activity rules</div>
-    <ul class="plan-batch-list">${rules || '<li>No rules yet. Correct an activity on Plan to save one.</li>'}</ul>`;
+    </div>`;
+  renderRecurringEditor();
 }
 
 export function setProtocolCycle(i, ymd) {
@@ -743,41 +745,6 @@ export function setProtocolDeepRest(ymd) {
   const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
   if (idx == null) return;
   state.yearRhythm.deepRest.startDay = idx;
-  deps.save();
-  deps.renderYear();
-}
-
-export function patchDayBlock(id, field, value) {
-  const b = dayBlocks().find(x => x.id === id);
-  if (!b) return;
-  if (field === 'name') b.name = String(value || 'Block').slice(0, 40);
-  else if (field === 'start') {
-    const mins = parseHHMM(value);
-    if (mins != null) b.startMin = mins;
-  } else if (field === 'end') {
-    const mins = parseHHMM(value);
-    if (mins != null) b.endMin = mins;
-  } else if (field === 'rule') {
-    b.rule = value === 'leverage' || value === 'event' || value === 'any' ? value : 'any';
-    if (b.rule === 'event') b.activity = null;
-  } else if (field === 'activity') {
-    b.activity = ['research', 'communicate', 'act', 'learn'].includes(value) ? value : null;
-  }
-  deps.save();
-  deps.renderYear();
-}
-
-export function addDayBlock() {
-  dayBlocks().push({
-    id: uid(), name: 'Block', weekdays: [0, 1, 2, 3, 4],
-    startMin: 15 * 60, endMin: 16 * 60, rule: 'any', activity: null,
-  });
-  deps.save();
-  deps.renderYear();
-}
-
-export function removeDayBlock(id) {
-  state.yearRhythm.dayBlocks = dayBlocks().filter(b => b.id !== id);
   deps.save();
   deps.renderYear();
 }

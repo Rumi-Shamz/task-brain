@@ -11,6 +11,17 @@ export const CANONICAL_DOMAINS = [
   { id: 'Personal', label: 'Personal', shared: false },
 ];
 
+/** Default colors (match the original CSS); custom domains take the palette in order. */
+export const DEFAULT_DOMAIN_COLORS = {
+  ALFA: '#E24B4A',
+  SwingSociety: '#D4537E',
+  SwingShuffle: '#378ADD',
+  Dorst: '#EF9F27',
+  Dev: '#5B8DEF',
+  Personal: '#1D9E75',
+};
+const CUSTOM_DOMAIN_PALETTE = ['#7F77DD', '#2A9D8F', '#C17A3A', '#9B59B6', '#16A085', '#E76F51', '#8D99AE', '#B5838D'];
+
 /** @deprecated use allDomains() — kept for imports that expect DOMAINS array of objects */
 export const DOMAINS = CANONICAL_DOMAINS;
 
@@ -129,4 +140,32 @@ export function setAllDomainsCollapsed(collapsed) {
   } else {
     state.collapsedDomains = [];
   }
+}
+
+export function domainColor(domainId) {
+  const id = normalizeDomainId(domainId) || domainId;
+  const custom = state.domainColors && state.domainColors[id];
+  if (custom) return custom;
+  if (DEFAULT_DOMAIN_COLORS[id]) return DEFAULT_DOMAIN_COLORS[id];
+  const i = (state.customDomains || []).findIndex(d => d.id === id);
+  return i >= 0 ? CUSTOM_DOMAIN_PALETTE[i % CUSTOM_DOMAIN_PALETTE.length] : '#8D99AE';
+}
+
+export function setDomainColor(domainId, color) {
+  if (!/^#[0-9a-f]{6}$/i.test(String(color || ''))) return;
+  if (!state.domainColors || typeof state.domainColors !== 'object') state.domainColors = {};
+  state.domainColors[domainId] = color;
+}
+
+export function normalizeDomainColors(raw) {
+  const out = {};
+  if (raw && typeof raw === 'object') {
+    Object.entries(raw).forEach(([k, v]) => { if (/^#[0-9a-f]{6}$/i.test(String(v))) out[k] = v; });
+  }
+  return out;
+}
+
+/** style="--dc:…" fragment for anything tinted by its domain. */
+export function domainStyleVar(domainId) {
+  return domainId ? `--dc:${domainColor(domainId)};` : '';
 }

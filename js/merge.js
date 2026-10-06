@@ -20,7 +20,7 @@ export const COLLECTIONS = [
 ];
 
 /** Payload fields outside the collections. Last writer wins as one unit. */
-const SETTINGS_KEYS = ['groupCounter', 'collapsedDomains', 'yearRhythm'];
+const SETTINGS_KEYS = ['groupCounter', 'collapsedDomains', 'yearRhythm', 'domainColors'];
 
 let snapshot = null;
 
