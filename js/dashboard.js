@@ -52,6 +52,8 @@ export function boardRowHTML(t, { nested = false } = {}) {
     proj ? `<span class="tag">${esc(proj.name)}</span>` : '',
     t.lno ? `<span class="tag">LNO ${esc(t.lno)}</span>` : '',
     scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
+    !t.done && t.missed && t.missed.length
+      ? `<span class="tag tag-missed" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>` : '',
   ].filter(Boolean).join('');
   return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${running ? 'timer-running' : ''}"
       draggable="true" data-id="${t.id}"
@@ -484,6 +486,12 @@ export function renderDashboard() {
   deps.renderProjectBoard();
   if (typeof window.renderSomedayPanel === 'function') {
     window.renderSomedayPanel(document.getElementById('someday-panel'));
+  }
+  if (typeof window.renderSlippedPanel === 'function') {
+    window.renderSlippedPanel(document.getElementById('slipped-panel'));
+    const n = document.querySelectorAll('#slipped-panel .someday-card').length;
+    const sum = document.getElementById('slipped-summary');
+    if (sum) sum.textContent = n ? `Slipped (${n})` : 'Slipped';
   }
 }
 

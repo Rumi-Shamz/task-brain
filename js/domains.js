@@ -45,7 +45,7 @@ export function normalizeCustomDomains(list) {
     }
     if (seen.has(id)) return;
     seen.add(id);
-    out.push({ id, label, shared: !!d.shared });
+    out.push({ id, label, shared: !!d.shared, ...(d.updatedAt ? { updatedAt: d.updatedAt } : {}) });
   });
   return out;
 }

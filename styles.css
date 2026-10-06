@@ -683,6 +683,7 @@
     }
     .tag-warn { color: var(--txt2) !important; }
     .tag-sched { color: var(--txt2) !important; }
+    .tag-missed { color: #b5473a !important; border-color: rgba(226, 75, 74, 0.45) !important; }
     .plan-row {
       display: grid;
       gap: 10px 14px;

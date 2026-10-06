@@ -16,9 +16,12 @@ import {
 } from './skills.js';
 import {
   renderSomedayPanel, somedayDelegate, somedayConvert, somedayDelete, somedayDefer,
+  renderSlippedPanel, slippedToSomeday,
 } from './someday.js';
 import { state as appState } from './state.js';
 import { deriveActivityRules } from './blocks.js';
+import { markClean } from './merge.js';
+import { getPersistPayload } from './storage.js';
 
 deps.save = save;
 deps.render = render;
@@ -61,6 +64,8 @@ Object.assign(window, plan, year, dashboard, {
   somedayConvert,
   somedayDelete,
   somedayDefer,
+  renderSlippedPanel,
+  slippedToSomeday,
   applyGroupSchedule: (id) => { applyGroupSchedule(id); save(); plan.renderPlan(); },
   mergeProjects,
   save,
@@ -77,6 +82,9 @@ ensureProjectsMigrated();
 ensureGroups();
 ensureSkills();
 year.ensureYearWeekMonday();
+// Defaults created above (seed rhythm, default blocks, built-in projects) are not edits: on a new
+// device they must never be stamped, or a merge could put them over the real year rhythm.
+markClean(getPersistPayload());
 ensureTimerTick();
 switchPhase('plan');
 refreshSyncForm();

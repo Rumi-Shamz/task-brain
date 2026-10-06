@@ -34,6 +34,7 @@ export function normalizeDayBlocks(raw) {
       endMin,
       rule,
       activity: rule === 'event' ? null : activity,
+      ...(b.updatedAt ? { updatedAt: b.updatedAt } : {}),
     };
   });
 }
@@ -53,7 +54,7 @@ export function normalizeActivityRules(raw) {
     const activity = ['research', 'communicate', 'act', 'learn'].includes(r.activity) ? r.activity : null;
     const value = String(r.value || '').trim();
     if (!kind || !activity || !value) return null;
-    return { id: r.id ? String(r.id) : uid(), kind, value, activity };
+    return { id: r.id ? String(r.id) : uid(), kind, value, activity, ...(r.updatedAt ? { updatedAt: r.updatedAt } : {}) };
   }).filter(Boolean);
 }
 
@@ -380,6 +381,7 @@ export function nextOpenWeekday(fromDate, weekday) {
   return first;
 }
 
+/** Open tasks dated in the past move to their next open weekday. The missed date is kept in `missed`. */
 export function rollOpenTasksForward(fromDate = new Date()) {
   const today = formatYmd(fromDate instanceof Date ? fromDate : new Date());
   state.tasks.forEach(t => {
@@ -387,8 +389,18 @@ export function rollOpenTasksForward(fromDate = new Date()) {
     const wd = weekdayIndex(t.date);
     if (wd == null) return;
     const next = nextOpenWeekday(fromDate, wd);
-    if (next) t.date = next;
+    if (!next) return;
+    if (!Array.isArray(t.missed)) t.missed = [];
+    if (!t.missed.includes(t.date)) t.missed.push(t.date);
+    t.date = next;
   });
+}
+
+/** Open tasks that rolled forward at least once, most-slipped first. */
+export function slippedTasks() {
+  return state.tasks
+    .filter(t => t && !t.done && t.status !== 'someday' && Array.isArray(t.missed) && t.missed.length)
+    .sort((a, b) => b.missed.length - a.missed.length);
 }
 
 function ruleKey(task) {
