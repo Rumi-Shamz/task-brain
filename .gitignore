@@ -4,3 +4,5 @@
 *.csv
 # Personal payload lives in private repo task-brain-data only
 /data.json
+# Supabase CLI local state (project ref, pooler URL)
+supabase/.temp/
