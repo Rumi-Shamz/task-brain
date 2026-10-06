@@ -57,6 +57,14 @@ Or run the **Extract week plan** GitHub Action: it reads `transcripts/week-<week
 
 Model: `ANTHROPIC_API_KEY` (default `claude-opus-5-5`), or a local model with `LLM_PROVIDER=ollama LLM_MODEL=qwen2.5:7b`. Compare models with `node scripts/eval_extract.mjs --cases <dir>` (a case is `transcript.txt` + a hand-corrected `expected.json`; keep real cases in the private repo).
 
+## Testing changes before they go live
+
+The live app (GitHub Pages) only changes when a PR merges to `main`. To try changes first:
+
+- **On any device:** open the staging preview, https://task-brain-git-staging-rumi-shamzs-projects.vercel.app (the `staging` branch, kept at the newest unmerged work). Vercel previews ask for a Vercel login once per browser.
+- **Your data in a preview:** every URL is a separate site to the browser, so a preview starts empty with the default year rhythm until you connect sync (tap **Day Planner**). Connecting pulls your real `data.json`, rhythm included. Previews may write a newer data version than the live app reads, so connect them to a copy (e.g. a private `task-brain-data-test` repo holding a copy of `data.json`) until the PR is merged.
+- **Weekly extraction:** it runs on your computer, not in the app. `LLM_PROVIDER=ollama node scripts/extract_week.mjs transcript.txt --week 2026-W42 --out out/` (or with `ANTHROPIC_API_KEY`) writes `out/week-2026-W42.json`; import it on **01 Plan** and check the import report and **Import accuracy**. `--prebrief-only --data data.json` writes the prebrief without a model. The GitHub Action can only be started once its workflow is on `main`.
+
 ## Development
 
 No build step and no dependencies. Serve the folder with any static server. Tests use Node's built-in runner:

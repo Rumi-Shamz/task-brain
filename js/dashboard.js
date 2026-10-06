@@ -14,7 +14,7 @@ import {
 import { getProject, ACTIVITIES } from './projects.js';
 import { deps } from './deps.js';
 import { blocksOnDate, allDayOnDate } from './blocks.js';
-import { describeRepeat } from './recurring.js';
+import { seriesDetails } from './recurring.js';
 import { renderNextUp, renderDelegatedPanel } from './next-up.js';
 
 export { takeBackTask } from './next-up.js';
@@ -154,7 +154,7 @@ export function renderDayCalendar() {
     const top = minsToY(b.startMin);
     const height = durationToH(b.endMin - b.startMin);
     return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="${domainStyleVar(b.domain)}top:${top}px;height:${height}px"
-        title="${esc(b.name)} · ${esc(formatHHMM(b.startMin))}–${esc(formatHHMM(b.endMin))} · ${esc(describeRepeat(b))}">
+        title="${esc(b.name)} · ${esc(formatHHMM(b.startMin))}–${esc(formatHHMM(b.endMin))} · ${esc(seriesDetails(b))}">
       <span>${b.rule === 'event' ? `${esc(formatHHMM(b.startMin))} ` : ''}${esc(b.name)}</span>
     </div>`;
   }).join('');

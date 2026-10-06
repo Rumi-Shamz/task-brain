@@ -4,7 +4,7 @@
  */
 import {
   state, DEFAULT_DURATION,
-  newTask, dateForDay, mondayOfWeek, mondayOnOrBefore, addDaysLocal, formatYmd, formatHHMM, parseYmd, esc, uid,
+  newTask, mondayOnOrBefore, addDaysLocal, formatYmd, formatHHMM, parseYmd, esc, uid,
 } from './state.js';
 import { normalizeDomainId, domainLabel, DOMAINS as DOMAIN_LIST } from './domains.js';
 import { ensureProjectForDomain, ensureProjectsMigrated } from './projects.js';
@@ -50,12 +50,26 @@ export function ensureProjectRecord(domain, projectLabel) {
   return ensureProjectForDomain(domain, projectLabel);
 }
 
+/** Monday of the week being planned: this week Mon–Thu, next week from Friday on (weekend planning). */
+export function defaultImportMonday(now = new Date()) {
+  const wd = (now.getDay() + 6) % 7;
+  const mon = mondayOnOrBefore(now);
+  return wd >= 4 ? addDaysLocal(mon, 7) : mon;
+}
+
+/** The "Week of" picker next to Import week plan; falls back to defaultImportMonday(). */
 export function weekMondayForImport() {
-  if (state.yearRhythm && state.yearRhythm.yearStartMonday != null && state.yearWeekMonday != null) {
-    const d = dateForDay(state.yearRhythm.yearStartMonday, mondayOfWeek(state.yearWeekMonday));
-    if (d) return d;
-  }
-  return mondayOnOrBefore(new Date());
+  const picked = parseYmd(document.getElementById('week-plan-week')?.value || '');
+  return picked ? mondayOnOrBefore(picked) : defaultImportMonday();
+}
+
+/** Domain written in a task name ("Swing Buzz: Bus rental", "ALFA plan preparation"), longest match first. */
+export function domainFromName(name) {
+  const text = ' ' + String(name || '').toLowerCase().replace(/[^a-z0-9&]+/g, ' ') + ' ';
+  const keys = Object.keys(DOMAIN_CELL_HINTS).filter(k => k !== 'other' && k !== 'personal' && k !== 'dev')
+    .sort((a, b) => b.length - a.length);
+  const hit = keys.find(k => text.includes(' ' + k.replace(/[^a-z0-9&]+/g, ' ').trim() + ' '));
+  return hit ? DOMAIN_CELL_HINTS[hit] : null;
 }
 
 function snapLength(n) {
@@ -118,24 +132,32 @@ export function validateAndBuildItems(items, opts = {}) {
       status = 'someday';
     }
     let dom = resolveDomainProject(item.domain || item.projectDomain);
+    if (!dom.domain && domainFromName(name)) {
+      dom = { ...domainFromName(name), warnings: [] };
+      reports.push({ row, level: 'info', message: `domain read from name → ${domainLabel(dom.domain)}${dom.project ? ' / ' + dom.project : ''} ("${name}")` });
+    }
     warnings.push(...(dom.warnings || []));
     if (!dom.domain) {
       // Missing domain → Personal / Unassigned — never invent a project from the task name.
       dom = { domain: 'Personal', project: 'Unassigned', warnings: [] };
+      const dup = warnings.indexOf('missing domain');
+      if (dup >= 0) warnings.splice(dup, 1);
       warnings.push('missing domain → Personal / Unassigned');
     }
     const projectLabel = item.project || dom.project || domainLabel(dom.domain);
     const projectId = ensureProjectRecord(dom.domain, projectLabel);
 
+    // Finished items only need a name and a domain; missing planning fields are not worth a warning.
+    const done = status === 'done';
     const pr = normalizePriority(item.priority);
     if (pr.error) { reports.push({ row, level: 'error', message: pr.error + ` ("${name}")` }); return; }
-    if (pr.warning) warnings.push(pr.warning);
+    if (pr.warning && !done) warnings.push(pr.warning);
 
     const tp = normalizePressure(item.timepressure);
     if (tp.error) { reports.push({ row, level: 'error', message: tp.error + ` ("${name}")` }); return; }
 
     const len = snapLength(item.length);
-    if (len.warning) warnings.push(len.warning);
+    if (len.warning && !done) warnings.push(len.warning);
 
     const slotKey = String(item.slot || '').trim().toLowerCase();
     const dayKey = String(item.weekday || '').trim().toLowerCase();
@@ -162,7 +184,7 @@ export function validateAndBuildItems(items, opts = {}) {
     let reviewAt = item.reviewAt || null;
     if (status === 'someday' && !reviewAt) {
       reviewAt = formatYmd(addDaysLocal(mon, 7));
-      warnings.push(`someday reviewAt defaulted to ${reviewAt}`);
+      reports.push({ row, level: 'info', message: `someday review set to ${reviewAt} ("${name}")` });
     }
 
     let size = null;
@@ -276,40 +298,61 @@ export function parseCsvText(text) {
   return rows;
 }
 
+/** Warnings grouped by kind ("priority missing → 0 · 5 tasks"), each expandable to its rows. */
+function groupReports(reports) {
+  const groups = new Map();
+  reports.forEach(r => {
+    const m = /^(.*?) \("(.*)"\)$/.exec(r.message);
+    const kind = m ? m[1] : r.message;
+    if (!groups.has(kind)) groups.set(kind, { kind, level: r.level, rows: [] });
+    groups.get(kind).rows.push({ row: r.row, name: m ? m[2] : '' });
+  });
+  return [...groups.values()];
+}
+
 function showImportReport(msgEl, added, reports, monday) {
   const errors = reports.filter(r => r.level === 'error');
   const warns = reports.filter(r => r.level === 'warn');
-  const lines = [
-    `Imported ${added} task${added === 1 ? '' : 's'} (week of ${formatYmd(monday || weekMondayForImport())}).`,
-  ];
-  if (errors.length) lines.push(`${errors.length} error${errors.length === 1 ? '' : 's'}:`);
-  errors.slice(0, 12).forEach(e => lines.push(`  · row ${e.row}: ${e.message}`));
-  if (warns.length) lines.push(`${warns.length} warning${warns.length === 1 ? '' : 's'}:`);
-  warns.slice(0, 12).forEach(w => lines.push(`  · row ${w.row}: ${w.message}`));
+  const infos = reports.filter(r => r.level === 'info');
+  const summary = [
+    `Imported ${added} task${added === 1 ? '' : 's'} for the week of ${formatYmd(monday || weekMondayForImport())}.`,
+    errors.length ? `${errors.length} row${errors.length === 1 ? '' : 's'} skipped.` : '',
+    warns.length ? `${warns.length} warning${warns.length === 1 ? '' : 's'}.` : '',
+    infos.length ? `${infos.length} filled in automatically.` : '',
+  ].filter(Boolean).join(' ');
   if (msgEl) {
-    msgEl.textContent = lines.join('\n');
-    msgEl.style.whiteSpace = 'pre-wrap';
+    msgEl.textContent = summary;
+    msgEl.style.whiteSpace = 'normal';
     msgEl.classList.toggle('err', errors.length > 0);
   }
   const box = document.getElementById('week-plan-report');
-  if (box) {
-    box.innerHTML = reports.length
-      ? `<ul class="import-report">${reports.map(r =>
-          `<li class="${r.level}">row ${r.row}: ${escapeHtml(r.message)}</li>`).join('')}</ul>`
-      : '';
-  }
+  if (!box) return;
+  const section = (level, title) => {
+    const groups = groupReports(reports.filter(r => r.level === level));
+    if (!groups.length) return '';
+    return `<div class="import-group ${level}"><div class="section-label">${title}</div>${groups.map(g => `
+      <details ${level === 'error' ? 'open' : ''}><summary>${escapeHtml(g.kind)} · ${g.rows.length} task${g.rows.length === 1 ? '' : 's'}</summary>
+        <ul class="import-report">${g.rows.map(r => `<li class="${level}">row ${r.row}${r.name ? ': ' + escapeHtml(r.name) : ''}</li>`).join('')}</ul>
+      </details>`).join('')}</div>`;
+  };
+  box.innerHTML = section('error', 'Skipped rows') + section('warn', 'Warnings — check these') + section('info', 'Filled in automatically');
 }
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+/** Same task twice = same name, day, domain and note. Two "Dump" rows with different notes are both kept. */
+function importKey(t) {
+  return [t.name, t.date || '', t.domain || '', t.note || ''].join('|').toLowerCase();
+}
+
 export function commitImportedTasks(tasks, reports, monday) {
   ensureProjectsMigrated();
-  const existing = new Set(state.tasks.map(t => (t.name + '|' + (t.date || '')).toLowerCase()));
+  const existing = new Set(state.tasks.map(t => importKey(t)));
   const ids = [];
   tasks.forEach(t => {
-    const key = (t.name + '|' + (t.date || '')).toLowerCase();
+    const key = importKey(t);
     if (existing.has(key)) return;
     existing.add(key);
     state.tasks.push(t);
@@ -382,7 +425,14 @@ export function importHealth() {
   });
 }
 
+/** Fill the Week-of picker with the default week the first time Plan renders. */
+export function renderImportWeekHint() {
+  const input = document.getElementById('week-plan-week');
+  if (input && !input.value) input.value = formatYmd(defaultImportMonday());
+}
+
 export function renderImportHealth() {
+  renderImportWeekHint();
   const el = document.getElementById('import-health');
   if (!el) return;
   const rows = importHealth().slice(0, 6);
