@@ -599,7 +599,8 @@
     }
     .year-import-msg { font-size: 12px; color: var(--txt2); margin-top: 6px; }
     .year-import-msg.err { color: var(--accent); }
-    .import-report-wrap { margin-top: 8px; max-height: 160px; overflow: auto; }
+    .import-report-wrap { margin-top: 8px; max-height: 220px; overflow: auto; }
+    .import-report-wrap:not(:empty) { margin-bottom: 12px; padding: 4px 10px 8px; border: 0.5px solid var(--border); border-radius: var(--radius); }
     .import-report { list-style: none; padding: 0; margin: 0; font-size: 12px; }
     .import-report li { padding: 2px 0; color: var(--txt2); }
     .import-report li.error { color: var(--accent); }
@@ -1655,3 +1656,11 @@
     }
     .next-chip.block { color: var(--txt2); }
     .next-counts { font-size: 11px; color: var(--txt3); margin-left: 2px; }
+    .series-form label.wide { width: 100%; }
+    .series-form label.wide input, .series-form label.wide textarea { flex: 1; font: inherit; }
+    .week-of { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt2); }
+    .week-of input { font: inherit; }
+    .import-group { margin: 6px 0; }
+    .import-group details { font-size: 12px; color: var(--txt2); margin: 2px 0; }
+    .import-group details summary { cursor: pointer; }
+    .import-group.warn summary { color: #b5473a; }

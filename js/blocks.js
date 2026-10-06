@@ -45,6 +45,9 @@ export function normalizeDayBlocks(raw) {
       repeat: normalizeRepeat(b.repeat),
       workDaysOnly: b.workDaysOnly === undefined ? true : !!b.workDaysOnly,
       allDay,
+      note: b.note ? String(b.note).slice(0, 2000) : '',
+      location: b.location ? String(b.location).slice(0, 200) : '',
+      url: /^https?:\/\//i.test(String(b.url || '')) ? String(b.url) : '',
       ...(b.icsUid ? { icsUid: String(b.icsUid) } : {}),
       ...(b.updatedAt ? { updatedAt: b.updatedAt } : {}),
     };
