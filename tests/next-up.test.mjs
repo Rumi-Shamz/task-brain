@@ -33,3 +33,17 @@ test('delegated lists open person and assistant tasks only', () => {
   assert.deepEqual(delegatedTasks().map(t => t.id), ['p', 'ai']);
   assert.equal(state.tasks.find(t => t.id === 'x').assignee, 'me');
 });
+
+test('import accuracy ignores fields an older import did not record', async () => {
+  globalThis.document = { getElementById: () => null };
+  const { importHealth } = await import('../js/import-plan.js');
+  state.tasks = [
+    normalizeTask({ id: 'old', name: 'A', domain: 'ALFA', imported: { from: 'w40', name: 'A', domain: 'ALFA' } }),
+    normalizeTask({ id: 'fix', name: 'B2', domain: 'ALFA', imported: { from: 'w40', name: 'B', domain: 'ALFA', assignee: 'me' } }),
+  ];
+  state.imports = [{ id: 'i1', from: 'w40', at: '2026-10-05T00:00:00Z', taskIds: ['old', 'fix', 'gone'] }];
+  const [h] = importHealth();
+  assert.equal(h.fixed, 1);
+  assert.equal(h.deleted, 1);
+  assert.deepEqual(h.fields, { name: 1 });
+});
