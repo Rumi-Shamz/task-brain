@@ -27,7 +27,7 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 10,
+    version: 11,
     updatedAt: new Date().toISOString(),
     settingsUpdatedAt: state.settingsUpdatedAt || null,
     tombstones: state.tombstones || [],
@@ -73,6 +73,7 @@ export function applyPersistPayload(d) {
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   state.imports = Array.isArray(d.imports) ? d.imports : [];
+  // v10 → v11: tasks gain assignee ('me' | 'person' | 'ai') and delegateTo (normalizeTask: absent = me).
   // v9 → v10: day blocks gain domain/projectId/repeat/workDaysOnly/allDay (normalizeDayBlocks
   // defaults: weekly, work days only, no domain — the v9 behavior) and domainColors.
   // v8 → v9: per-record updatedAt + tombstones for merging two devices (absent = never stamped)

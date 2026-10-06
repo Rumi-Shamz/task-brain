@@ -91,6 +91,7 @@
           </div>
           <span class="day-hint">click a block to edit · drag body to move · bottom edge to resize</span>
           <div class="allday-row" id="dash-day-allday" hidden></div>
+          <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
         </div>
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
@@ -117,6 +118,10 @@
           <div class="section-label" style="margin-bottom:0;">Inbox — no domain</div>
           <div class="dash-inbox-chips" id="dash-inbox-chips"></div>
         </div>
+        <details class="dash-extras">
+          <summary id="delegated-summary">Delegated</summary>
+          <div id="delegated-panel" class="someday-panel"></div>
+        </details>
         <details class="dash-extras">
           <summary id="slipped-summary">Slipped</summary>
           <div id="slipped-panel" class="someday-panel"></div>

@@ -135,6 +135,19 @@ export function singleCardHTML(t) {
       </div>
     </div>
 
+    <div class="plan-row plan-row-full">
+      <div class="plan-field">Who does it
+        <div class="plan-choices compact">
+          ${[['me', 'Me'], ['person', 'Someone else'], ['ai', 'Assistant']].map(([v, l]) =>
+            `<button type="button" class="btn ${t.assignee === v ? 'primary' : ''}" onclick="planPatch({assignee:'${v}'})">${l}</button>`
+          ).join('')}
+        </div>
+        ${t.assignee === 'person' ? `<input type="text" placeholder="Who? (name)" value="${esc(t.delegateTo || '')}"
+          onchange="planPatch({delegateTo:this.value})" />` : ''}
+        ${t.assignee === 'ai' ? '<span class="bulk-hint">The note above is the brief. It waits in Delegated until the assistant can run it.</span>' : ''}
+      </div>
+    </div>
+
     <div class="plan-row plan-row-2">
       <div class="plan-field">Schedule
         ${scheduleFieldsHTML(t)}
