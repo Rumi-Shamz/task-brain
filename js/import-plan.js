@@ -374,7 +374,8 @@ export function importHealth() {
     taskIds.forEach(id => {
       const t = byId.get(id);
       if (!t) { deleted++; return; }
-      const diff = IMPORT_FIELDS.filter(f => t.imported && (t[f] ?? null) !== (t.imported[f] ?? null));
+      // Only fields recorded at import time count (older imports predate some fields).
+      const diff = IMPORT_FIELDS.filter(f => t.imported && f in t.imported && (t[f] ?? null) !== (t.imported[f] ?? null));
       if (diff.length) fixed++;
       diff.forEach(f => { fields[f] = (fields[f] || 0) + 1; });
     });
