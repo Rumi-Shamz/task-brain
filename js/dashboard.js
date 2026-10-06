@@ -8,12 +8,13 @@ import {
   mondayOnOrBefore, addDaysLocal,
 } from './state.js';
 import {
-  allDomains, normalizeDomainId, addCustomDomain,
+  allDomains, normalizeDomainId, addCustomDomain, domainStyleVar,
   toggleDomainCollapsed, setAllDomainsCollapsed,
 } from './domains.js';
 import { getProject, ACTIVITIES } from './projects.js';
 import { deps } from './deps.js';
-import { blocksOnDate } from './blocks.js';
+import { blocksOnDate, allDayOnDate } from './blocks.js';
+import { describeRepeat } from './recurring.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
 
 export * from './dashboard-drag.js';
@@ -104,6 +105,12 @@ export function renderDayCalendar() {
   const ymd = ensureDashCalDate();
   const title = document.getElementById('dash-day-title');
   if (title) title.textContent = ymd === todayYmd() ? `Today · ${ymd}` : ymd;
+  const allDay = document.getElementById('dash-day-allday');
+  if (allDay) {
+    const items = allDayOnDate(ymd);
+    allDay.hidden = !items.length;
+    allDay.innerHTML = items.map(b => `<span class="allday-chip" style="${domainStyleVar(b.domain)}">${esc(b.name)}</span>`).join('');
+  }
   const hours = [];
   for (let h = 0; h < 24; h++) {
     hours.push(`<div class="day-hour" data-hour="${ h }">
@@ -122,7 +129,7 @@ export function renderDayCalendar() {
     const running = !!t.timerStartedAt;
     const endLabel = formatHHMM(startMins + dur);
     return `<div class="cal-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }" data-id="${ t.id }"
-        style="${ projectCssVars(t.project) }top:${ minsToY(startMins) }px;height:${ durationToH(dur) }px;"
+        style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ minsToY(startMins) }px;height:${ durationToH(dur) }px;"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) }"
         onpointerdown="calBlockPointerDown(event)">
       <div class="cal-block-top">
@@ -140,8 +147,9 @@ export function renderDayCalendar() {
   const bands = blocksOnDate(ymd).map(b => {
     const top = minsToY(b.startMin);
     const height = durationToH(b.endMin - b.startMin);
-    return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="top:${top}px;height:${height}px" title="${esc(b.name)}">
-      <span>${esc(b.name)}</span>
+    return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="${domainStyleVar(b.domain)}top:${top}px;height:${height}px"
+        title="${esc(b.name)} · ${esc(formatHHMM(b.startMin))}–${esc(formatHHMM(b.endMin))} · ${esc(describeRepeat(b))}">
+      <span>${b.rule === 'event' ? `${esc(formatHHMM(b.startMin))} ` : ''}${esc(b.name)}</span>
     </div>`;
   }).join('');
   root.innerHTML = `<div class="day-hours">${ hours.join('') }</div><div class="cal-blocks">${ bands }${ blocks }</div>`;
@@ -149,7 +157,7 @@ export function renderDayCalendar() {
   else { root.scrollTop = VIEW_SCROLL_TOP; state.dayCalScrolledOnce = true; }
 }
 
-function taskDomain(t) {
+export function taskDomain(t) {
   const d = normalizeDomainId(t.domain);
   if (d) return d;
   const p = getProject(t.projectId || t.project);
@@ -197,7 +205,7 @@ export function renderProjectBoard() {
       strip.hidden = false;
       strip.innerHTML = collapsedDoms.map(dom => {
         const count = visible(state.tasks.filter(t => t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id)).length;
-        return `<button type="button" class="domain-chip" data-domain="${dom.id}"
+        return `<button type="button" class="domain-chip" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
             onclick="toggleDomainCol('${dom.id}')" title="Expand ${esc(dom.label)}">
           <span class="project-dot"></span>
           <span class="domain-chip-label">${esc(dom.label)}</span>
@@ -231,7 +239,7 @@ export function renderProjectBoard() {
         <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">None</div>'}</div>
       </section>`;
     }).join('');
-    return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}"
+    return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
         ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
         ondrop="dropOnDomainStack(event)">
       <button type="button" class="project-col-header domain-toggle" onclick="toggleDomainCol('${dom.id}')">

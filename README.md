@@ -13,6 +13,7 @@ Your data lives in a **private GitHub repo you create**. The app reads and write
 - **02 Today** — day calendar (click to edit, drag to move, resize the bottom edge), domain board, inbox, someday review (delegate, convert, delete, or defer).
 - **03 Upskill** — skill backlog by utility × time-to-learn. `schedule` skills seed a weekly Learn block and reviews at +1, +7, and +30 days. Shows the share of scheduled minutes on L this week.
 - **04 Year** — year / month / week, seasons, protocol blocks (sprint, vacation, fast, restore, deep rest), hour stats.
+- **Recurring** (04 Year) — appointments (fixed time) and containers (time blocks tasks go into), each with a domain and project. Repeats weekly (every N weeks, chosen days), monthly (day N, or the 2nd / last weekday), yearly, or once, with start and end dates, optionally only on work days. Domain colors are editable and tint the calendars and board. **Import .ics** (e.g. a Google Calendar export; re-importing updates instead of duplicating) and **Export .ics**.
 - **Sync** — on open, the app pulls `data.json` from the private repo before it can push, so one device cannot overwrite the other with stale data.
 
 ## Planned after this beta

@@ -469,6 +469,15 @@
       font-size: 10px; color: var(--txt3); padding: 2px 4px;
     }
     .cal-protocol.event { background: rgba(180,120,40,0.18); }
+    .cal-protocol[style*="--dc"] { border-left: 3px solid var(--dc); background: color-mix(in srgb, var(--dc) 10%, transparent); }
+    .cal-protocol.event[style*="--dc"] { background: color-mix(in srgb, var(--dc) 22%, transparent); color: var(--txt2); }
+    .allday-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .allday-row[hidden] { display: none; }
+    .allday-chip {
+      font-size: 11px; padding: 1px 7px; border-radius: 10px; color: var(--txt);
+      background: color-mix(in srgb, var(--dc, var(--txt3)) 25%, transparent);
+      border: 0.5px solid var(--dc, var(--border-md));
+    }
     .year-week-hourly {
       display: grid;
       grid-template-columns: 48px repeat(5, minmax(0, 1fr));
@@ -813,18 +822,10 @@
     .chip-proj-mark {
       font-size: 10px; color: var(--txt3); white-space: nowrap;
     }
-    .domain-col[data-domain="ALFA"] .project-dot,
-    .domain-chip[data-domain="ALFA"] .project-dot { background: var(--p-alfa); }
-    .domain-col[data-domain="Dorst"] .project-dot,
-    .domain-chip[data-domain="Dorst"] .project-dot { background: var(--p-dorst); }
-    .domain-col[data-domain="SwingShuffle"] .project-dot,
-    .domain-chip[data-domain="SwingShuffle"] .project-dot { background: var(--p-swing); }
-    .domain-col[data-domain="SwingSociety"] .project-dot,
-    .domain-chip[data-domain="SwingSociety"] .project-dot { background: #D4537E; }
-    .domain-col[data-domain="Dev"] .project-dot,
-    .domain-chip[data-domain="Dev"] .project-dot { background: #5B8DEF; }
-    .domain-col[data-domain="Personal"] .project-dot,
-    .domain-chip[data-domain="Personal"] .project-dot { background: var(--p-personal); }
+    /* --dc is the domain color, set inline from domainColor() */
+    .domain-col .project-dot,
+    .domain-chip .project-dot { background: var(--dc, var(--txt3)); }
+    .cal-block[style*="--dc"], .year-task-block[style*="--dc"] { box-shadow: inset 3px 0 0 var(--dc); }
 
     .lno-week-stat {
       font-size: 13px; color: var(--txt2); margin: 0 0 10px;
@@ -1607,3 +1608,39 @@
       }
     }
 
+
+    /* Recurring series (Year) */
+    .year-week-series {
+      position: absolute; left: 2px; right: 2px; z-index: 1; pointer-events: none;
+      border-radius: 4px; padding: 1px 4px; font-size: 10px; color: var(--txt3); overflow: hidden;
+      border-left: 3px solid var(--dc, var(--border-md));
+      background: color-mix(in srgb, var(--dc, #378ADD) 10%, transparent);
+    }
+    .year-week-series.event { background: color-mix(in srgb, var(--dc, #B47828) 24%, transparent); color: var(--txt2); }
+    .year-week-head .allday-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 2px; }
+    .year-week-head .allday-chip { font-size: 9px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .year-cell { position: relative; }
+    .year-cell .ydots { position: absolute; left: 0; right: 0; bottom: 2px; display: flex; justify-content: center; gap: 2px; pointer-events: none; }
+    .year-cell .ydots i { width: 4px; height: 4px; border-radius: 50%; background: var(--dc, var(--txt2)); }
+    .year-month-card.large .year-cell .ydots { top: 3px; right: 4px; left: auto; bottom: auto; }
+    .year-month-card.large .year-cell .ydots i { width: 6px; height: 6px; }
+    .year-cell .ynames { position: absolute; left: 3px; right: 3px; bottom: 3px; display: flex; flex-direction: column; gap: 1px; pointer-events: none; }
+    .year-cell .ynames span {
+      font-size: 9px; line-height: 1.2; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      border-left: 2px solid var(--dc, var(--txt3)); padding-left: 3px; color: var(--txt);
+    }
+    .series-row { border: 0.5px solid var(--border); border-left: 4px solid var(--dc, var(--border-md)); border-radius: var(--radius); margin-bottom: 6px; background: var(--card); }
+    .series-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; width: 100%; padding: 8px 10px; border: 0; background: none; color: var(--txt); font: inherit; text-align: left; cursor: pointer; }
+    .series-swatch { width: 10px; height: 10px; border-radius: 50%; background: var(--dc, var(--txt3)); flex: none; align-self: center; }
+    .series-name { font-weight: 600; font-size: 13px; }
+    .series-meta { font-size: 12px; color: var(--txt2); }
+    .series-form { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 4px 10px 10px; font-size: 12px; color: var(--txt2); }
+    .series-form label { display: flex; align-items: center; gap: 6px; }
+    .series-form input[type="number"] { width: 4em; }
+    .series-form .wd-row, .series-form .series-actions { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+    .series-form .wd-toggle { padding: 4px 8px; font-size: 12px; }
+    .series-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 0 12px; }
+    .domain-colors { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; }
+    .domain-color { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt2); }
+    .domain-color input[type="color"] { width: 26px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; }
+    .year-month-card.large .year-cell:has(.ynames) { align-items: flex-start; justify-content: flex-start; padding: 3px 5px; }

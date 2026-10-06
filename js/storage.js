@@ -5,7 +5,7 @@ import {
 import { ensureProjectsMigrated } from './projects.js';
 import { normalizeGroups } from './groups.js';
 import { normalizeDayBlocks, normalizeActivityRules, rollOpenTasksForward } from './blocks.js';
-import { normalizeCustomDomains } from './domains.js';
+import { normalizeCustomDomains, normalizeDomainColors } from './domains.js';
 import { deps } from './deps.js';
 import { stampChanges, markClean, pruneTombstones, setDirty } from './merge.js';
 
@@ -27,7 +27,7 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 9,
+    version: 10,
     updatedAt: new Date().toISOString(),
     settingsUpdatedAt: state.settingsUpdatedAt || null,
     tombstones: state.tombstones || [],
@@ -45,6 +45,7 @@ export function getPersistPayload() {
     activityRules: state.activityRules || [],
     blockSkips: state.blockSkips || [],
     imports: state.imports || [],
+    domainColors: state.domainColors || {},
   };
 }
 
@@ -64,6 +65,7 @@ export function applyPersistPayload(d) {
   state.projects = Array.isArray(d.projects) ? d.projects : [];
   state.skills = Array.isArray(d.skills) ? d.skills : [];
   state.customDomains = normalizeCustomDomains(d.customDomains);
+  state.domainColors = normalizeDomainColors(d.domainColors);
   state.collapsedDomains = Array.isArray(d.collapsedDomains) ? d.collapsedDomains : null;
   if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
   state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
@@ -71,6 +73,8 @@ export function applyPersistPayload(d) {
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   state.imports = Array.isArray(d.imports) ? d.imports : [];
+  // v9 → v10: day blocks gain domain/projectId/repeat/workDaysOnly/allDay (normalizeDayBlocks
+  // defaults: weekly, work days only, no domain — the v9 behavior) and domainColors.
   // v8 → v9: per-record updatedAt + tombstones for merging two devices (absent = never stamped)
   state.tombstones = pruneTombstones(d.tombstones);
   state.settingsUpdatedAt = d.settingsUpdatedAt || null;
