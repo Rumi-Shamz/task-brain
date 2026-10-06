@@ -91,4 +91,5 @@ test('first save without a baseline stamps everything as new', async () => {
   const p = payload({ tasks: [{ id: 'n', name: 'New on a fresh device' }] });
   assert.equal(fresh.stampChanges(p, '2026-10-06T12:00:00.000Z'), true);
   assert.equal(p.tasks[0].updatedAt, '2026-10-06T12:00:00.000Z');
+  assert.deepEqual(state.tombstones, [], 'no baseline must not invent deletions');
 });
