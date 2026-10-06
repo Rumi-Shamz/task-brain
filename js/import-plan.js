@@ -368,14 +368,15 @@ export function importHealth() {
   return (state.imports || []).slice().sort((a, b) => String(b.at).localeCompare(String(a.at))).map(imp => {
     let fixed = 0, deleted = 0;
     const fields = {};
-    imp.taskIds.forEach(id => {
+    const taskIds = Array.isArray(imp.taskIds) ? imp.taskIds : [];
+    taskIds.forEach(id => {
       const t = byId.get(id);
       if (!t) { deleted++; return; }
       const diff = IMPORT_FIELDS.filter(f => t.imported && (t[f] ?? null) !== (t.imported[f] ?? null));
       if (diff.length) fixed++;
       diff.forEach(f => { fields[f] = (fields[f] || 0) + 1; });
     });
-    return { ...imp, count: imp.taskIds.length, fixed, deleted, fields };
+    return { ...imp, taskIds, count: taskIds.length, fixed, deleted, fields };
   });
 }
 

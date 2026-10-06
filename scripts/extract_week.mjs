@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { resolve, join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { generateJson, providerConfig } from './lib/llm.mjs';
-import { isoWeek, mondayOfIsoWeek, ymd, extractionContext, buildPrebrief } from './lib/week.mjs';
+import { isoWeek, mondayOfIsoWeek, ymd, extractionContext, buildPrebrief, flagValue } from './lib/week.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -22,9 +22,9 @@ function parseArgs(argv) {
   const args = { transcript: null, week: null, out: '.', dataJson: null, prebriefOnly: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--week') args.week = argv[++i];
-    else if (a === '--out') args.out = argv[++i];
-    else if (a === '--data') args.dataJson = argv[++i];
+    if (a === '--week') { args.week = flagValue(argv, i, a); i++; }
+    else if (a === '--out') { args.out = flagValue(argv, i, a); i++; }
+    else if (a === '--data') { args.dataJson = flagValue(argv, i, a); i++; }
     else if (a === '--prebrief-only') args.prebriefOnly = true;
     else if (!a.startsWith('-')) args.transcript = a;
   }
@@ -58,7 +58,9 @@ async function main() {
   const args = parseArgs(process.argv);
   const week = args.week || isoWeek();
   mondayOfIsoWeek(week); // throws on a malformed label
-  const data = args.dataJson && existsSync(args.dataJson) ? JSON.parse(readFileSync(args.dataJson, 'utf8')) : null;
+  // No --data is fine (no context); a --data that points nowhere is a typo worth stopping for.
+  if (args.dataJson && !existsSync(args.dataJson)) throw new Error(`--data file not found: ${args.dataJson}`);
+  const data = args.dataJson ? JSON.parse(readFileSync(args.dataJson, 'utf8')) : null;
   mkdirSync(resolve(args.out), { recursive: true });
 
   if (!args.prebriefOnly) {
