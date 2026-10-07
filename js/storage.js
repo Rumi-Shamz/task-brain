@@ -15,7 +15,8 @@ export function save() {
   if (changed) {
     // A push in flight compares this counter to know whether newer edits arrived while it ran.
     state.editGen = (state.editGen || 0) + 1;
-    if (deps.ghConnected && deps.ghConnected()) setDirty(true);
+    // Whether or not sync is connected yet: edits made offline must merge, not be replaced, on the first pull.
+    setDirty(true);
   }
   // Only auto-push after a successful boot pull (or confirmed empty remote).
   // Prevents one device's localStorage from overwriting the shared data.json.
@@ -86,7 +87,8 @@ export function applyPersistPayload(d) {
   rollOpenTasksForward();
   if (stampChanges(getPersistPayload())) {
     state.editGen = (state.editGen || 0) + 1;
-    if (deps.ghConnected && deps.ghConnected()) setDirty(true);
+    // Whether or not sync is connected yet: edits made offline must merge, not be replaced, on the first pull.
+    setDirty(true);
   }
 }
 

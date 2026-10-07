@@ -111,6 +111,34 @@ test('a fresh install gets normalized default blocks', () => {
   });
 });
 
+test('a block starting at midnight keeps its start; only missing values default to 09:00', () => {
+  const [mid, missing, bad] = normalizeDayBlocks([
+    { id: 'a', name: 'Night', startMin: 0, endMin: 60, rule: 'event' },
+    { id: 'b', name: 'No start', rule: 'any' },
+    { id: 'c', name: 'Bad start', startMin: 'soon', rule: 'any' },
+  ]);
+  assert.equal(mid.startMin, 0);
+  assert.equal(missing.startMin, 9 * 60);
+  assert.equal(bad.startMin, 9 * 60);
+});
+
+test('exported weekly series start on one of their days; UNTIL matches the DTSTART type', () => {
+  const weekly = { id: 'w', name: 'Class', rule: 'event', weekdays: [1], startMin: 1140, endMin: 1260,
+    repeat: { freq: 'weekly', interval: 1, from: '2026-10-07', until: '2026-12-31' } }; // from is a Wednesday
+  const text = seriesToIcs([weekly], { stampYmd: '2026-10-07' });
+  assert.match(text, /DTSTART:20261013T190000/, 'first Tuesday on or after the start date');
+  assert.match(text, /UNTIL=20261231T235959/, 'timed event: floating date-time');
+  const allDay = { id: 'a', name: 'Holiday', rule: 'event', allDay: true, weekdays: [0], startMin: 0, endMin: 1440,
+    repeat: { freq: 'yearly', interval: 1, from: '2026-12-25', until: '2030-12-25' } };
+  const t2 = seriesToIcs([allDay], { stampYmd: '2026-10-07' });
+  assert.match(t2, /DTSTART;VALUE=DATE:20261225/);
+  assert.match(t2, /UNTIL=20301225(?!T)/, 'all-day: date only');
+  // and our own importer reads it back to the same dates
+  const [back] = eventsToSeries(parseIcs(text), { todayYmd: '2026-10-07' }).series;
+  assert.equal(back.repeat.from, '2026-10-13');
+  assert.equal(back.repeat.until, '2026-12-31');
+});
+
 test('ics keeps description, location and link, and exports them back', () => {
   const ics = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:class@x', 'SUMMARY:Swing class',
     'DTSTART:20261006T190000', 'DTEND:20261006T210000', 'RRULE:FREQ=WEEKLY;BYDAY=TU',

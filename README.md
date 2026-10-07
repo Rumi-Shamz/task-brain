@@ -49,6 +49,8 @@ Every record in `data.json` carries `updatedAt`, and deletions leave short-lived
 
 ## Weekly loop (outside the browser)
 
+Replace `2026-W42` below with the ISO week you are planning (an example, not the current week).
+
 1. Before the session: `node scripts/extract_week.mjs --prebrief-only --data data.json --week 2026-W42` writes `prebrief-2026-W42.md` (last week's done vs. planned, slipped tasks, hours by domain, % L, someday items due).
 2. After the session: `node scripts/extract_week.mjs transcript.txt --data data.json --week 2026-W42` writes a validated `week-2026-W42.json`. Import it on **01 Plan**.
 3. **Import accuracy** on 01 Plan counts tasks corrected or deleted by hand after each import. v2 is done at 0 for three weeks in a row.

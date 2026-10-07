@@ -25,7 +25,9 @@ export function normalizeDayBlocks(raw) {
       ? b.weekdays.map(n => Math.round(Number(n))).filter(n => n >= 0 && n <= 6)
       : base[0].weekdays;
     if (!weekdays.length) weekdays = [0, 1, 2, 3, 4];
-    const startMin = Math.max(0, Math.min(24 * 60 - 30, Math.round(Number(b.startMin)) || 9 * 60));
+    const rawStart = Math.round(Number(b.startMin));
+    // 0 (midnight) is a real start; only missing or invalid values fall back to 09:00.
+    const startMin = Math.max(0, Math.min(24 * 60 - 30, Number.isFinite(rawStart) ? rawStart : 9 * 60));
     let endMin = Math.round(Number(b.endMin));
     if (!Number.isFinite(endMin) || endMin <= startMin) endMin = Math.min(24 * 60, startMin + 60);
     const allDay = rule === 'event' && !!b.allDay;
