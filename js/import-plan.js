@@ -88,7 +88,7 @@ function normalizePressure(raw) {
 }
 
 /** Fields compared against the imported copy: a difference means the import needed a hand fix. */
-export const IMPORT_FIELDS = ['name', 'domain', 'projectId', 'activity', 'duration', 'lno'];
+export const IMPORT_FIELDS = ['name', 'domain', 'projectId', 'activity', 'duration', 'lno', 'assignee'];
 
 /**
  * @param {{ monday?: Date, source?: string }} [opts] monday defaults to the selected Year week
@@ -192,6 +192,8 @@ export function validateAndBuildItems(items, opts = {}) {
       priority: pr.value,
       timepressure: tp.value,
       lno: ['L', 'N', 'O'].includes(item.lno) ? item.lno : null,
+      assignee: item.assignee,
+      delegateTo: String(item.delegateTo || '').trim(),
     });
     task.imported = { from: opts.source || formatYmd(mon) };
     IMPORT_FIELDS.forEach(f => { task.imported[f] = task[f] ?? null; });
@@ -372,7 +374,8 @@ export function importHealth() {
     taskIds.forEach(id => {
       const t = byId.get(id);
       if (!t) { deleted++; return; }
-      const diff = IMPORT_FIELDS.filter(f => t.imported && (t[f] ?? null) !== (t.imported[f] ?? null));
+      // Only fields recorded at import time count (older imports predate some fields).
+      const diff = IMPORT_FIELDS.filter(f => t.imported && f in t.imported && (t[f] ?? null) !== (t.imported[f] ?? null));
       if (diff.length) fixed++;
       diff.forEach(f => { fields[f] = (fields[f] || 0) + 1; });
     });

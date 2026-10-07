@@ -692,6 +692,7 @@
     }
     .tag-warn { color: var(--txt2) !important; }
     .tag-sched { color: var(--txt2) !important; }
+    .tag-assignee { color: var(--txt2) !important; border-style: dashed !important; }
     .tag-missed { color: #b5473a !important; border-color: rgba(226, 75, 74, 0.45) !important; }
     .plan-row {
       display: grid;
@@ -1164,6 +1165,7 @@
     .project-col.domain-stack {
       overflow: visible;
       height: auto;
+      flex-shrink: 0; /* keep full height; .project-board scrolls instead of squashing sections */
     }
     .project-col-header, button.project-col-header {
       padding: 10px 10px 8px;
@@ -1644,3 +1646,12 @@
     .domain-color { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--txt2); }
     .domain-color input[type="color"] { width: 26px; height: 22px; padding: 0; border: 0; background: none; cursor: pointer; }
     .year-month-card.large .year-cell:has(.ynames) { align-items: flex-start; justify-content: flex-start; padding: 3px 5px; }
+    .next-up { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; margin-top: 6px; }
+    .next-up[hidden] { display: none; }
+    .next-chip {
+      font-size: 11px; padding: 2px 8px; border-radius: 10px; color: var(--txt);
+      border: 0.5px solid var(--border-md); border-left: 3px solid var(--dc, var(--border-md));
+      background: color-mix(in srgb, var(--dc, var(--txt3)) 12%, transparent);
+    }
+    .next-chip.block { color: var(--txt2); }
+    .next-counts { font-size: 11px; color: var(--txt3); margin-left: 2px; }
