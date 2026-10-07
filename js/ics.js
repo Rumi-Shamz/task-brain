@@ -4,7 +4,7 @@
  * BYMONTHDAY, UNTIL, COUNT), EXDATE, all-day dates, TZID (taken as local wall time) and UTC times.
  * Pure — no DOM, no state.
  */
-import { parseDay, dayString, weekdayOf } from './recurring.js';
+import { parseDay, dayString, weekdayOf, nextOccurrence } from './recurring.js';
 
 const BYDAY = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 const pad2 = n => String(n).padStart(2, '0');
@@ -162,7 +162,9 @@ export function seriesToIcs(list, { skips = [], domainLabel = d => d, stampYmd }
   const stamp = `${icsDate(stampYmd || dayString(new Date()))}T000000Z`;
   list.forEach(b => {
     const r = b.repeat || { freq: 'weekly', interval: 1 };
-    const from = r.from || stampYmd || dayString(new Date());
+    let from = r.from || stampYmd || dayString(new Date());
+    // DTSTART is itself an occurrence in most calendar apps, so a weekly series must start on one of its days.
+    if (r.freq === 'weekly') from = nextOccurrence({ ...b, repeat: { ...r, until: null } }, from, 400) || from;
     out.push('BEGIN:VEVENT', `UID:${b.icsUid || `${b.id}@task-brain`}`, `DTSTAMP:${stamp}`, `SUMMARY:${escapeText(b.name)}`);
     if (b.allDay) {
       out.push(`DTSTART;VALUE=DATE:${icsDate(from)}`, `DTEND;VALUE=DATE:${icsDate(addDays(from, 1))}`);
@@ -180,7 +182,8 @@ export function seriesToIcs(list, { skips = [], domainLabel = d => d, stampYmd }
     } else if (r.freq === 'yearly') parts.push('FREQ=YEARLY');
     if (parts.length) {
       if (r.interval > 1) parts.push(`INTERVAL=${r.interval}`);
-      if (r.until) parts.push(`UNTIL=${icsDate(r.until)}`);
+      // UNTIL must have the same value type as DTSTART: a date for all-day, a floating date-time otherwise.
+      if (r.until) parts.push(`UNTIL=${icsDate(r.until)}${b.allDay ? '' : 'T235959'}`);
       out.push(`RRULE:${parts.join(';')}`);
     }
     const ex = [...new Set([...(b.exdates || []), ...skips.filter(s => s.blockId === b.id).map(s => s.date)])];

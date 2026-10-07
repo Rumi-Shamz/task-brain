@@ -105,3 +105,14 @@ test('a new device never pushes its default rhythm over the real one', async () 
   assert.equal(merged.yearRhythm.cycles[0].startDay, 70);
   assert.deepEqual(merged.tasks.map(t => t.name), ['First real edit'], 'the real edit still merges in');
 });
+
+test('edits made before sync is connected still count as unsynced', () => {
+  store.clear();                           // no token: local-only mode
+  state.syncGate = 'local';
+  applyPersistPayload({ version: 11, tasks: [normalizeTask({ id: 'o', name: 'Offline' })], yearRhythm: seedYearRhythm('2026-01-05') });
+  setDirty(false);
+  state.tasks[0].name = 'Offline edit';
+  save();
+  clearTimeout(state.ghPushTimer);
+  assert.equal(isDirty(), true, 'the first pull after connecting must merge, not replace');
+});
