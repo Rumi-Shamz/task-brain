@@ -90,6 +90,7 @@
             <button type="button" class="btn" onclick="shiftDashDay(0)">Today</button>
           </div>
           <span class="day-hint">click a block to edit · drag body to move · bottom edge to resize</span>
+          <div class="allday-row" id="dash-day-allday" hidden></div>
         </div>
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
@@ -161,6 +162,11 @@
       <div class="year-months" id="year-grid"></div>
     </div>
     <div id="year-hour-edit" class="year-hour-edit" style="display:none;"></div>
+
+    <details class="year-config" id="year-recurring-wrap">
+      <summary>Recurring · appointments and containers by domain · .ics</summary>
+      <div id="year-recurring" class="year-protocol"></div>
+    </details>
 
     <details class="year-config" id="year-config">
       <summary>Year setup · stats · seasons · import</summary>

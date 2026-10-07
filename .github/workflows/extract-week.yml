@@ -44,6 +44,7 @@ jobs:
       TRANSCRIPT_PATH_INPUT: ${{ inputs.transcript_path }}
       TRANSCRIPT_TEXT: ${{ inputs.transcript }}
       PREBRIEF_ONLY: ${{ inputs.prebrief_only }}
+      PUSH_REQUESTED: ${{ inputs.push_to_data_repo }}
     steps:
       - uses: actions/checkout@v4
 
@@ -65,6 +66,10 @@ jobs:
           DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
         run: |
           set -euo pipefail
+          # Fail now, before a paid model call, if the results could not be pushed afterwards.
+          if [ "$PUSH_REQUESTED" = "true" ] && [ -z "${DATA_REPO_TOKEN:-}" ]; then
+            echo "push_to_data_repo needs the DATA_REPO_TOKEN secret"; exit 1
+          fi
           if [ -z "${DATA_REPO_TOKEN:-}" ]; then
             echo "DATA_REPO_TOKEN secret missing — running without data.json"; mkdir -p /tmp/data-repo; exit 0
           fi
@@ -114,7 +119,8 @@ jobs:
           git config user.name "task-brain-bot"
           git config user.email "bot@users.noreply.github.com"
           git add weeks/
-          git commit -m "Weekly extract ${WEEK}" || { echo "No changes"; exit 0; }
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Weekly extract ${WEEK}"
           # Another write (e.g. the app syncing data.json) may land between clone and push.
           for attempt in 1 2 3; do
             git push && exit 0

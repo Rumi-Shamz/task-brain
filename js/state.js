@@ -47,6 +47,7 @@ export const state = {
   settingsUpdatedAt: null,
   editGen: 0,
   imports: [],
+  domainColors: {},
 };
 
 export const BUILTIN_PROJECTS = [

@@ -4,6 +4,8 @@ import {
   paintYear, weekdayOfDay, defaultWorkSchedule, workWindowFromMonth, seasonSpec,
 } from './state.js';
 
+import { normalizeRepeat, repeatsOn } from './recurring.js';
+
 const WEEKDAY_NAMES = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export function defaultDayBlocks() {
@@ -15,25 +17,35 @@ export function defaultDayBlocks() {
 
 export function normalizeDayBlocks(raw) {
   const base = defaultDayBlocks();
-  if (!Array.isArray(raw) || !raw.length) return base;
-  return raw.map((b, i) => {
+  const list = Array.isArray(raw) && raw.length ? raw : base;
+  return list.map((b, i) => {
     const rule = b.rule === 'leverage' || b.rule === 'event' || b.rule === 'any' ? b.rule : 'any';
     const activity = ['research', 'communicate', 'act', 'learn'].includes(b.activity) ? b.activity : null;
     let weekdays = Array.isArray(b.weekdays)
       ? b.weekdays.map(n => Math.round(Number(n))).filter(n => n >= 0 && n <= 6)
       : base[0].weekdays;
     if (!weekdays.length) weekdays = [0, 1, 2, 3, 4];
-    const startMin = Math.max(0, Math.min(24 * 60 - 30, Math.round(Number(b.startMin)) || 9 * 60));
+    const rawStart = Math.round(Number(b.startMin));
+    // 0 (midnight) is a real start; only missing or invalid values fall back to 09:00.
+    const startMin = Math.max(0, Math.min(24 * 60 - 30, Number.isFinite(rawStart) ? rawStart : 9 * 60));
     let endMin = Math.round(Number(b.endMin));
     if (!Number.isFinite(endMin) || endMin <= startMin) endMin = Math.min(24 * 60, startMin + 60);
+    const allDay = rule === 'event' && !!b.allDay;
     return {
       id: b.id ? String(b.id) : `block-${i}`,
-      name: String(b.name || 'Block').slice(0, 40),
+      name: String(b.name || 'Block').slice(0, 60),
       weekdays: [...new Set(weekdays)].sort((a, c) => a - c),
-      startMin,
-      endMin,
+      startMin: allDay ? 0 : startMin,
+      endMin: allDay ? 24 * 60 : endMin,
       rule,
       activity: rule === 'event' ? null : activity,
+      // v9 additions — absent on older data: weekly, work days only, no domain
+      domain: b.domain ? String(b.domain) : null,
+      projectId: b.projectId ? String(b.projectId) : null,
+      repeat: normalizeRepeat(b.repeat),
+      workDaysOnly: b.workDaysOnly === undefined ? true : !!b.workDaysOnly,
+      allDay,
+      ...(b.icsUid ? { icsUid: String(b.icsUid) } : {}),
       ...(b.updatedAt ? { updatedAt: b.updatedAt } : {}),
     };
   });
@@ -42,7 +54,7 @@ export function normalizeDayBlocks(raw) {
 export function dayBlocks() {
   if (!state.yearRhythm) return defaultDayBlocks();
   if (!Array.isArray(state.yearRhythm.dayBlocks) || !state.yearRhythm.dayBlocks.length) {
-    state.yearRhythm.dayBlocks = defaultDayBlocks();
+    state.yearRhythm.dayBlocks = normalizeDayBlocks(null);
   }
   return state.yearRhythm.dayBlocks;
 }
@@ -72,12 +84,21 @@ export function cycleDayIndex(anchorYmd, date) {
   return ((diff % YEAR_DAYS) + YEAR_DAYS) % YEAR_DAYS;
 }
 
+let paintCache = { key: null, cells: null };
+
+/** paintYear() for the current rhythm, recomputed only when the rhythm settings change. */
+function paintedCells() {
+  const r = state.yearRhythm;
+  const key = JSON.stringify([r.yearStartMonday, r.cycles, r.deepRest, r.vacations, r.workSchedule]);
+  if (key !== paintCache.key) paintCache = { key, cells: paintYear(r) };
+  return paintCache.cells;
+}
+
 export function cellForYmd(ymd) {
   if (!state.yearRhythm) return null;
   const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
   if (idx == null) return null;
-  const cells = paintYear(state.yearRhythm);
-  return { idx, cell: cells[idx] };
+  return { idx, cell: paintedCells()[idx] };
 }
 
 export function isTaskDay(ymd) {
@@ -107,10 +128,21 @@ function skipped(ymd, blockId) {
   return (state.blockSkips || []).some(s => s.date === ymd && s.blockId === blockId);
 }
 
-export function blocksOnDate(ymd) {
-  if (!isTaskDay(ymd)) return [];
-  const wd = weekdayIndex(ymd);
-  return dayBlocks().filter(b => b.weekdays.includes(wd) && !skipped(ymd, b.id));
+/** Series occurring on ymd: repeat rule, then work-day filter, then per-date skips. */
+export function blocksOnDate(ymd, { includeAllDay = false } = {}) {
+  let taskDay = null;
+  return dayBlocks().filter(b => {
+    if (b.allDay && !includeAllDay) return false;
+    if (!repeatsOn(b, ymd) || skipped(ymd, b.id)) return false;
+    if (!b.workDaysOnly) return true;
+    if (taskDay === null) taskDay = isTaskDay(ymd);
+    return taskDay;
+  });
+}
+
+/** All-day series on ymd (birthdays, holidays) — shown as labels, never in the hour grid. */
+export function allDayOnDate(ymd) {
+  return blocksOnDate(ymd, { includeAllDay: true }).filter(b => b.allDay);
 }
 
 export function taskFitsBlock(task, block) {

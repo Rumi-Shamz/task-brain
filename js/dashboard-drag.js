@@ -5,8 +5,9 @@ import {
   esc, parseHHMM, formatHHMM, snapCalMins, clampCalStart, ensureDashCalDate, toggleTaskDone,
 } from './state.js';
 import { deps } from './deps.js';
+import { domainStyleVar } from './domains.js';
 import {
-  applyCalBlockStyle, dropOnDomainLane, minsToY, yToMins, openDashEdit, renderDashboard,
+  taskDomain, applyCalBlockStyle, dropOnDomainLane, minsToY, yToMins, openDashEdit, renderDashboard,
 } from './dashboard.js';
 
 export function dashChipDragStart(e) {
@@ -123,6 +124,20 @@ export function onCalPointerMove(e) {
     applyCalBlockStyle(state.calPointer.block, t);
   }
 }
+/** The browser took the gesture over (e.g. a touch scroll): put the task back instead of saving a half-move. */
+export function cancelCalPointer() {
+  const p = state.calPointer;
+  if (!p) return;
+  const t = state.tasks.find(x => x.id === p.id);
+  if (t) { t.start = formatHHMM(p.origStart); t.duration = p.origDuration; }
+  if (p.block) {
+    p.block.classList.remove('moving', 'resizing');
+    if (p.block.style) p.block.style.pointerEvents = '';
+  }
+  clearLanePointerOver();
+  state.calPointer = null;
+  if (p.source === 'week') deps.renderYear(); else deps.renderDashboard();
+}
 export function onCalPointerUp(e) {
   if (!state.calPointer) return;
   if (state.calPointer.source === 'week') { onWeekTaskPointerUp(e);
@@ -164,7 +179,7 @@ export function onCalPointerUp(e) {
 }
 document.addEventListener('pointermove', onCalPointerMove);
 document.addEventListener('pointerup', onCalPointerUp);
-document.addEventListener('pointercancel', onCalPointerUp);
+document.addEventListener('pointercancel', cancelCalPointer);
 
 export function scheduleTaskOnDate(taskId, ymd, startMin) {
   const t = state.tasks.find(x => x.id === taskId);
@@ -204,7 +219,7 @@ export function weekTaskBlocksHTML(ymd) {
     const height = Math.max(0, (Math.min(endMins, DAY_END_MIN) - Math.max(startMins, DAY_START_MIN)) / 60 * HOUR_H);
     const endLabel = formatHHMM(startMins + dur);
     return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ esc(t.id) }" data-ymd="${ esc(ymd) }"
-        style="${ projectCssVars(t.project) }top:${ top }px;height:${ Math.max(height, 28) }px"
+        style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ top }px;height:${ Math.max(height, 28) }px"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
         onpointerdown="weekTaskPointerDown(event)"
         ondblclick="event.stopPropagation();unscheduleTask(${ esc(JSON.stringify(t.id)) });renderYear();">

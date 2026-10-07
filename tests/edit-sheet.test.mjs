@@ -31,3 +31,23 @@ test('task ids are escaped in the Year week markup', () => {
   // JSON.stringify gives "a\" onmouseover=\"alert(1)"; esc() turns the quotes into &quot; so the attribute holds.
   assert.ok(html.includes('unscheduleTask(&quot;a\\&quot; onmouseover=\\&quot;alert(1)&quot;)'), 'handler argument is an escaped JSON string');
 });
+
+test('a cancelled drag puts the task back and saves nothing', async () => {
+  const { cancelCalPointer } = await import('../js/dashboard-drag.js');
+  const { deps } = await import('../js/deps.js');
+  globalThis.document.querySelectorAll = () => [];
+  const t = task({ start: '09:00', duration: 30 });
+  state.tasks = [t];
+  t.start = '15:30'; t.duration = 90;                      // half-finished move/resize
+  const removed = [];
+  state.calPointer = { id: t.id, source: 'dash', origStart: 9 * 60, origDuration: 30, block: { classList: { remove: (...c) => removed.push(...c) }, style: {} } };
+  let saved = 0, rendered = 0;
+  deps.save = () => { saved++; }; deps.renderDashboard = () => { rendered++; };
+  cancelCalPointer();
+  assert.equal(t.start, '09:00');
+  assert.equal(t.duration, 30);
+  assert.equal(saved, 0, 'nothing persisted');
+  assert.equal(rendered, 1);
+  assert.equal(state.calPointer, null);
+  assert.deepEqual(removed, ['moving', 'resizing']);
+});
