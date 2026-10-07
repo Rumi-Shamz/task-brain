@@ -45,6 +45,9 @@
         <input type="text" id="single-input" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addSingle()" />
         <button class="btn primary" onclick="addSingle()">Add</button>
         <button class="btn" onclick="toggleBulk()">Bulk</button>
+        <label class="week-of" title="Week the imported plan is for (a weekOf inside a .json file wins)">Week of
+          <input type="date" id="week-plan-week" onchange="renderImportWeekHint()" />
+        </label>
         <label class="btn" style="cursor:pointer;display:inline-flex;align-items:center;">
           Import week plan
           <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden onchange="importWeeklyPlanFile(this)" />

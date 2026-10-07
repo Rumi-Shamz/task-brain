@@ -26,6 +26,7 @@ export {
 export {
   importWeeklyPlanFile,
   renderImportHealth,
+  renderImportWeekHint,
   importWeeklyPlanRows,
   importWeeklyPlanJson,
   parseCsvText,

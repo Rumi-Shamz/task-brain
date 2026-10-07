@@ -98,6 +98,11 @@ export function describeRepeat(block) {
   return text;
 }
 
+/** Hover text for a series on the calendars: repeat rule, then location and notes when present. */
+export function seriesDetails(block) {
+  return [describeRepeat(block), block.location, block.note && block.note.slice(0, 300)].filter(Boolean).join(' · ');
+}
+
 /** Labels for the monthly options of a given start date, for the editor. */
 export function monthlyChoices(fromYmd) {
   const d = parseDay(fromYmd);

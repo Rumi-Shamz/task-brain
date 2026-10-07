@@ -13,8 +13,8 @@ function unfold(text) {
   return String(text || '').replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
 }
 
-function unescapeText(v) {
-  return String(v || '').replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').trim();
+function unescapeText(v, { keepLines = false } = {}) {
+  return String(v || '').replace(/\\n/gi, keepLines ? '\n' : ' ').replace(/\\([,;\\])/g, '$1').trim();
 }
 
 /** "20261006T190000Z" | "20261006T190000" | "20261006" → { ymd, min, allDay } in local time */
@@ -58,6 +58,9 @@ export function parseIcs(text) {
     if (line.name === 'END' && line.value === 'VEVENT') { if (cur) events.push(cur); cur = null; return; }
     if (!cur) return;
     if (line.name === 'SUMMARY') cur.summary = unescapeText(line.value);
+    else if (line.name === 'DESCRIPTION') cur.description = unescapeText(line.value, { keepLines: true });
+    else if (line.name === 'LOCATION') cur.location = unescapeText(line.value);
+    else if (line.name === 'URL') cur.url = line.value.trim();
     else if (line.name === 'UID') cur.uid = line.value.trim();
     else if (line.name === 'DTSTART') cur.start = parseIcsDate(line.value, line.params);
     else if (line.name === 'DTEND') cur.end = parseIcsDate(line.value, line.params);
@@ -118,6 +121,9 @@ export function eventsToSeries(events, { todayYmd, domain = null } = {}) {
       weekdays: [weekdayOf(parseDay(startYmd))],
       exdates: ev.exdates.filter(d => d >= (todayYmd || '')),
       icsUid: ev.uid || null,
+      note: (ev.description || '').slice(0, 2000),
+      location: (ev.location || '').slice(0, 200),
+      url: /^https?:\/\//i.test(ev.url || '') ? ev.url : '',
     };
     const r = ev.rrule;
     if (!r) {
@@ -172,6 +178,9 @@ export function seriesToIcs(list, { skips = [], domainLabel = d => d, stampYmd }
       out.push(`DTSTART:${icsDateTime(from, b.startMin)}`, `DTEND:${icsDateTime(from, b.endMin)}`);
     }
     if (b.domain) out.push(`CATEGORIES:${escapeText(domainLabel(b.domain))}`);
+    if (b.note) out.push(`DESCRIPTION:${escapeText(b.note)}`);
+    if (b.location) out.push(`LOCATION:${escapeText(b.location)}`);
+    if (b.url) out.push(`URL:${b.url}`);
     const parts = [];
     if (r.freq === 'weekly') parts.push('FREQ=WEEKLY', `BYDAY=${(b.weekdays || []).map(i => BYDAY[i]).join(',')}`);
     else if (r.freq === 'monthly') {

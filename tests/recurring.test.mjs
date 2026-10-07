@@ -138,3 +138,19 @@ test('exported weekly series start on one of their days; UNTIL matches the DTSTA
   assert.equal(back.repeat.from, '2026-10-13');
   assert.equal(back.repeat.until, '2026-12-31');
 });
+
+test('ics keeps description, location and link, and exports them back', () => {
+  const ics = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:class@x', 'SUMMARY:Swing class',
+    'DTSTART:20261006T190000', 'DTEND:20261006T210000', 'RRULE:FREQ=WEEKLY;BYDAY=TU',
+    'DESCRIPTION:Bring shoes\\nLevel 2\\, room B', 'LOCATION:Studio 5\\, Main st 1', 'URL:https://example.org/class',
+    'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const [s] = eventsToSeries(parseIcs(ics), { todayYmd: '2026-10-06' }).series;
+  assert.equal(s.note, 'Bring shoes\nLevel 2, room B');
+  assert.equal(s.location, 'Studio 5, Main st 1');
+  assert.equal(s.url, 'https://example.org/class');
+  const [again] = eventsToSeries(parseIcs(seriesToIcs([{ id: 'b1', ...s }], { stampYmd: '2026-10-06' })), { todayYmd: '2026-10-06' }).series;
+  assert.deepEqual([again.note, again.location, again.url], [s.note, s.location, s.url]);
+  const [kept] = normalizeDayBlocks([{ ...s, id: 'b1', url: 'javascript:alert(1)' }]);
+  assert.equal(kept.note, s.note);
+  assert.equal(kept.url, '', 'only http(s) links are kept');
+});
