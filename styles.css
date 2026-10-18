@@ -862,6 +862,32 @@
     .someday-name { font-size: 13px; font-weight: 500; }
     .someday-meta { font-size: 11px; color: var(--txt3); margin: 2px 0 6px; }
     .someday-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    /* Assistant work: agent tasks in Delegated, Errands */
+    .agent-card .tag {
+      margin-left: 4px; font-size: 10px; font-weight: normal; color: var(--txt3);
+      border: 0.5px solid var(--border-md); border-radius: 4px; padding: 1px 5px; background: var(--surface);
+    }
+    .tag.agent-ready { color: var(--p-personal); border-color: var(--p-personal); }
+    .tag.agent-failed { color: var(--accent); border-color: var(--accent); }
+    .agent-runner.stale, .agent-wait, .agent-error { color: var(--accent); }
+    .agent-error { font-size: 12px; margin: 4px 0; }
+    .agent-run, .agent-file { margin: 4px 0 6px; font-size: 12px; }
+    .agent-run summary, .agent-file summary { cursor: pointer; color: var(--txt2); }
+    .agent-output {
+      white-space: pre-wrap; word-break: break-word; font-family: var(--sans); font-size: 13px; line-height: 1.45;
+      max-height: 420px; overflow: auto; margin: 6px 0; padding: 8px 10px;
+      background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius);
+    }
+    .agent-output a { color: inherit; }
+    .agent-output .agent-h { display: inline-block; margin-top: 4px; }
+    .agent-feedback { width: 100%; margin: 4px 0 6px; font: inherit; font-size: 12px; }
+    .btn.btn-link { border: none; background: none; padding: 0 4px; text-decoration: underline; font-size: inherit; }
+    .errand-editor { display: flex; flex-direction: column; gap: 8px; }
+    .errand-editor textarea, .errand-editor input[type=text] { width: 100%; }
+    .errand-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+    .errand-row input[type=number] { width: 4em; }
+    .errand-days { display: flex; flex-wrap: wrap; gap: 8px; }
+    .errand-day { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-right: 6px; }
 
     .sync-status {
       font-size: 11px; color: var(--txt3); margin-left: auto;

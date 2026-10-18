@@ -7,6 +7,7 @@ import { DAY_INTERVALS, intervalForTask, placeInInterval, upcomingWorkDates, wee
 import { parentTaskLabel } from './plan.js';
 import { comboHTML } from './plan-combo.js';
 import { subtasksHTML, drainingHTML } from './plan-subtasks.js';
+import { WORKERS } from './agent-core.js';
 
 function scheduleFieldsHTML(t) {
   const today = formatYmd(new Date());
@@ -144,7 +145,13 @@ export function singleCardHTML(t) {
         </div>
         ${t.assignee === 'person' ? `<input type="text" placeholder="Who? (name)" value="${esc(t.delegateTo || '')}"
           onchange="planPatch({delegateTo:this.value})" />` : ''}
-        ${t.assignee === 'ai' ? '<span class="bulk-hint">The note above is the brief. It waits in Delegated until the assistant can run it.</span>' : ''}
+        ${t.assignee === 'ai' ? `<div class="plan-choices compact">
+            ${WORKERS.map(w => `<button type="button" class="btn ${t.agentWorker === w.id ? 'primary' : ''}" title="${esc(w.hint)}"
+              onclick="planPatch({agentWorker:'${w.id}'})">${esc(w.label)}</button>`).join('')}
+            <label class="errand-day"><input type="checkbox" ${t.agentWithPlan ? 'checked' : ''}
+              onchange="planPatch({agentWithPlan:this.checked})" /> Share my open plan with it</label>
+          </div>
+          <span class="bulk-hint">The note above is the brief. The desktop runner picks it up within a few minutes; the result shows in Today → Delegated.</span>` : ''}
       </div>
     </div>
 
