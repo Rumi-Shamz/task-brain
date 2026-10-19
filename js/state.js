@@ -1,4 +1,5 @@
 import { deps } from './deps.js';
+import { normalizeAgentFields } from './agent-core.js';
 
 // Shared mutable app state
 export const state = {
@@ -48,6 +49,10 @@ export const state = {
   editGen: 0,
   imports: [],
   domainColors: {},
+  errands: [],
+  /** agent/results.json from the data repo: read-only here, the desktop runner writes it. */
+  agentResults: null,
+  errandEditId: null,
 };
 
 export const BUILTIN_PROJECTS = [
@@ -455,6 +460,8 @@ export function normalizeTask(t) {
     // Who does it: me, a person (delegateTo), or the assistant. v10 → v11; absent = me.
     assignee: t.assignee === 'person' || t.assignee === 'ai' ? t.assignee : 'me',
     delegateTo: t.delegateTo != null ? String(t.delegateTo) : '',
+    // Assistant work (v11 → v12): which worker runs it, whether it sees the plan, re-run requests.
+    ...normalizeAgentFields(t),
   };
 }
 export function newTask(name, extra) {

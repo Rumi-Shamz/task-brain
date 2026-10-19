@@ -8,6 +8,7 @@ import { normalizeDayBlocks, normalizeActivityRules, rollOpenTasksForward } from
 import { normalizeCustomDomains, normalizeDomainColors } from './domains.js';
 import { deps } from './deps.js';
 import { stampChanges, markClean, pruneTombstones, setDirty } from './merge.js';
+import { normalizeErrands } from './agent-core.js';
 
 export function save() {
   const changed = stampChanges(getPersistPayload());
@@ -28,7 +29,7 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 11,
+    version: 12,
     updatedAt: new Date().toISOString(),
     settingsUpdatedAt: state.settingsUpdatedAt || null,
     tombstones: state.tombstones || [],
@@ -47,6 +48,7 @@ export function getPersistPayload() {
     blockSkips: state.blockSkips || [],
     imports: state.imports || [],
     domainColors: state.domainColors || {},
+    errands: state.errands || [],
   };
 }
 
@@ -74,6 +76,9 @@ export function applyPersistPayload(d) {
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   state.imports = Array.isArray(d.imports) ? d.imports : [];
+  // v11 → v12: errands (recurring assistant briefs; absent = none), and tasks gain agentWorker /
+  // agentWithPlan / agentRerunAt / agentFeedback (normalizeTask: absent = Claude, no plan, first run).
+  state.errands = normalizeErrands(d.errands);
   // v10 → v11: tasks gain assignee ('me' | 'person' | 'ai') and delegateTo (normalizeTask: absent = me).
   // v9 → v10: day blocks gain domain/projectId/repeat/workDaysOnly/allDay (normalizeDayBlocks
   // defaults: weekly, work days only, no domain — the v9 behavior) and domainColors.

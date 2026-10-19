@@ -11,7 +11,8 @@ Your data lives in a **private GitHub repo you create**. The app reads and write
 - **01 Plan** — add tasks (one or bulk), triage (size, L/N/O, blocking, who is affected, subtasks), mark draining work and add recovery buffers, assign domain / project / activity (`research` | `communicate` | `act` | `learn`), schedule a slot or a batch, merge duplicate projects.
 - **Import** — weekly plan from `.json`, `.csv`, or `.xlsx`. Bad rows are reported. Schema: `schema/plan.schema.json`.
 - **02 Today** — day calendar (click to edit, drag to move, resize the bottom edge), domain board, inbox, someday review (delegate, convert, delete, or defer). A **next up** strip shows what is on now and the next three items with time left, refreshed every minute while open (no push notifications). **Delegated** lists tasks handed to a person or to the assistant; **Slipped** lists tasks whose day passed.
-- **Who does it** — each task is for me, someone else (with a name), or the assistant (the note is the brief; it waits in Delegated until the assistant can run tasks).
+- **Who does it** — each task is for me, someone else (with a name), or the assistant. For the assistant, the note is the brief: pick **Claude** or **Local** (Ollama) and whether it may see your open plan. Results show in **Delegated**: accept (done, result kept in the note), run again with feedback, or take back.
+- **Errands** (on 02 Today) — briefs the assistant runs on a schedule (weekly on chosen days, or monthly, at a time), each with its own results: mark seen, make a task from one, run now, pause.
 - **03 Upskill** — skill backlog by utility × time-to-learn. `schedule` skills seed a weekly Learn block and reviews at +1, +7, and +30 days. Shows the share of scheduled minutes on L this week.
 - **04 Year** — year / month / week, seasons, protocol blocks (sprint, vacation, fast, restore, deep rest), hour stats.
 - **Recurring** (04 Year) — appointments (fixed time) and containers (time blocks tasks go into), each with a domain and project. Repeats weekly (every N weeks, chosen days), monthly (day N, or the 2nd / last weekday), yearly, or once, with start and end dates, optionally only on work days. Domain colors are editable and tint the calendars and board. **Import .ics** (e.g. a Google Calendar export; re-importing updates instead of duplicating) and **Export .ics**.
@@ -46,6 +47,26 @@ Same owner, same repo, a PAT for that repo, on every device.
 ## Sync and conflicts
 
 Every record in `data.json` carries `updatedAt`, and deletions leave short-lived tombstones. If another device saved first, the app merges record by record (the newer edit wins) instead of overwriting. Edits made offline are merged on the next open.
+
+## Assistant runner (desktop)
+
+The app cannot run agents: it is a static page, and no keys go in the browser. A small runner on an always-on desktop does the work.
+
+- Every 5 minutes a systemd user timer runs `scripts/agent_runner.mjs`. It pulls a clone of the data repo, runs due work (open tasks for the assistant, errands whose time has come), and commits `agent/results.json`. The app reads that file and never writes it; the runner never edits `data.json`.
+- **Claude** runs through the Claude Code CLI on the desktop, so it uses that machine's claude.ai login (your plan); task-brain never sees or stores it. Each run is locked down: no shell, no connectors (Gmail, Drive), file tools only inside its own run folder (`~/.local/share/task-brain-agent/runs/<id>`), plus web search. It drafts and researches; anything that would send, buy, or book comes back under "Needs your approval".
+- **Local** runs on Ollama (`qwen2.5:7b` by default), with no tools: nothing leaves the machine.
+- When the plan's usage limit is hit, or Ollama is down, the work stays queued and the panel says so; it retries on later ticks. Missed errand days (desktop off) are not caught up.
+- The plan is shared only when you tick it: open tasks (name, domain, project, dates, first 300 characters of the note) and someday names.
+
+Set up, on the desktop, from the checkout the service should run from (needs `node`, `gh auth login`, and `claude` signed in):
+
+```bash
+scripts/agent-runner/install.sh                 # timer + ~/.config/task-brain-agent/env (models, limits)
+node scripts/agent_runner.mjs --dry-run         # what is due now
+node scripts/agent_runner.mjs --status          # runner state and recent runs
+journalctl --user -u task-brain-agent -f        # logs
+scripts/agent-runner/install.sh --remove        # stop it
+```
 
 ## Weekly loop (outside the browser)
 

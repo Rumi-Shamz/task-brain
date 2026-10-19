@@ -3,6 +3,7 @@ import { state, esc, todayYmd, parseHHMM, formatHHMM, DEFAULT_DURATION } from '.
 import { blocksOnDate, allDayOnDate, slippedTasks } from './blocks.js';
 import { domainStyleVar } from './domains.js';
 import { deps } from './deps.js';
+import { agentTaskRowHTML, agentReadyCount, runnerStatusHTML } from './agent-ui.js';
 
 function inHowLong(mins) {
   if (mins < 1) return 'now';
@@ -79,7 +80,8 @@ export function renderDelegatedPanel() {
   if (!el) return;
   const list = delegatedTasks();
   const sum = document.getElementById('delegated-summary');
-  if (sum) sum.textContent = list.length ? `Delegated (${list.length})` : 'Delegated';
+  const ready = agentReadyCount();
+  if (sum) sum.textContent = list.length ? `Delegated (${list.length}${ready ? ` · ${ready} to review` : ''})` : 'Delegated';
   const row = t => `<div class="someday-card">
       <div class="someday-name">${esc(t.name)}</div>
       <div class="someday-meta">${t.assignee === 'ai' ? 'Assistant' : `→ ${esc(t.delegateTo || 'someone')}`}${t.date ? ` · due ${esc(t.date)}` : ''}${t.note ? ` · ${esc(t.note.slice(0, 80))}` : ''}</div>
@@ -92,6 +94,6 @@ export function renderDelegatedPanel() {
   const ai = list.filter(t => t.assignee === 'ai');
   el.innerHTML = list.length
     ? `${people.length ? `<p class="someday-hint">Waiting on people — follow up if it is close to the date.</p>${people.map(row).join('')}` : ''}
-       ${ai.length ? `<p class="someday-hint">For the assistant — queued until it can run tasks.</p>${ai.map(row).join('')}` : ''}`
+       ${ai.length ? `<p class="someday-hint">For the assistant — the desktop runner picks these up within a few minutes. The note is the brief.</p>${runnerStatusHTML()}${ai.map(agentTaskRowHTML).join('')}` : ''}`
     : '<p class="dash-inbox-empty">Nothing delegated.</p>';
 }

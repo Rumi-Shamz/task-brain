@@ -23,6 +23,7 @@ import { deriveActivityRules } from './blocks.js';
 import { markClean } from './merge.js';
 import { getPersistPayload } from './storage.js';
 import { startNextUpTicker } from './next-up.js';
+import * as agentUi from './agent-ui.js';
 
 deps.save = save;
 deps.render = render;
@@ -38,7 +39,7 @@ deps.ghPush = ghPush;
 window.deps = deps;
 window.deriveActivityRules = deriveActivityRules;
 
-Object.assign(window, plan, year, dashboard, {
+Object.assign(window, plan, year, dashboard, agentUi, {
   switchPhase,
   clearAll,
   render,
@@ -88,10 +89,13 @@ year.ensureYearWeekMonday();
 markClean(getPersistPayload());
 ensureTimerTick();
 startNextUpTicker();
+agentUi.loadCachedAgentResults();
+agentUi.startAgentResultsTicker();
 switchPhase('plan');
 refreshSyncForm();
 
 // Pull remote BEFORE learn-block seeding / auto-push, so phone and desktop share one source of truth.
 bootSync().finally(() => {
   (appState.skills || []).filter(s => s.quadrant === 'schedule').forEach(ensureWeeklyLearnBlock);
+  agentUi.refreshAgentResults(true);
 });

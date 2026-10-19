@@ -115,10 +115,10 @@ export function b64dec(b64) {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
 }
-export function ghApi(c, method, body, accept) {
+export function ghApi(c, method, body, accept, path = DATA_PATH) {
   return fetch(
     'https://api.github.com/repos/' + encodeURIComponent(c.owner) + '/' +
-      encodeURIComponent(c.repo) + '/contents/' + DATA_PATH,
+      encodeURIComponent(c.repo) + '/contents/' + path,
     {
       method,
       cache: 'no-store',
@@ -154,6 +154,17 @@ function fetchRemote(c) {
         .then(raw => { if (!raw.ok) throw raw.status; return raw.json(); })
         .then(payload => ({ sha: j.sha, payload }));
     });
+  });
+}
+
+/** Read another JSON file from the data repo (null when it does not exist). Never writes. */
+export function ghReadJson(path) {
+  const c = ghCfg();
+  if (!c.token || !c.owner || !c.repo || isPublicAppRepo(c.owner, c.repo)) return Promise.resolve(null);
+  return ghApi(c, 'GET', null, 'application/vnd.github.raw+json', path).then(r => {
+    if (r.status === 404) return null;
+    if (!r.ok) throw r.status;
+    return r.json();
   });
 }
 

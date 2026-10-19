@@ -16,6 +16,7 @@ import { deps } from './deps.js';
 import { blocksOnDate, allDayOnDate } from './blocks.js';
 import { seriesDetails } from './recurring.js';
 import { renderNextUp, renderDelegatedPanel } from './next-up.js';
+import { renderErrandsPanel } from './agent-ui.js';
 
 export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
@@ -380,6 +381,7 @@ export function renderDashboard() {
   }
   renderNextUp();
   renderDelegatedPanel();
+  renderErrandsPanel();
   if (typeof window.renderSlippedPanel === 'function') {
     window.renderSlippedPanel(document.getElementById('slipped-panel'));
     const n = document.querySelectorAll('#slipped-panel .someday-card').length;
