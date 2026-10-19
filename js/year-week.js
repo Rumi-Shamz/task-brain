@@ -6,7 +6,7 @@ import {
   workWindowRuleText,
 } from './state.js';
 import { allDayOnDate, blocksOnDate, cycleDayIndex, mondayOfYmd, weekWorkDates } from './blocks.js';
-import { describeRepeat } from './recurring.js';
+import { seriesDetails } from './recurring.js';
 import { domainStyleVar } from './domains.js';
 import { renderYearHourEdit } from './year-hours.js';
 import { weekTaskBlocksHTML } from './dashboard.js';
@@ -69,7 +69,7 @@ export function renderYearWeek(cells, sectionLabel) {
     const taskBlocks = ymd ? weekTaskBlocksHTML(ymd) : '';
     const series = blocksOnDate(ymd).map(b => `<div class="year-week-series ${ b.rule === 'event' ? 'event' : 'open' }"
         style="${ domainStyleVar(b.domain) }top:${ b.startMin / 60 * HOUR_H }px;height:${ Math.max(14, (b.endMin - b.startMin) / 60 * HOUR_H) }px"
-        title="${ esc(b.name) } · ${ esc(formatHHMM(b.startMin)) }–${ esc(formatHHMM(b.endMin)) } · ${ esc(describeRepeat(b)) }">
+        title="${ esc(b.name) } · ${ esc(formatHHMM(b.startMin)) }–${ esc(formatHHMM(b.endMin)) } · ${ esc(seriesDetails(b)) }">
         <span>${ esc(b.name) }</span></div>`).join('');
     const todayMark = ymd === formatYmd(new Date()) ? ' is-today' : '';
     return `<div class="year-week-col${ todayMark }" data-ymd="${ esc(ymd) }"

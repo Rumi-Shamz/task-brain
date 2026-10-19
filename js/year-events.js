@@ -27,7 +27,7 @@ function seriesRowHTML(b) {
     <button type="button" class="series-summary" onclick="editSeries('${b.id}')" aria-expanded="${open}">
       <span class="series-swatch"></span>
       <span class="series-name">${esc(b.name)}</span>
-      <span class="series-meta">${esc(time)} · ${esc(describeRepeat(b))} · ${esc(where)}${b.workDaysOnly ? ' · work days' : ''}</span>
+      <span class="series-meta">${esc(time)} · ${esc(describeRepeat(b))} · ${esc(where)}${b.workDaysOnly ? ' · work days' : ''}${b.location ? ` · ${esc(b.location)}` : ''}</span>
     </button>
     ${open ? seriesFormHTML(b) : ''}
   </div>`;
@@ -71,6 +71,10 @@ function seriesFormHTML(b) {
     ${monthly}
     ${r.freq !== 'once' ? `<label>Ends <input type="date" value="${esc(r.until || '')}" onchange="patchSeries('${id}','until',this.value)" /></label>` : ''}
     <label class="inline"><input type="checkbox" ${b.workDaysOnly ? 'checked' : ''} onchange="patchSeries('${id}','workDaysOnly',this.checked)" /> Only on work / sprint days</label>
+    <label class="wide">Location <input type="text" value="${esc(b.location || '')}" onchange="patchSeries('${id}','location',this.value)" /></label>
+    <label class="wide">Link <input type="url" placeholder="https://…" value="${esc(b.url || '')}" onchange="patchSeries('${id}','url',this.value)" />
+      ${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">open</a>` : ''}</label>
+    <label class="wide">Notes <textarea rows="3" onchange="patchSeries('${id}','note',this.value)">${esc(b.note || '')}</textarea></label>
     <div class="series-actions">
       <button type="button" class="btn" onclick="editSeries('${id}')">Done</button>
       <button type="button" class="btn danger-outline" onclick="removeSeries('${id}')">Delete</button>
@@ -177,6 +181,9 @@ export function patchSeries(id, field, value) {
   } else if (field === 'until') r.until = value || null;
   else if (field === 'monthly') r.monthly = ['day', 'nth', 'last'].includes(value) ? value : 'day';
   else if (field === 'workDaysOnly') b.workDaysOnly = !!value;
+  else if (field === 'note') b.note = String(value || '').slice(0, 2000);
+  else if (field === 'location') b.location = String(value || '').trim().slice(0, 200);
+  else if (field === 'url') b.url = /^https?:\/\//i.test(String(value || '').trim()) ? String(value).trim() : '';
   b.repeat = normalizeRepeat(r);
   rerender();
 }
