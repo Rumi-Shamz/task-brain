@@ -252,13 +252,37 @@ export function validateAndBuildItems(items, opts = {}) {
       lno,
       ...who,
     });
+    if (String(item.parent || '').trim()) task._parentName = String(item.parent).trim();
+    task._row = row;
     task.imported = { from: opts.source || formatYmd(mon) };
     IMPORT_FIELDS.forEach(f => { task.imported[f] = task[f] ?? null; });
     tasks.push(task);
     warnings.forEach(w => reports.push({ row, level: 'warn', message: `${w} ("${name}")` }));
   });
 
+  linkParents(tasks, reports);
   return { tasks, rows: reports };
+}
+
+/** Parent column: a row becomes a subtask of the row (or open task) with that Key word. */
+function linkParents(tasks, reports) {
+  const key = n => String(n || '').trim().toLowerCase();
+  const inFile = new Map();
+  tasks.forEach(t => { if (!inFile.has(key(t.name))) inFile.set(key(t.name), t); });
+  tasks.forEach(t => {
+    const wanted = t._parentName;
+    delete t._parentName;
+    const row = t._row;
+    delete t._row;
+    if (!wanted) return;
+    const parent = inFile.get(key(wanted))
+      || state.tasks.find(x => !x.done && x.status !== 'someday' && key(x.name) === key(wanted));
+    if (!parent || parent === t || parent.parentId) {
+      reports.push({ row, level: 'warn', message: `parent "${wanted}" not found → top-level ("${t.name}")` });
+      return;
+    }
+    t.parentId = parent.id;
+  });
 }
 
 export function csvRowsToItems(rows) {
@@ -286,6 +310,7 @@ export function csvRowsToItems(rows) {
     activity: idx(['activity']),
     lno: idx(['lno']),
     who: idx(['who', 'who does it', 'assignee']),
+    parent: idx(['parent', 'parent task']),
     desc: idx(['description', 'notes', 'details']),
   };
   // Legacy CSVs sometimes label the domain column "project"
@@ -314,6 +339,7 @@ export function csvRowsToItems(rows) {
       activity: col.activity >= 0 ? row[col.activity] : '',
       lno: col.lno >= 0 ? row[col.lno] : '',
       who: col.who >= 0 ? row[col.who] : '',
+      parent: col.parent >= 0 ? row[col.parent] : '',
       description: col.desc >= 0 ? row[col.desc] : '',
     });
   }
@@ -394,15 +420,18 @@ function importKey(t) {
 
 export function commitImportedTasks(tasks, reports, monday) {
   ensureProjectsMigrated();
-  const existing = new Set(state.tasks.map(t => importKey(t)));
+  const existing = new Map(state.tasks.map(t => [importKey(t), t.id]));
   const ids = [];
+  const sameAs = new Map();
   tasks.forEach(t => {
     const key = importKey(t);
-    if (existing.has(key)) return;
-    existing.add(key);
+    if (existing.has(key)) { sameAs.set(t.id, existing.get(key)); return; }
+    existing.set(key, t.id);
     state.tasks.push(t);
     ids.push(t.id);
   });
+  // A subtask whose parent row was already imported points at the task that is already there.
+  tasks.forEach(t => { if (t.parentId && sameAs.has(t.parentId)) t.parentId = sameAs.get(t.parentId); });
   const added = ids.length;
   if (added) {
     if (!Array.isArray(state.imports)) state.imports = [];

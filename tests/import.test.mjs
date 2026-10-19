@@ -74,3 +74,21 @@ test('template columns: size, activity, LNO, who and an exact start time', () =>
   assert.ok(rows.some(r => r.level === 'warn' && /time without a day/.test(r.message)));
   assert.ok(!rows.some(r => r.level === 'error'));
 });
+
+test('parent column makes subtasks, also when the parent was imported before', () => {
+  const CSV = [
+    'Key word,Domain,Project,Priority,Length,Parent,Description',
+    'Launch personal website,Dev,Portfolio website,3,60,,',
+    'Review personal website,Dev,Portfolio website,3,60,Launch personal website,',
+    'Ship personal website,Dev,Portfolio website,3,60,launch personal website,',
+    'Orphan,Dev,Portfolio website,1,30,Nothing like this,',
+  ].join('\n');
+  const build = () => I.validateAndBuildItems(I.csvRowsToItems(I.parseCsvText(CSV)), { monday: new Date(2026, 9, 19) });
+  const { tasks, rows } = build();
+  const [launch, review, ship, orphan] = tasks;
+  assert.equal(review.parentId, launch.id);
+  assert.equal(ship.parentId, launch.id, 'parent match ignores case');
+  assert.equal(orphan.parentId ?? null, null);
+  assert.ok(rows.some(r => /parent "Nothing like this" not found/.test(r.message)));
+  assert.ok(!('_parentName' in review) && !('_row' in review));
+});

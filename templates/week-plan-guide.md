@@ -3,7 +3,7 @@
 Produce one CSV with exactly this header row, in this order:
 
 ```
-Key word,Domain,Project,Priority,Timepressure,Allotted day,Allotted time,Start,Length,Size,Activity,LNO,Who,Description
+Key word,Domain,Project,Priority,Timepressure,Allotted day,Allotted time,Start,Length,Size,Activity,LNO,Who,Parent,Description
 ```
 
 One row per task. Leave a cell empty rather than guessing. Quote any cell that contains a comma.
@@ -23,6 +23,7 @@ One row per task. Leave a cell empty rather than guessing. Quote any cell that c
 | Activity | yes | `research`, `communicate`, `act`, `learn` | |
 | LNO | no | `L` (leverage), `N` (neutral), `O` (optional) | |
 | Who | no | `me`, `assistant`, `local`, or a person's name | Empty = me. See below |
+| Parent | no | the Key word of another row | Makes this row a subtask of that one. See below |
 | Description | no | free text | The note on the task. For assistant tasks this is the brief |
 
 ## Who
@@ -33,6 +34,12 @@ One row per task. Leave a cell empty rather than guessing. Quote any cell that c
 - `local`: a small local model with no internet. Only for drafting or summarising text that is fully contained in the description.
 
 For `assistant` and `local` rows the Description is the whole brief: say what to produce, for whom, how long, and what "done" looks like. Leave Allotted day and time empty; the assistant starts within minutes of import.
+
+## Grouping related work
+
+- Tasks that belong together get the **exact same Project** text.
+- Work split into steps or sessions: add one umbrella row (no day, no time) and give each step that umbrella's Key word in **Parent**. Example: `Launch personal website` with `Review personal website` and `Ship personal website` as its subtasks.
+- A Key word should appear only once in the file. Two sessions of the same work get distinct names (`Product cost analysis 1`, `Product cost analysis 2`) under one parent.
 
 ## Do not
 
