@@ -183,6 +183,22 @@ export function planPatch(partial) {
   renderPlanWizard();
 }
 
+/**
+ * Project combo: store the pick on the task right away. Any other button on the card re-renders it,
+ * so a project that only lived in the input would be lost.
+ */
+export function planProjectCommit(id, name) {
+  const t = currentPlanTask();
+  if (!t) return;
+  const pid = id && id !== '__create__'
+    ? id
+    : String(name || '').trim() ? ensureProjectForDomain(t.domain || 'Personal', name) : null;
+  if (!pid || t.projectId === pid) return;
+  t.project = pid;
+  t.projectId = pid;
+  deps.save();
+}
+
 export function planDomainChanged(dom) {
   const t = currentPlanTask();
   if (!t) return;

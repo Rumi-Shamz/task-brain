@@ -2,7 +2,7 @@
 import { state, esc } from './state.js';
 import { allDomains, domainLabel, normalizeDomainId } from './domains.js';
 import { projectsInDomain } from './projects.js';
-import { currentPlanTask, parentTaskLabel, wouldCreateParentCycle, planDomainChanged } from './plan.js';
+import { currentPlanTask, parentTaskLabel, wouldCreateParentCycle, planDomainChanged, planProjectCommit } from './plan.js';
 
 let comboHighlight = { domain: -1, project: -1, parent: -1 };
 
@@ -89,6 +89,8 @@ export function planComboFilter(kind) {
 }
 
 export function planComboBlur(kind) {
+  // Project resolves now: a click elsewhere on the card re-renders it before a timeout would run.
+  if (kind === 'project') { resolveProjectInput(); return; }
   setTimeout(() => {
     const list = document.getElementById(`plan-${kind}-list`);
     const qEl = document.getElementById(`plan-${kind}-q`);
@@ -134,24 +136,31 @@ export function planComboBlur(kind) {
       }
       return;
     }
-    // project
-    if (hidden.value && hidden.value !== '__create__') {
-      const t = currentPlanTask();
-      const dom = normalizeDomainId(document.getElementById('plan-domain')?.value || t?.domain) || 'Personal';
-      const p = projectsInDomain(dom).find(x => x.id === hidden.value);
-      if (p) qEl.value = p.name;
-      return;
-    }
-    const dom = normalizeDomainId(document.getElementById('plan-domain')?.value || currentPlanTask()?.domain) || 'Personal';
-    const hit = projectsInDomain(dom).find(p => p.name.toLowerCase() === q.toLowerCase());
-    if (hit) {
-      hidden.value = hit.id;
-      qEl.value = hit.name;
-    } else {
-      hidden.value = '__create__';
-      // keep typed name in the query field for commit
-    }
   }, 120);
+}
+
+function resolveProjectInput() {
+  const list = document.getElementById('plan-project-list');
+  const qEl = document.getElementById('plan-project-q');
+  const hidden = document.getElementById('plan-project');
+  if (!qEl || !hidden) return;
+  if (list) { list.hidden = true; qEl.setAttribute('aria-expanded', 'false'); }
+  const q = qEl.value.trim();
+  if (!q) return;
+  const dom = normalizeDomainId(document.getElementById('plan-domain')?.value || currentPlanTask()?.domain) || 'Personal';
+  const projects = projectsInDomain(dom);
+  const hit = hidden.value && hidden.value !== '__create__'
+    ? projects.find(x => x.id === hidden.value)
+    : projects.find(p => p.name.toLowerCase() === q.toLowerCase());
+  if (hit) {
+    hidden.value = hit.id;
+    qEl.value = hit.name;
+    planProjectCommit(hit.id);
+  } else {
+    // New project: create it now, under the typed name
+    planProjectCommit(null, q);
+    hidden.value = currentPlanTask()?.projectId || '__create__';
+  }
 }
 
 export function planComboPickFromEl(kind, el) {
@@ -181,14 +190,16 @@ export function planComboPick(kind, id, createName) {
     return;
   }
   if (id === '__create__' || createName) {
-    hidden.value = '__create__';
     qEl.value = createName || qEl.value.trim();
+    planProjectCommit(null, qEl.value);
+    hidden.value = currentPlanTask()?.projectId || '__create__';
   } else {
     hidden.value = id;
     const t = currentPlanTask();
     const dom = normalizeDomainId(document.getElementById('plan-domain')?.value || t?.domain) || 'Personal';
     const p = projectsInDomain(dom).find(x => x.id === id);
     qEl.value = p ? p.name : qEl.value;
+    planProjectCommit(id);
   }
   if (list) { list.hidden = true; qEl.setAttribute('aria-expanded', 'false'); }
 }
