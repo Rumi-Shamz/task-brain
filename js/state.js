@@ -452,6 +452,9 @@ export function normalizeTask(t) {
     lno: t.lno === 'L' || t.lno === 'N' || t.lno === 'O' ? t.lno
       : t.lt === true ? 'L' : t.lt === false ? 'N' : (t.lno ?? null),
     triaged: !!t.triaged,
+    // Who does it: me, a person (delegateTo), or the assistant. v10 → v11; absent = me.
+    assignee: t.assignee === 'person' || t.assignee === 'ai' ? t.assignee : 'me',
+    delegateTo: t.delegateTo != null ? String(t.delegateTo) : '',
   };
 }
 export function newTask(name, extra) {

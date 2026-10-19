@@ -1,24 +1,24 @@
 import {
-  state, YEAR_DAYS, FAST_DAYS, RESTORE_DAYS, SPRINT_DAYS, CYCLE_DAYS, DEEP_REST_DAYS, VACATION_DAYS,
-  HOUR_H, WEEK_COL_H, WEEK_HOUR_START, WEEK_HOUR_END, VIEW_SCROLL_TOP, VIEW_HOUR_START, VIEW_HOUR_END,
-  DAY_START_MIN, DAY_END_MIN, VISIBLE_MINUTES, SLOT_MINUTES, WEEKDAY_SHORT, MONTH_SHORT_WS, DEFAULT_DURATION,
-  seedYearRhythm, normalizeRhythm, normalizeHourLogs, rhythmWithHours, paintYear, dateForDay,
-  mondayOfWeek, clampDay, weekdayOfDay, dayIndexToday, formatYmd, parseYmd, addDaysLocal,
-  mondayOnOrBefore, formatClock, hoursBetween, snapMin, clampVisibleMin, defaultWorkSchedule,
-  normalizeWorkSchedule, workWindowFromMonth, seasonSpec, hourLabel, monthsLabel, workWindowLabel,
-  workWindowRuleText, seasonalWorkShadeRange, statsBuckets, newHourLogId, formatHHMM, parseHHMM,
-  snapCalMins, clampCalStart, clampHour, clampWeekdayIdx, CAL_DAY_START, CAL_DAY_END, CAL_MIN_DURATION,
-  projectClass, projectColStyleAttr, chipControlsHTML, esc, pad2, allProjects, LANES, uid
+  state, YEAR_DAYS, DEEP_REST_DAYS, seedYearRhythm, normalizeRhythm, normalizeHourLogs,
+  rhythmWithHours, paintYear, dateForDay, mondayOfWeek, clampDay, dayIndexToday, formatYmd,
+  parseYmd, addDaysLocal, mondayOnOrBefore, defaultWorkSchedule, workWindowFromMonth, seasonSpec,
+  workWindowRuleText, statsBuckets, formatHHMM, esc, pad2,
 } from './state.js';
 import { deps } from './deps.js';
-import { weekTaskBlocksHTML } from './dashboard.js';
-import {
-  cycleDayIndex, weekWorkDates, mondayOfYmd, activityRules, isTaskDay, blocksOnDate, allDayOnDate,
-} from './blocks.js';
+import { cycleDayIndex, mondayOfYmd, blocksOnDate } from './blocks.js';
 import { domainStyleVar } from './domains.js';
-import { describeRepeat } from './recurring.js';
-import { renderRecurringEditor } from './year-events.js';
+import { renderYearHourEdit, yearHourDragEnd } from './year-hours.js';
+import { renderProtocolEditor, renderYearScheduleControls } from './year-settings.js';
+import { renderYearWeek } from './year-week.js';
 
+export {
+  renderYearScheduleControls, resetWorkScheduleDefaults, renderProtocolEditor,
+  setProtocolCycle, setProtocolVacation, setProtocolDeepRest, removeActivityRule,
+} from './year-settings.js';
+export {
+  upsertYearHourLog, deleteYearHourLog, selectYearHourLog, yearMinFromY, yearHourDragStart, yearHourDragMove,
+  yearHourDragEnd, renderYearHourDraft, renderYearHourEdit, updateYearHourLabel, nudgeYearHourEdge,
+} from './year-hours.js';
 export * from './year-events.js';
 
 export function setYearAnchor(value) {
@@ -197,173 +197,9 @@ export function ensureYearWeekMonday() {
   snapYearToNow(state.yearCalendarView || 'month');
 }
 
-export function upsertYearHourLog(log) { state.yearHourLogs = state.yearHourLogs.filter(l => l.id !== log.id).concat([log])
-    .sort((a, b) => a.date === b.date ? a.startMin - b.startMin : a.date.localeCompare(b.date));
-  deps.save(); }
-
-export function deleteYearHourLog(id) {
-  state.yearHourLogs = state.yearHourLogs.filter(l => l.id !== id);
-  if (state.yearSelectedLogId === id) state.yearSelectedLogId = null;
-  deps.save();
-  deps.renderYear();
-}
-
-export function selectYearHourLog(id) { state.yearSelectedLogId = id;
-  deps.renderYear(); }
-
-export function yearMinFromY(clientY, el) {
-  const rect = el.getBoundingClientRect();
-  const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
-  const ratio = rect.height > 0 ? y / rect.height : 0;
-  return snapMin(DAY_START_MIN + ratio * VISIBLE_MINUTES);
-}
-
-export function yearHourDragStart(ymd, ev) {
-  if (ev.target.closest && (ev.target.closest('[data-hour-log]') || ev.target.closest('[data-task-id]'))) return;
-  const el = ev.currentTarget;
-  const m = yearMinFromY(ev.clientY, el);
-  state.yearHourDrag = { date: ymd, startMin: m, endMin: m + SLOT_MINUTES };
-  state.yearSelectedLogId = null;
-  ev.preventDefault();
-  renderYearHourDraft();
-}
-
-export function yearHourDragMove(ymd, ev) {
-  if (!state.yearHourDrag || state.yearHourDrag.date !== ymd) return;
-  state.yearHourDrag.endMin = yearMinFromY(ev.clientY, ev.currentTarget);
-  renderYearHourDraft();
-}
-
-export function yearHourDragEnd() {
-  if (!state.yearHourDrag) return;
-  let a = state.yearHourDrag.startMin;
-  let b = state.yearHourDrag.endMin;
-  const date = state.yearHourDrag.date;
-  state.yearHourDrag = null;
-  if (b < a) { const t = a; a = b; b = t; }
-  if (b - a < SLOT_MINUTES) b = a + SLOT_MINUTES;
-  a = clampVisibleMin(a);
-  b = clampVisibleMin(b);
-  if (b <= a) b = Math.min(DAY_END_MIN, a + SLOT_MINUTES);
-  const log = { id: newHourLogId(), date, startMin: a, endMin: b, label: 'Tracked' };
-  upsertYearHourLog(log);
-  state.yearSelectedLogId = log.id;
-  deps.renderYear();
-}
-
-export function renderYearHourDraft() {
-  document.querySelectorAll('.year-hour-draft').forEach(el => el.remove());
-  if (!state.yearHourDrag) return;
-  const col = document.querySelector(`[data-ymd="${ state.yearHourDrag.date }"]`);
-  if (!col) return;
-  const a = Math.min(state.yearHourDrag.startMin, state.yearHourDrag.endMin);
-  const b = Math.max(state.yearHourDrag.startMin, state.yearHourDrag.endMin);
-  const div = document.createElement('div');
-  div.className = 'year-hour-draft';
-  div.style.top = (a / 60) * HOUR_H + 'px';
-  div.style.height = (Math.max(SLOT_MINUTES, b - a) / 60) * HOUR_H + 'px';
-  col.appendChild(div);
-}
-
 window.addEventListener('mouseup', () => {
   if (state.yearHourDrag) yearHourDragEnd();
 });
-
-export function renderYearHourEdit() {
-  const wrap = document.getElementById('year-hour-edit');
-  if (!wrap) return;
-  const log = state.yearHourLogs.find(l => l.id === state.yearSelectedLogId);
-  if (!log || state.yearCalendarView !== 'week') { wrap.style.display = 'none';
-    wrap.innerHTML = '';
-    return; }
-  wrap.style.display = 'flex';
-  wrap.innerHTML = `
-    <strong>${ esc(log.date) }</strong>
-    <span>${ formatClock(log.startMin) }–${ formatClock(log.endMin) } (${ hoursBetween(log.startMin, log.endMin).toFixed(1) }h)</span>
-    <input type="text" value="${ esc(log.label || '') }" placeholder="Label"
-      onchange="updateYearHourLabel('${ log.id }', this.value)" />
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','start',-${ SLOT_MINUTES })">Start −30m</button>
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','start',${ SLOT_MINUTES })">Start +30m</button>
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','end',-${ SLOT_MINUTES })">End −30m</button>
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','end',${ SLOT_MINUTES })">End +30m</button>
-    <button class="btn danger-outline" onclick="deleteYearHourLog('${ log.id }')">Delete</button>
-  `;
-}
-
-export function updateYearHourLabel(id, val) {
-  const log = state.yearHourLogs.find(l => l.id === id);
-  if (!log) return;
-  upsertYearHourLog({ ...log, label: String(val || '').trim() || undefined });
-  deps.renderYear();
-}
-
-export function nudgeYearHourEdge(id, edge, delta) {
-  const log = state.yearHourLogs.find(l => l.id === id);
-  if (!log) return;
-  let startMin = log.startMin;
-  let endMin = log.endMin;
-  if (edge === 'start') {
-    startMin = clampVisibleMin(startMin + delta);
-    if (startMin > endMin - SLOT_MINUTES) startMin = endMin - SLOT_MINUTES;
-  } else {
-    endMin = clampVisibleMin(endMin + delta);
-    if (endMin < startMin + SLOT_MINUTES) endMin = startMin + SLOT_MINUTES;
-  }
-  upsertYearHourLog({ ...log, startMin, endMin });
-  deps.renderYear();
-}
-
-
-export function renderYearScheduleControls() {
-  const el = document.getElementById('year-schedule-controls');
-  const rule = document.getElementById('year-schedule-rule');
-  if (!state.yearRhythm) return;
-  state.yearRhythm.workSchedule = normalizeWorkSchedule(state.yearRhythm.workSchedule);
-  const s = state.yearRhythm.workSchedule;
-  if (rule) { rule.textContent = 'Long: ' + workWindowRuleText(s.long) + ' · Short: ' + workWindowRuleText(s.short); }
-  if (!el) return;
-  const wdOpts = WEEKDAY_SHORT.map((label, i) => `<option value="${ i }">${ label }</option>`).join('');
-  const seasonRow = (key, label) => {
-    const spec = s[key];
-    return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
-      <strong style="min-width:90px;font-size:12px;">${ label }</strong>
-      <label style="font-size:11px;color:var(--txt3);">Months
-        <input data-ws="${ key }" data-field="months" value="${ spec.months.join(',') }" style="width:120px;margin-left:4px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:var(--radius);background:var(--card);color:var(--txt);" />
-      </label>
-      <label style="font-size:11px;color:var(--txt3);">Start
-        <select data-ws="${ key }" data-field="startWeekday" style="margin-left:4px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:var(--radius);background:var(--card);color:var(--txt);">${ wdOpts }</select>
-        <input type="number" min="0" max="23" data-ws="${ key }" data-field="startHour" value="${ spec.startHour }" style="width:52px;margin-left:4px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:var(--radius);background:var(--card);color:var(--txt);" />
-      </label>
-      <label style="font-size:11px;color:var(--txt3);">End
-        <select data-ws="${ key }" data-field="endWeekday" style="margin-left:4px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:var(--radius);background:var(--card);color:var(--txt);">${ wdOpts }</select>
-        <input type="number" min="0" max="23" data-ws="${ key }" data-field="endHour" value="${ spec.endHour }" style="width:52px;margin-left:4px;padding:3px 6px;border:0.5px solid var(--border-md);border-radius:var(--radius);background:var(--card);color:var(--txt);" />
-      </label>
-    </div>`;
-  };
-  el.innerHTML = seasonRow('long','Long season') + seasonRow('short','Short season')
-    + `<button class="btn" type="button" onclick="resetWorkScheduleDefaults()">Reset schedule defaults</button>`;
-  el.querySelectorAll('[data-ws]').forEach(inp => {
-    const key = inp.getAttribute('data-ws');
-    const field = inp.getAttribute('data-field');
-    if (field === 'startWeekday' || field === 'endWeekday') inp.value = String(s[key][field]);
-    const apply = () => {
-      const spec = { ...state.yearRhythm.workSchedule[key] };
-      if (field === 'months') {
-        const months = String(inp.value).split(/[,\s]+/).map(x => parseInt(x,10)).filter(n => Number.isFinite(n) && n>=0 && n<=11);
-        if (!months.length) return;
-        spec.months = [...new Set(months)].sort((a,b)=>a-b);
-      } else if (field === 'startHour' || field === 'endHour') { spec[field] = clampHour(inp.value); } else { spec[field] = clampWeekdayIdx(inp.value); }
-      state.yearRhythm.workSchedule = normalizeWorkSchedule({ ...state.yearRhythm.workSchedule, [key]: spec });
-      deps.save();
-      deps.renderYear();
-    };
-    inp.onchange = apply;
-    if (inp.tagName === 'INPUT' && inp.type !== 'number') inp.onblur = apply;
-  });
-}
-export function resetWorkScheduleDefaults() { state.yearRhythm.workSchedule = defaultWorkSchedule();
-  deps.save();
-  deps.renderYear(); }
 
 export function renderYear() {
   if (!state.yearRhythm) state.yearRhythm = seedYearRhythm();
@@ -437,7 +273,6 @@ export function renderYear() {
   if (monthNav) monthNav.style.display = 'none';
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const WEEKDAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const weekStart = mondayOfWeek(state.yearWeekMonday);
   const weekEnd = Math.min(YEAR_DAYS - 1, weekStart + 6);
   const weekA = dateForDay(state.yearRhythm.yearStartMonday, weekStart);
@@ -543,113 +378,7 @@ export function renderYear() {
   }
 
   if (state.yearCalendarView === 'week') {
-    if (sectionLabel) sectionLabel.textContent = '';
-    if (!state.yearFocusMonday) state.yearFocusMonday = mondayOfYmd(formatYmd(new Date()));
-    const workSched = (state.yearRhythm && state.yearRhythm.workSchedule) || defaultWorkSchedule();
-    // Work days, plus any other day of this week with an appointment (e.g. a Saturday class).
-    const workDates = weekWorkDates(state.yearFocusMonday);
-    const weekDates = Array.from({ length: 7 }, (_, i) => formatYmd(addDaysLocal(parseYmd(state.yearFocusMonday), i)))
-      .filter(ymd => workDates.includes(ymd) || blocksOnDate(ymd, { includeAllDay: true }).length);
-    const midDate = parseYmd(weekDates[0] || state.yearFocusMonday);
-    const seasonWin = midDate ? workWindowFromMonth(midDate.getMonth(), workSched) : 'long';
-    const weekSpec = seasonSpec(workSched, seasonWin);
-    const weekLogs = state.yearHourLogs.filter(l => weekDates.includes(l.date));
-    const weekTotal = weekLogs.reduce((s, l) => s + hoursBetween(l.startMin, l.endMin), 0);
-    const weekKinds = weekDates.map(ymd => {
-      const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
-      return idx == null ? 'free' : cells[idx].kind;
-    });
-    const wb = statsBuckets({ work: weekKinds.filter(k => k === 'work').length, sprint: weekKinds.filter(k => k === 'sprint').length, free: weekKinds.filter(k => k === 'free').length, vacation: weekKinds.filter(k => k === 'vacation').length, fast: weekKinds.filter(k => k === 'fast').length, restore: weekKinds.filter(k => k === 'restore').length, deepRest: weekKinds.filter(k => k === 'deepRest').length, conflict: weekKinds.filter(k => k === 'conflict').length });
-
-    const gutterMarks = [];
-    for (let h = WEEK_HOUR_START; h < WEEK_HOUR_END; h++) {
-      gutterMarks.push(`<span style="top:${ h * HOUR_H }px">${ pad2(h) }:00</span>`);
-    }
-
-    function weekColHtml(ymd) {
-      const date = parseYmd(ymd);
-      const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
-      const cell = idx == null ? { kind: 'free', labels: [] } : cells[idx];
-      const wd = date ? (date.getDay() === 0 ? 6 : date.getDay() - 1) : 0;
-      const window = date ? workWindowFromMonth(date.getMonth(), workSched) : seasonWin;
-      const spec = seasonSpec(workSched, window);
-      const shade = seasonalWorkShadeRange(cell.kind, wd, spec);
-      const lines = [];
-      for (let h = WEEK_HOUR_START; h < WEEK_HOUR_END; h++) {
-        lines.push(`<div class="year-week-hline" style="top:${ h * HOUR_H }px"></div>`);
-      }
-      const protocol = (cell.kind !== 'work' && cell.kind !== 'free')
-        ? `<div class="year-week-protocol yc-${ cell.kind }"></div>` : '';
-      const season = shade
-        ? `<div class="year-week-season" title="Seasonal work · ${ esc(workWindowRuleText(spec)) }" style="top:${ Math.max(shade.startMin, DAY_START_MIN) / 60 * HOUR_H }px;height:${ Math.max(0, (Math.min(shade.endMin, DAY_END_MIN) - Math.max(shade.startMin, DAY_START_MIN)) / 60 * HOUR_H) }px"></div>`
-        : '';
-      const dayLogs = ymd ? weekLogs.filter(l => l.date === ymd) : [];
-      const blocks = dayLogs.map(log => {
-        const top = Math.max(log.startMin, DAY_START_MIN) / 60 * HOUR_H;
-        const height = Math.max(0, (Math.min(log.endMin, DAY_END_MIN) - Math.max(log.startMin, DAY_START_MIN)) / 60 * HOUR_H);
-        const active = log.id === state.yearSelectedLogId ? ' active' : '';
-        return `<button type="button" class="year-hour-block${ active }" data-hour-log="1"
-          style="top:${ top }px;height:${ Math.max(height, 18) }px"
-          onclick="event.stopPropagation();selectYearHourLog('${ log.id }')"
-          ondblclick="event.stopPropagation();deleteYearHourLog('${ log.id }')"
-          title="${ esc(formatClock(log.startMin) + '–' + formatClock(log.endMin) + (log.label ? ' · ' + log.label : '')) }">${ esc(formatClock(log.startMin)) } ${ esc(log.label || '') }</button>`;
-      }).join('');
-      const taskBlocks = ymd ? weekTaskBlocksHTML(ymd) : '';
-      const series = blocksOnDate(ymd).map(b => `<div class="year-week-series ${ b.rule === 'event' ? 'event' : 'open' }"
-          style="${ domainStyleVar(b.domain) }top:${ b.startMin / 60 * HOUR_H }px;height:${ Math.max(14, (b.endMin - b.startMin) / 60 * HOUR_H) }px"
-          title="${ esc(b.name) } · ${ esc(formatHHMM(b.startMin)) }–${ esc(formatHHMM(b.endMin)) } · ${ esc(describeRepeat(b)) }">
-          <span>${ esc(b.name) }</span></div>`).join('');
-      const todayMark = ymd === formatYmd(new Date()) ? ' is-today' : '';
-      return `<div class="year-week-col${ todayMark }" data-ymd="${ esc(ymd) }"
-        onmousedown="yearHourDragStart('${ ymd }', event)"
-        onmousemove="yearHourDragMove('${ ymd }', event)"
-        style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ series }${ blocks }${ taskBlocks }</div>`;
-    }
-
-    const grid = document.getElementById('year-grid');
-    if (!grid) return;
-
-    const colCount = Math.max(1, weekDates.length);
-    const heads = weekDates.map(ymd => {
-      const date = parseYmd(ymd);
-      const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
-      const cell = idx == null ? { kind: 'free', labels: [] } : cells[idx];
-      const wd = date ? (date.getDay() === 0 ? 6 : date.getDay() - 1) : 0;
-      const allDay = allDayOnDate(ymd).map(b =>
-        `<span class="allday-chip" style="${ domainStyleVar(b.domain) }" title="${ esc(b.name) }">${ esc(b.name) }</span>`).join('');
-      return `<button type="button" class="year-week-head yc-${ cell.kind }" onclick="markYearWeekDate('${ ymd }')">
-        <span class="wd">${ WEEKDAYS[wd] }</span>
-        <span class="dd">${ date ? date.getDate() : '' }</span>
-        ${ allDay ? `<span class="allday-row">${ allDay }</span>` : '' }
-      </button>`;
-    }).join('');
-    const cols = weekDates.map(ymd => weekColHtml(ymd)).join('');
-
-    const prevScroll = document.getElementById('year-week-scroll')?.scrollTop;
-    const prevScrollX = document.getElementById('year-week-scroll')?.scrollLeft;
-    grid.innerHTML = `
-      <div class="year-week-frame">
-        <div class="year-week-scroll" id="year-week-scroll">
-          <div class="year-week-hourly year-week-heads" style="grid-template-columns: 48px repeat(${ colCount }, minmax(0, 1fr));">
-            <div class="year-week-gutter-spacer"></div>${ heads }
-          </div>
-          <div class="year-week-hourly year-week-body" style="grid-template-columns: 48px repeat(${ colCount }, minmax(0, 1fr));">
-            <div class="year-week-gutter" style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ gutterMarks.join('') }</div>
-            ${ cols }
-          </div>
-        </div>
-      </div>`;
-    const weekScroll = document.getElementById('year-week-scroll');
-    if (weekScroll) {
-      if (typeof prevScroll === 'number' && state.yearWeekScrolledOnce) {
-        weekScroll.scrollTop = prevScroll;
-        if (typeof prevScrollX === 'number') weekScroll.scrollLeft = prevScrollX;
-      } else {
-        weekScroll.scrollTop = VIEW_SCROLL_TOP;
-        state.yearWeekScrolledOnce = true;
-      }
-    }
-    renderYearHourEdit();
+    renderYearWeek(cells, sectionLabel);
     return;
   }
 
@@ -701,58 +430,4 @@ export function renderYear() {
   `;
   renderYearHourEdit();
 }
-
-function protocolDate(day) {
-  const d = dateForDay(state.yearRhythm.yearStartMonday, day);
-  return d ? formatYmd(d) : '';
-}
-
-export function renderProtocolEditor() {
-  const el = document.getElementById('year-protocol-editor');
-  if (!el || !state.yearRhythm) return;
-  const r = state.yearRhythm;
-  const cycles = (r.cycles || []).map((c, i) =>
-    `<label>Cycle ${i + 1}<input type="date" value="${protocolDate(c.startDay)}" onchange="setProtocolCycle(${i}, this.value)" /></label>`
-  ).join('');
-  const vacs = (r.vacations || []).map((v, i) =>
-    `<label>Vacation ${i + 1}<input type="date" value="${protocolDate(v.startDay)}" onchange="setProtocolVacation(${i}, this.value)" /></label>`
-  ).join('');
-  el.innerHTML = `<div class="section-label">Protocol · repeats every 364 days</div>
-    <div class="proto-grid">${cycles}
-      <label>Deep rest<input type="date" value="${protocolDate(r.deepRest.startDay)}" onchange="setProtocolDeepRest(this.value)" /></label>
-      ${vacs}
-    </div>`;
-  renderRecurringEditor();
-}
-
-export function setProtocolCycle(i, ymd) {
-  const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
-  if (idx == null || !state.yearRhythm.cycles[i]) return;
-  state.yearRhythm.cycles[i].startDay = idx;
-  deps.save();
-  deps.renderYear();
-}
-
-export function setProtocolVacation(i, ymd) {
-  const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
-  if (idx == null || !state.yearRhythm.vacations[i]) return;
-  state.yearRhythm.vacations[i].startDay = idx;
-  deps.save();
-  deps.renderYear();
-}
-
-export function setProtocolDeepRest(ymd) {
-  const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
-  if (idx == null) return;
-  state.yearRhythm.deepRest.startDay = idx;
-  deps.save();
-  deps.renderYear();
-}
-
-export function removeActivityRule(id) {
-  state.activityRules = activityRules().filter(r => r.id !== id);
-  deps.save();
-  deps.renderYear();
-}
-
 

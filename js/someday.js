@@ -32,6 +32,7 @@ export function somedayDelegate(id) {
   t.done = false;
   t.activity = 'communicate';
   t.lane = 'communicate';
+  if (t.assignee === 'me') t.assignee = 'person';
   t.reviewAt = null;
   t.reviewSkips = 0;
   t.deleteCandidate = false;

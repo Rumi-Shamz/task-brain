@@ -56,6 +56,8 @@
         "project": { "type": "string", "minLength": 1 },
         "activity": { "$ref": "#/$defs/activity" },
         "lno": { "$ref": "#/$defs/lno" },
+        "assignee": { "type": "string", "enum": ["me", "person", "ai"] },
+        "delegateTo": { "type": "string" },
         "priority": { "type": "integer", "minimum": 0, "maximum": 3 },
         "timepressure": { "$ref": "#/$defs/timepressure" },
         "slot": { "$ref": "#/$defs/slot" },

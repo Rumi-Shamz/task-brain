@@ -15,6 +15,9 @@ import { getProject, ACTIVITIES } from './projects.js';
 import { deps } from './deps.js';
 import { blocksOnDate, allDayOnDate } from './blocks.js';
 import { describeRepeat } from './recurring.js';
+import { renderNextUp, renderDelegatedPanel } from './next-up.js';
+
+export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
 
 export * from './dashboard-drag.js';
@@ -54,6 +57,8 @@ export function boardRowHTML(t, { nested = false } = {}) {
     `<span class="tag">${esc(activityLabel(act))}</span>`,
     proj ? `<span class="tag">${esc(proj.name)}</span>` : '',
     t.lno ? `<span class="tag">LNO ${esc(t.lno)}</span>` : '',
+    t.assignee === 'person' ? `<span class="tag tag-assignee">→ ${esc(t.delegateTo || 'someone')}</span>` : '',
+    t.assignee === 'ai' ? '<span class="tag tag-assignee">Assistant</span>' : '',
     scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
     !t.done && t.missed && t.missed.length
       ? `<span class="tag tag-missed" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>` : '',
@@ -105,6 +110,7 @@ export function renderDayCalendar() {
   const ymd = ensureDashCalDate();
   const title = document.getElementById('dash-day-title');
   if (title) title.textContent = ymd === todayYmd() ? `Today · ${ymd}` : ymd;
+  renderNextUp();
   const allDay = document.getElementById('dash-day-allday');
   if (allDay) {
     const items = allDayOnDate(ymd);
@@ -372,6 +378,8 @@ export function renderDashboard() {
   if (typeof window.renderSomedayPanel === 'function') {
     window.renderSomedayPanel(document.getElementById('someday-panel'));
   }
+  renderNextUp();
+  renderDelegatedPanel();
   if (typeof window.renderSlippedPanel === 'function') {
     window.renderSlippedPanel(document.getElementById('slipped-panel'));
     const n = document.querySelectorAll('#slipped-panel .someday-card').length;

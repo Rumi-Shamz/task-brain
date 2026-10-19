@@ -47,6 +47,7 @@ Each item is one task the owner decided on. Use:
 - weekday: set it whenever the owner names a day ("Monday morning" → monday, "Thursday evening" → thursday).
 - slot: morning, afternoon or evening whenever the owner names a time of day; with a weekday but no time of day, use morning.
 - status: omit it for normal tasks this week. Use "done" only for things reported as already finished, and "someday" only for ideas the owner explicitly parks for later ("someday", "maybe", "not now").
+- assignee: "person" with delegateTo (their name) when the owner hands the task to someone; "ai" when they say the assistant should do it; otherwise omit.
 - project: when a named project is mentioned (e.g. "for Swing Buzz"), put it in project and leave it out of the name.
 - priority 0–3 (3 = most important) and timepressure (urgent | important) when stated or clearly implied.
 Keep task names short and imperative, in the owner's words. Do not invent tasks that were not discussed.
