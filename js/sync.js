@@ -14,18 +14,35 @@ export function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (
 export function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 export function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 
-// Personal data lives only in the private data repo — never the public Pages app repo.
+// Personal data lives only in the private data repos — never the public Pages app repo.
+// Production (the published site) uses the real data; every other address (Vercel staging,
+// previews, localhost) uses the staging copy, so a test can never write real data.
 export const DEFAULT_DATA_OWNER = 'Rumi-Shamz';
-export const DEFAULT_DATA_REPO = 'task-brain-data';
+export const PRODUCTION_DATA_REPO = 'task-brain-data';
+export const STAGING_DATA_REPO = 'task-brain-data-staging';
+export const PRODUCTION_HOSTS = ['rumi-shamz.github.io'];
 export const PUBLIC_APP_REPO = 'task-brain';
-export function guessRepo() {
-  return { owner: DEFAULT_DATA_OWNER, repo: DEFAULT_DATA_REPO };
+export function isProductionHost(host = typeof location !== 'undefined' ? location.hostname : '') {
+  return PRODUCTION_HOSTS.includes(String(host || '').toLowerCase());
 }
-/** If a device still points at the public Pages repo, rewrite to the private data repo. */
+export function defaultDataRepo(host) {
+  return isProductionHost(host) ? PRODUCTION_DATA_REPO : STAGING_DATA_REPO;
+}
+/** The repo this address may use: a non-production address is never allowed the real data. */
+export function allowedRepo(repo, host) {
+  const r = String(repo || '').trim();
+  if (!r || r.toLowerCase() === PUBLIC_APP_REPO) return defaultDataRepo(host);
+  if (!isProductionHost(host) && r.toLowerCase() === PRODUCTION_DATA_REPO) return STAGING_DATA_REPO;
+  return r;
+}
+export function guessRepo() {
+  return { owner: DEFAULT_DATA_OWNER, repo: defaultDataRepo() };
+}
+/** Rewrite a stored repo this address may not use (the public app repo, or real data off production). */
 export function migrateStoredRepo() {
   const repo = (lsGet(LS_GH_REPO) || '').trim();
-  if (repo.toLowerCase() === PUBLIC_APP_REPO) {
-    lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
+  if (repo && allowedRepo(repo) !== repo) {
+    lsSet(LS_GH_REPO, allowedRepo(repo));
   }
   const owner = (lsGet(LS_GH_OWNER) || '').trim();
   if (owner && owner.toLowerCase() === DEFAULT_DATA_OWNER.toLowerCase() && owner !== DEFAULT_DATA_OWNER) {
@@ -177,8 +194,8 @@ export function ghPull() {
     return Promise.resolve({ ok: false, reason: 'no-creds' });
   }
   if (isPublicAppRepo(c.owner, c.repo)) {
-    lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
-    setSyncMsg('Repo was the public Pages app. Switched to task-brain-data — Connect & pull again.', 'err');
+    lsSet(LS_GH_REPO, defaultDataRepo());
+    setSyncMsg(`Repo was the public Pages app. Switched to ${defaultDataRepo()} — Connect & pull again.`, 'err');
     refreshSyncForm();
     return Promise.resolve({ ok: false, reason: 'public-repo' });
   }
@@ -227,8 +244,8 @@ export function ghPush(opts, attempt = 0) {
     return Promise.resolve();
   }
   if (isPublicAppRepo(c.owner, c.repo)) {
-    lsSet(LS_GH_REPO, DEFAULT_DATA_REPO);
-    if (!quiet) setSyncMsg('Refusing to save into the public Pages repo. Switched to task-brain-data.', 'err');
+    lsSet(LS_GH_REPO, defaultDataRepo());
+    if (!quiet) setSyncMsg(`Refusing to save into the public Pages repo. Switched to ${defaultDataRepo()}.`, 'err');
     refreshSyncForm();
     return Promise.resolve();
   }
@@ -281,11 +298,14 @@ export function ghConnect() {
   let o = (document.getElementById('su-owner') || {}).value.trim();
   let r = (document.getElementById('su-repo') || {}).value.trim();
   if (!t || !o || !r) { setSyncMsg('Fill token, owner, and repo.', 'err'); return; }
-  if (isPublicAppRepo(o, r)) {
-    r = DEFAULT_DATA_REPO;
+  if (allowedRepo(r) !== r) {
+    const was = r;
+    r = allowedRepo(r);
     const rep = document.getElementById('su-repo');
     if (rep) rep.value = r;
-    setSyncMsg('Use private repo task-brain-data (not the public Pages app). Corrected — connecting…');
+    setSyncMsg(isPublicAppRepo(o, was)
+      ? `Use private repo ${r} (not the public Pages app). Corrected — connecting…`
+      : `This is not the production site, so it uses ${r}, not the real data. Connecting…`);
   }
   if (o.toLowerCase() === DEFAULT_DATA_OWNER.toLowerCase()) o = DEFAULT_DATA_OWNER;
   lsSet(LS_GH_TOKEN, t); lsSet(LS_GH_OWNER, o); lsSet(LS_GH_REPO, r);
