@@ -98,6 +98,19 @@ export function weekReview(data, label) {
   };
 }
 
+/** "- Name — Domain / Project · 60 min · note…" for the review lists. */
+function taskLine(t, projectName, { tracked = false, due = false } = {}) {
+  const where = [t.domain || 'Personal', t.projectId || t.project ? projectName(t.projectId || t.project) : null].filter(Boolean).join(' / ');
+  const bits = [where];
+  if (due && t.date) bits.push(t.date);
+  bits.push(`${minutesOf(t)} min`);
+  if (tracked && t.trackedMs) bits.push(`tracked ${(t.trackedMs / 3600000).toFixed(1)}h`);
+  if (t.assignee === 'person' && t.delegateTo) bits.push(`by ${t.delegateTo}`);
+  if (t.assignee === 'ai') bits.push('by the assistant');
+  const note = String(t.note || '').replace(/\s+/g, ' ').trim();
+  return `- ${t.name} — ${bits.join(' · ')}${note ? ` — ${note.length > 160 ? note.slice(0, 157) + '…' : note}` : ''}`;
+}
+
 export function buildPrebrief(data, label) {
   const prev = previousWeek(label);
   const lines = [`# Prebrief ${label}`, ''];
@@ -114,11 +127,24 @@ export function buildPrebrief(data, label) {
       lines.push('- By domain:');
       doms.forEach(([d, m]) => lines.push(`  - ${d}: ${(m / 60).toFixed(1)}h`));
     }
+    if (r.done.length) {
+      lines.push('', '## Done last week');
+      r.done
+        .slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
+        .forEach(t => lines.push(taskLine(t, r.projectName, { tracked: true })));
+    }
     if (r.missed.length) {
       lines.push('', '## Slipped (planned, not done)');
       r.missed
         .sort((a, b) => (b.missed || []).length - (a.missed || []).length)
         .forEach(t => lines.push(`- ${t.name}${(t.missed || []).length > 1 ? ` — slipped ${(t.missed || []).length}×` : ''}`));
+    }
+    const open = (data.tasks || []).filter(t => !t.done && t.status !== 'done' && t.status !== 'someday' && !t.parentId);
+    if (open.length) {
+      lines.push('', '## Still open');
+      open
+        .slice().sort((a, b) => String(a.domain || '').localeCompare(String(b.domain || '')) || String(a.date || '9').localeCompare(String(b.date || '9')))
+        .forEach(t => lines.push(taskLine(t, r.projectName, { due: true })));
     }
     const weekEnd = weekDates(label)[6];
     const due = (data.tasks || []).filter(t => t.status === 'someday' && (!t.reviewAt || t.reviewAt <= weekEnd));
