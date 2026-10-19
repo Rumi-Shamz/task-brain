@@ -30,6 +30,7 @@ export {
   importWeeklyPlanRows,
   importWeeklyPlanJson,
   parseCsvText,
+  importDuplicateAction,
 } from './import-plan.js';
 
 function untagedTasks() {
