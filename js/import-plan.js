@@ -9,6 +9,7 @@ import {
 import { normalizeDomainId, domainLabel, DOMAINS as DOMAIN_LIST } from './domains.js';
 import { ensureProjectForDomain, ensureProjectsMigrated } from './projects.js';
 import { deps } from './deps.js';
+import { findSimilar } from './similar.js';
 
 export const DOMAINS = DOMAIN_LIST.map(d => d.id);
 export const LENGTHS = [15, 30, 60, 180];
@@ -381,13 +382,56 @@ function groupReports(reports) {
   return [...groups.values()];
 }
 
-function showImportReport(msgEl, added, reports, monday) {
+function duplicatesHTML(dups) {
+  if (!dups || !dups.length) return '';
+  const q = v => escapeHtml(JSON.stringify(String(v))).replace(/"/g, '&quot;');
+  return `<div class="import-group dup"><div class="section-label">Possible duplicates — imported, check these</div>
+    <ul class="import-report">${dups.map(d => `<li class="import-dup" id="dup-${escapeHtml(d.taskId)}">
+      <span><strong>${escapeHtml(d.name)}</strong> ~ ${escapeHtml(d.matchName)}${d.inFile ? ' (also in this file)' : ''} · <em>${escapeHtml(d.why)}</em></span>
+      <span class="import-dup-actions">
+        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'keep')">Keep both</button>
+        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'sub')">Make subtask</button>
+        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'skip')">Remove new</button>
+      </span></li>`).join('')}</ul></div>`;
+}
+
+/**
+ * Resolve a flagged pair. "Remove new" also drops the task from its import record, so the
+ * import accuracy count does not treat it as a correction.
+ */
+export function importDuplicateAction(taskId, matchId, action) {
+  const li = document.getElementById(`dup-${taskId}`);
+  const t = state.tasks.find(x => x.id === taskId);
+  const m = state.tasks.find(x => x.id === matchId);
+  let done = 'kept both';
+  if (t && action === 'skip') {
+    state.tasks.forEach(x => { if (x.parentId === taskId) x.parentId = null; });
+    state.tasks = state.tasks.filter(x => x.id !== taskId);
+    (state.imports || []).forEach(imp => { imp.taskIds = (imp.taskIds || []).filter(id => id !== taskId); });
+    done = 'removed the new one';
+  } else if (t && m && action === 'sub') {
+    t.parentId = m.parentId || m.id;
+    done = `now a subtask of ${(m.parentId && state.tasks.find(x => x.id === m.parentId)?.name) || m.name}`;
+  }
+  if (action !== 'keep') {
+    deps.save();
+    try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after duplicate', e); }
+    renderImportHealth();
+  }
+  if (li) {
+    const actions = li.querySelector('.import-dup-actions');
+    if (actions) actions.textContent = `— ${done}`;
+  }
+}
+
+function showImportReport(msgEl, added, reports, monday, dups) {
   const errors = reports.filter(r => r.level === 'error');
   const warns = reports.filter(r => r.level === 'warn');
   const infos = reports.filter(r => r.level === 'info');
   const summary = [
     `Imported ${added} task${added === 1 ? '' : 's'} for the week of ${formatYmd(monday || weekMondayForImport())}.`,
     errors.length ? `${errors.length} row${errors.length === 1 ? '' : 's'} skipped.` : '',
+    dups && dups.length ? `${dups.length} possible duplicate${dups.length === 1 ? '' : 's'}.` : '',
     warns.length ? `${warns.length} warning${warns.length === 1 ? '' : 's'}.` : '',
     infos.length ? `${infos.length} filled in automatically.` : '',
   ].filter(Boolean).join(' ');
@@ -406,7 +450,7 @@ function showImportReport(msgEl, added, reports, monday) {
         <ul class="import-report">${g.rows.map(r => `<li class="${level}">row ${r.row}${r.name ? ': ' + escapeHtml(r.name) : ''}</li>`).join('')}</ul>
       </details>`).join('')}</div>`;
   };
-  box.innerHTML = section('error', 'Skipped rows') + section('warn', 'Warnings — check these') + section('info', 'Filled in automatically');
+  box.innerHTML = section('error', 'Skipped rows') + duplicatesHTML(dups) + section('warn', 'Warnings — check these') + section('info', 'Filled in automatically');
 }
 
 function escapeHtml(s) {
@@ -420,6 +464,8 @@ function importKey(t) {
 
 export function commitImportedTasks(tasks, reports, monday) {
   ensureProjectsMigrated();
+  // Open tasks before this import, plus the rows added before each one: candidates for "same work".
+  const before = state.tasks.filter(t => !t.done);
   const existing = new Map(state.tasks.map(t => [importKey(t), t.id]));
   const ids = [];
   const sameAs = new Map();
@@ -432,6 +478,14 @@ export function commitImportedTasks(tasks, reports, monday) {
   });
   // A subtask whose parent row was already imported points at the task that is already there.
   tasks.forEach(t => { if (t.parentId && sameAs.has(t.parentId)) t.parentId = sameAs.get(t.parentId); });
+  const addedSoFar = [];
+  const dups = [];
+  ids.forEach(id => {
+    const t = state.tasks.find(x => x.id === id);
+    const hit = findSimilar(t, [...before, ...addedSoFar]);
+    if (hit) dups.push({ taskId: t.id, name: t.name, matchId: hit.match.id, matchName: hit.match.name, why: hit.why, inFile: addedSoFar.includes(hit.match) });
+    addedSoFar.push(t);
+  });
   const added = ids.length;
   if (added) {
     if (!Array.isArray(state.imports)) state.imports = [];
@@ -440,7 +494,7 @@ export function commitImportedTasks(tasks, reports, monday) {
   deps.save();
   try { if (typeof deps.render === 'function') deps.render(); } catch (e) { console.warn('render after import', e); }
   try { if (typeof deps.renderDashboard === 'function') deps.renderDashboard(); } catch (e) { console.warn('dashboard after import', e); }
-  showImportReport(document.getElementById('week-plan-msg'), added, reports, monday);
+  showImportReport(document.getElementById('week-plan-msg'), added, reports, monday, dups);
   renderImportHealth();
   try { if (typeof deps.switchPhase === 'function') deps.switchPhase('plan'); } catch (e) { console.warn('switchPhase after import', e); }
   return added;

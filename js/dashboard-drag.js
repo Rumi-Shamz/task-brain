@@ -129,7 +129,10 @@ export function cancelCalPointer() {
   const p = state.calPointer;
   if (!p) return;
   const t = state.tasks.find(x => x.id === p.id);
-  if (t) { t.start = formatHHMM(p.origStart); t.duration = p.origDuration; }
+  if (t) {
+    t.start = formatHHMM(p.origStart); t.duration = p.origDuration;
+    if (p.origYmd) t.date = p.origYmd;
+  }
   if (p.block) {
     p.block.classList.remove('moving', 'resizing');
     if (p.block.style) p.block.style.pointerEvents = '';
@@ -276,14 +279,26 @@ export function weekTaskPointerDown(e) {
     id, mode: 'move', source: 'week', startX: e.clientX, startY: e.clientY,
     origStart: startMins, origDuration: t.duration || DEFAULT_DURATION,
     grabOffset: e.clientY - (colRect.top + startY),
-    moved: false, block, ymd: block.dataset.ymd,
+    moved: false, block, ymd: block.dataset.ymd, origYmd: t.date,
   };
   block.classList.add('moving');
+  // Let elementFromPoint see the day column under the pointer, so the task can change day.
+  block.style.pointerEvents = 'none';
   e.preventDefault();
 }
 export function onWeekTaskPointerMove(e, t) {
-  if (Math.abs(e.clientY - state.calPointer.startY) > 3) state.calPointer.moved = true;
-  const col = document.querySelector(`.year-week-col[data-ymd="${ state.calPointer.ymd }"]`);
+  const p = state.calPointer;
+  if (Math.abs(e.clientY - p.startY) > 3 || Math.abs(e.clientX - p.startX) > 3) p.moved = true;
+  // Another day column under the pointer: move the task (and its block) to that day.
+  const under = document.elementFromPoint(e.clientX, e.clientY);
+  const overCol = under && under.closest('.year-week-col[data-ymd]');
+  if (overCol && overCol.dataset.ymd && overCol.dataset.ymd !== p.ymd) {
+    p.ymd = overCol.dataset.ymd;
+    t.date = p.ymd;
+    p.block.dataset.ymd = p.ymd;
+    overCol.appendChild(p.block);
+  }
+  const col = document.querySelector(`.year-week-col[data-ymd="${ p.ymd }"]`);
   if (!col) return;
   const rect = col.getBoundingClientRect();
   const colH = 24 * HOUR_H;
@@ -304,7 +319,7 @@ export function onWeekTaskPointerMove(e, t) {
 export function onWeekTaskPointerUp(e) {
   const moved = state.calPointer && state.calPointer.moved;
   const block = state.calPointer && state.calPointer.block;
-  if (block) block.classList.remove('moving');
+  if (block) { block.classList.remove('moving'); block.style.pointerEvents = ''; }
   state.calPointer = null;
   if (moved) { deps.save(); deps.renderYear(); }
 }
