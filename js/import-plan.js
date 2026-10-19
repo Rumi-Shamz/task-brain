@@ -102,6 +102,20 @@ function normalizePressure(raw) {
 }
 
 /** Fields compared against the imported copy: a difference means the import needed a hand fix. */
+const SIZE_WORDS = { simple: 'simple', small: 'simple', mid: 'mid', middle: 'mid', medium: 'mid', complex: 'complex', large: 'complex' };
+const LNO_WORDS = { l: 'L', leverage: 'L', n: 'N', neutral: 'N', o: 'O', optional: 'O' };
+const HHMM_RE = /^([01]?\d|2[0-3])[:.]([0-5]\d)$/;
+
+/** Who does it: empty/me → me, assistant/claude → Claude, local/ollama → local model, anything else → that person. */
+export function parseWho(raw) {
+  const v = String(raw || '').trim();
+  const k = v.toLowerCase();
+  if (!k || k === 'me') return { assignee: 'me' };
+  if (['assistant', 'ai', 'agent', 'claude'].includes(k)) return { assignee: 'ai', agentWorker: 'claude' };
+  if (['local', 'ollama'].includes(k)) return { assignee: 'ai', agentWorker: 'ollama' };
+  return { assignee: 'person', delegateTo: v };
+}
+
 export const IMPORT_FIELDS = ['name', 'domain', 'projectId', 'activity', 'duration', 'lno', 'assignee'];
 
 /**
@@ -159,26 +173,37 @@ export function validateAndBuildItems(items, opts = {}) {
     const len = snapLength(item.length);
     if (len.warning && !done) warnings.push(len.warning);
 
-    const slotKey = String(item.slot || '').trim().toLowerCase();
+    let slotKey = String(item.slot || '').trim().toLowerCase();
     const dayKey = String(item.weekday || '').trim().toLowerCase();
+    const startRaw = String(item.start || '').trim();
+    const fixed = startRaw.match(HHMM_RE);
+    if (startRaw && !fixed) warnings.push(`start "${startRaw}" is not HH:MM → ignored`);
     let start = null;
     let date = null;
-    if (slotKey || dayKey) {
-      if (DAY_OFFSET[dayKey] == null) {
-        reports.push({ row, level: 'error', message: `bad weekday "${item.weekday}" ("${name}")` });
-        return;
-      }
-      if (SLOT_START[slotKey] == null) {
-        reports.push({ row, level: 'error', message: `bad slot "${item.slot}" ("${name}")` });
-        return;
-      }
+    if (dayKey && DAY_OFFSET[dayKey] == null) {
+      reports.push({ row, level: 'error', message: `bad weekday "${item.weekday}" ("${name}")` });
+      return;
+    }
+    if (slotKey && SLOT_START[slotKey] == null) {
+      reports.push({ row, level: 'error', message: `bad slot "${item.slot}" ("${name}")` });
+      return;
+    }
+    if (!dayKey && (slotKey || fixed)) {
+      // A time without a day cannot be placed: keep the task, unscheduled.
+      warnings.push('time without a day → unscheduled');
+    } else if (dayKey) {
       const dayDate = addDaysLocal(mon, DAY_OFFSET[dayKey]);
       date = formatYmd(dayDate);
-      const stackKey = date + '|' + slotKey;
-      const preferred = SLOT_START[slotKey];
-      const placed = nextFree[stackKey] != null ? nextFree[stackKey] : preferred;
-      start = formatHHMM(placed);
-      nextFree[stackKey] = placed + len.value;
+      if (fixed) {
+        start = `${fixed[1].padStart(2, '0')}:${fixed[2]}`;
+      } else {
+        if (!slotKey) { slotKey = 'morning'; warnings.push('day without a time of day → morning'); }
+        const stackKey = date + '|' + slotKey;
+        const preferred = SLOT_START[slotKey];
+        const placed = nextFree[stackKey] != null ? nextFree[stackKey] : preferred;
+        start = formatHHMM(placed);
+        nextFree[stackKey] = placed + len.value;
+      }
     }
 
     let reviewAt = item.reviewAt || null;
@@ -187,14 +212,25 @@ export function validateAndBuildItems(items, opts = {}) {
       reports.push({ row, level: 'info', message: `someday review set to ${reviewAt} ("${name}")` });
     }
 
-    let size = null;
-    if (pr.value >= 3) size = 'complex';
-    else if (pr.value >= 2) size = 'mid';
-    else if (pr.value >= 1) size = 'simple';
+    // Size column wins; without one, size follows priority.
+    const sizeRaw = String(item.size || '').trim().toLowerCase();
+    let size = SIZE_WORDS[sizeRaw] || null;
+    if (sizeRaw && !size) warnings.push(`size "${item.size}" is not simple|mid|complex → from priority`);
+    if (!size) {
+      if (pr.value >= 3) size = 'complex';
+      else if (pr.value >= 2) size = 'mid';
+      else if (pr.value >= 1) size = 'simple';
+    }
 
-    const activity = item.activity && ['research', 'communicate', 'act', 'learn'].includes(item.activity)
-      ? item.activity
-      : 'act';
+    const activityRaw = String(item.activity || '').trim().toLowerCase();
+    const activity = ['research', 'communicate', 'act', 'learn'].includes(activityRaw) ? activityRaw : 'act';
+    if (activityRaw && activity !== activityRaw) warnings.push(`activity "${item.activity}" is not research|communicate|act|learn → act`);
+    const lnoRaw = String(item.lno || '').trim().toLowerCase();
+    const lno = LNO_WORDS[lnoRaw] || null;
+    if (lnoRaw && !lno) warnings.push(`LNO "${item.lno}" is not L|N|O → unset`);
+    const who = item.who != null && item.who !== ''
+      ? parseWho(item.who)
+      : { assignee: item.assignee, delegateTo: String(item.delegateTo || '').trim() };
     const task = newTask(name, {
       project: projectId,
       projectId,
@@ -213,17 +249,40 @@ export function validateAndBuildItems(items, opts = {}) {
       size,
       priority: pr.value,
       timepressure: tp.value,
-      lno: ['L', 'N', 'O'].includes(item.lno) ? item.lno : null,
-      assignee: item.assignee,
-      delegateTo: String(item.delegateTo || '').trim(),
+      lno,
+      ...who,
     });
+    if (String(item.parent || '').trim()) task._parentName = String(item.parent).trim();
+    task._row = row;
     task.imported = { from: opts.source || formatYmd(mon) };
     IMPORT_FIELDS.forEach(f => { task.imported[f] = task[f] ?? null; });
     tasks.push(task);
     warnings.forEach(w => reports.push({ row, level: 'warn', message: `${w} ("${name}")` }));
   });
 
+  linkParents(tasks, reports);
   return { tasks, rows: reports };
+}
+
+/** Parent column: a row becomes a subtask of the row (or open task) with that Key word. */
+function linkParents(tasks, reports) {
+  const key = n => String(n || '').trim().toLowerCase();
+  const inFile = new Map();
+  tasks.forEach(t => { if (!inFile.has(key(t.name))) inFile.set(key(t.name), t); });
+  tasks.forEach(t => {
+    const wanted = t._parentName;
+    delete t._parentName;
+    const row = t._row;
+    delete t._row;
+    if (!wanted) return;
+    const parent = inFile.get(key(wanted))
+      || state.tasks.find(x => !x.done && x.status !== 'someday' && key(x.name) === key(wanted));
+    if (!parent || parent === t || parent.parentId) {
+      reports.push({ row, level: 'warn', message: `parent "${wanted}" not found → top-level ("${t.name}")` });
+      return;
+    }
+    t.parentId = parent.id;
+  });
 }
 
 export function csvRowsToItems(rows) {
@@ -246,6 +305,12 @@ export function csvRowsToItems(rows) {
     day: idx(['allotted day', 'day', 'weekday']),
     length: idx(['length', 'duration', 'minutes']),
     sessions: idx(['sessions']),
+    start: idx(['start', 'start time', 'at']),
+    size: idx(['size']),
+    activity: idx(['activity']),
+    lno: idx(['lno']),
+    who: idx(['who', 'who does it', 'assignee']),
+    parent: idx(['parent', 'parent task']),
     desc: idx(['description', 'notes', 'details']),
   };
   // Legacy CSVs sometimes label the domain column "project"
@@ -269,6 +334,12 @@ export function csvRowsToItems(rows) {
       weekday: col.day >= 0 ? row[col.day] : '',
       length: col.length >= 0 ? row[col.length] : '',
       sessions: col.sessions >= 0 ? row[col.sessions] : 1,
+      start: col.start >= 0 ? row[col.start] : '',
+      size: col.size >= 0 ? row[col.size] : '',
+      activity: col.activity >= 0 ? row[col.activity] : '',
+      lno: col.lno >= 0 ? row[col.lno] : '',
+      who: col.who >= 0 ? row[col.who] : '',
+      parent: col.parent >= 0 ? row[col.parent] : '',
       description: col.desc >= 0 ? row[col.desc] : '',
     });
   }
@@ -349,15 +420,18 @@ function importKey(t) {
 
 export function commitImportedTasks(tasks, reports, monday) {
   ensureProjectsMigrated();
-  const existing = new Set(state.tasks.map(t => importKey(t)));
+  const existing = new Map(state.tasks.map(t => [importKey(t), t.id]));
   const ids = [];
+  const sameAs = new Map();
   tasks.forEach(t => {
     const key = importKey(t);
-    if (existing.has(key)) return;
-    existing.add(key);
+    if (existing.has(key)) { sameAs.set(t.id, existing.get(key)); return; }
+    existing.set(key, t.id);
     state.tasks.push(t);
     ids.push(t.id);
   });
+  // A subtask whose parent row was already imported points at the task that is already there.
+  tasks.forEach(t => { if (t.parentId && sameAs.has(t.parentId)) t.parentId = sameAs.get(t.parentId); });
   const added = ids.length;
   if (added) {
     if (!Array.isArray(state.imports)) state.imports = [];

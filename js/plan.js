@@ -9,7 +9,7 @@ import {
 } from './projects.js';
 import { createGroup, addTaskToGroup, applyGroupSchedule, listGroups, ensureGroups } from './groups.js';
 import { deps } from './deps.js';
-import { placeInInterval, weekdayNameFromYmd, stampActivityFromBlock } from './blocks.js';
+import { placeInInterval, weekdayNameFromYmd, stampActivityFromBlock, DAY_INTERVALS } from './blocks.js';
 import { renderImportHealth } from './import-plan.js';
 import { singleCardHTML, commitSchedule } from './plan-card.js';
 import { ensureSubtasks, takeFocusSubtaskId } from './plan-subtasks.js';
@@ -70,11 +70,14 @@ export function planSetActivity(activity) {
   renderPlanWizard();
 }
 
-export function planScheduleChanged() {
+export function planScheduleChanged(changed) {
   const t = currentPlanTask();
   if (!t) return;
   const ymd = document.getElementById('plan-ymd')?.value || '';
-  const interval = document.getElementById('plan-interval')?.value || '';
+  let interval = document.getElementById('plan-interval')?.value || '';
+  // Picking a day while When is "Leave open" means "that day": without a time the task would be
+  // unscheduled and the Day select would jump back, so take the first window with room.
+  if (changed === 'day' && ymd && !interval) interval = firstOpenInterval(t, ymd);
   if (!interval || !ymd) {
     placeInInterval(t, '', '');
   } else {
@@ -83,6 +86,20 @@ export function planScheduleChanged() {
   deps.save();
   renderPlanWizard();
   if (typeof deps.renderDashboard === 'function') deps.renderDashboard();
+}
+
+function firstOpenInterval(t, ymd) {
+  const dur = Math.max(15, Number(t.duration) || 30);
+  const busy = state.tasks
+    .filter(x => x.id !== t.id && x.date === ymd && x.start)
+    .map(x => { const [h, m] = x.start.split(':').map(Number); return [h * 60 + m, h * 60 + m + (Number(x.duration) || 30)]; });
+  const fits = i => {
+    for (let m = i.startMin; m + dur <= i.endMin; m += 15) {
+      if (!busy.some(([a, b]) => m < b && m + dur > a)) return true;
+    }
+    return false;
+  };
+  return (DAY_INTERVALS.find(fits) || DAY_INTERVALS[0]).id;
 }
 
 export function planSaveEdit() {
@@ -181,6 +198,22 @@ export function planPatch(partial) {
   if (partial.blocking === false) t.blockingNote = '';
   deps.save();
   renderPlanWizard();
+}
+
+/**
+ * Project combo: store the pick on the task right away. Any other button on the card re-renders it,
+ * so a project that only lived in the input would be lost.
+ */
+export function planProjectCommit(id, name) {
+  const t = currentPlanTask();
+  if (!t) return;
+  const pid = id && id !== '__create__'
+    ? id
+    : String(name || '').trim() ? ensureProjectForDomain(t.domain || 'Personal', name) : null;
+  if (!pid || t.projectId === pid) return;
+  t.project = pid;
+  t.projectId = pid;
+  deps.save();
 }
 
 export function planDomainChanged(dom) {

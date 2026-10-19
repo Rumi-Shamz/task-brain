@@ -44,3 +44,51 @@ test('default import week: this week Mon–Thu, next week from Friday', () => {
   assert.equal(formatYmd(I.defaultImportMonday(new Date(2026, 9, 9))), '2026-10-12'); // Fri
   assert.equal(formatYmd(I.defaultImportMonday(new Date(2026, 9, 11))), '2026-10-12'); // Sun
 });
+
+test('template columns: size, activity, LNO, who and an exact start time', () => {
+  const CSV = [
+    'Key word,Domain,Project,Priority,Timepressure,Allotted time,Allotted day,Start,Length,Size,Activity,LNO,Who,Description',
+    'Boss meeting,Dorst,Adoption,3,important,afternoon,monday,15:30,60,mid,communicate,L,me,Credentials',
+    'Venue research,SwingSociety,Events,2,,,,,60,simple,research,,assistant,Three venues in Utrecht',
+    'Draft summary,Dev,Notes,1,,,,,30,,,,local,',
+    'Call DJ,SwingSociety,DJ,2,,,,,15,,,,Anna,',
+    'Training plan,SwingSociety,DJ,2,,afternoon,,,60,complex,,,,No day yet',
+  ].join('\n');
+  const { tasks, rows } = I.validateAndBuildItems(I.csvRowsToItems(I.parseCsvText(CSV)), { monday: new Date(2026, 9, 19) });
+  assert.equal(tasks.length, 5, 'a time of day without a day no longer skips the row');
+  const [boss, venue, draft, call, training] = tasks;
+  assert.equal(boss.date, '2026-10-19');
+  assert.equal(boss.start, '15:30');
+  assert.equal(boss.size, 'mid', 'size column beats priority');
+  assert.equal(boss.activity, 'communicate');
+  assert.equal(boss.lno, 'L');
+  assert.equal(boss.assignee, 'me');
+  assert.equal(venue.assignee, 'ai');
+  assert.equal(venue.agentWorker, 'claude');
+  assert.equal(venue.activity, 'research');
+  assert.equal(draft.agentWorker, 'ollama');
+  assert.equal(call.assignee, 'person');
+  assert.equal(call.delegateTo, 'Anna');
+  assert.equal(training.date, null);
+  assert.equal(training.size, 'complex');
+  assert.ok(rows.some(r => r.level === 'warn' && /time without a day/.test(r.message)));
+  assert.ok(!rows.some(r => r.level === 'error'));
+});
+
+test('parent column makes subtasks, also when the parent was imported before', () => {
+  const CSV = [
+    'Key word,Domain,Project,Priority,Length,Parent,Description',
+    'Launch personal website,Dev,Portfolio website,3,60,,',
+    'Review personal website,Dev,Portfolio website,3,60,Launch personal website,',
+    'Ship personal website,Dev,Portfolio website,3,60,launch personal website,',
+    'Orphan,Dev,Portfolio website,1,30,Nothing like this,',
+  ].join('\n');
+  const build = () => I.validateAndBuildItems(I.csvRowsToItems(I.parseCsvText(CSV)), { monday: new Date(2026, 9, 19) });
+  const { tasks, rows } = build();
+  const [launch, review, ship, orphan] = tasks;
+  assert.equal(review.parentId, launch.id);
+  assert.equal(ship.parentId, launch.id, 'parent match ignores case');
+  assert.equal(orphan.parentId ?? null, null);
+  assert.ok(rows.some(r => /parent "Nothing like this" not found/.test(r.message)));
+  assert.ok(!('_parentName' in review) && !('_row' in review));
+});

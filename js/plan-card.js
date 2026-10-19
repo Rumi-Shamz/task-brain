@@ -18,7 +18,7 @@ function scheduleFieldsHTML(t) {
   const cur = selected ? intervalForTask(t) : '';
   return `<div class="plan-pair">
     <label class="plan-field">Day
-      <select id="plan-ymd" onchange="planScheduleChanged()">
+      <select id="plan-ymd" onchange="planScheduleChanged('day')">
         ${dates.map(d => `<option value="${d}" ${d === shownDay ? 'selected' : ''}>${weekdayNameFromYmd(d)} ${d.slice(5)}</option>`).join('') || '<option value="">No open work day</option>'}
       </select>
     </label>
