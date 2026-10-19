@@ -21,7 +21,7 @@
 
   <div id="sync-panel" class="sync-panel" style="display:none;">
     <h3>Cross-device sync (private data.json)</h3>
-    <p class="sync-hint">PAT stays on this device — connect the <strong>same</strong> private repo <code>task-brain-data</code> on phone and desktop (Contents: Read and write). On open, the app pulls before it can push, so one device cannot overwrite the other with stale local data. Tap the title to open or close this panel. A token saved on another address (the published site, or a different port) is not on this page.</p>
+    <p class="sync-hint">PAT stays on this device — connect the <strong>same</strong> private repo on phone and desktop: <code>task-brain-data</code> on the published site, <code>task-brain-data-staging</code> on staging and every other address (Contents: Read and write). On open, the app pulls before it can push, so one device cannot overwrite the other with stale local data. Tap the title to open or close this panel. A token saved on another address (the published site, or a different port) is not on this page.</p>
     <div class="sync-grid">
       <label>GitHub token<input type="password" id="su-token" placeholder="fine-grained PAT" autocomplete="off" /></label>
       <label>Owner<input type="text" id="su-owner" placeholder="Rumi-Shamz" /></label>
@@ -35,7 +35,7 @@
       <button type="button" class="btn" onclick="toggleSyncPanel(false)">Close</button>
     </div>
     <p id="sync-msg" class="sync-msg"></p>
-    <p class="sync-hint">Reconnect: Owner <code>Rumi-Shamz</code>, Repo <code>task-brain-data</code>, then Connect &amp; pull. BACKLOG: Supabase auth later.</p>
+    <p class="sync-hint">Reconnect: Owner <code>Rumi-Shamz</code>, Repo <code>task-brain-data</code> (published site) or <code>task-brain-data-staging</code> (anywhere else), then Connect &amp; pull. BACKLOG: Supabase auth later.</p>
   </div>
 
   <!-- 01 PLAN -->

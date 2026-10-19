@@ -1,20 +1,34 @@
 #!/usr/bin/env bash
 # Install the assistant runner as a systemd user timer on this (always-on) desktop.
-#   scripts/agent-runner/install.sh            install or update, start the timer
-#   scripts/agent-runner/install.sh --remove   stop and remove the timer (keeps the clone and runs)
+#   scripts/agent-runner/install.sh                      install or update, start the timer (real data)
+#   scripts/agent-runner/install.sh --staging            a second timer for task-brain-data-staging
+#   scripts/agent-runner/install.sh [--staging] --remove stop and remove that timer (keeps the clone and runs)
 # The service runs scripts/agent_runner.mjs from THIS checkout, so keep it where it is
 # (re-run the installer from a new checkout to point the service there).
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-conf_dir="${XDG_CONFIG_HOME:-$HOME/.config}/task-brain-agent"
 
-if [ "${1:-}" = "--remove" ]; then
-  systemctl --user disable --now task-brain-agent.timer 2>/dev/null || true
-  rm -f "$units/task-brain-agent.service" "$units/task-brain-agent.timer"
+# Production and staging are separate instances: own unit, settings, clone and run folders.
+name=task-brain-agent
+data_repo=Rumi-Shamz/task-brain-data
+remove=0
+for arg in "$@"; do
+  case "$arg" in
+    --staging) name=task-brain-agent-staging; data_repo=Rumi-Shamz/task-brain-data-staging ;;
+    --remove) remove=1 ;;
+    *) echo "unknown option: $arg"; exit 1 ;;
+  esac
+done
+conf_dir="${XDG_CONFIG_HOME:-$HOME/.config}/$name"
+agent_home="$HOME/.local/share/$name"
+
+if [ "$remove" = 1 ]; then
+  systemctl --user disable --now "$name.timer" 2>/dev/null || true
+  rm -f "$units/$name.service" "$units/$name.timer"
   systemctl --user daemon-reload
-  echo "Removed the timer. Settings in $conf_dir and runs in ~/.local/share/task-brain-agent are kept."
+  echo "Removed $name. Settings in $conf_dir and runs in $agent_home are kept."
   exit 0
 fi
 
@@ -35,7 +49,8 @@ mkdir -p "$units" "$conf_dir"
 if [ ! -f "$conf_dir/env" ]; then
   cat > "$conf_dir/env" <<CONF
 # task-brain assistant runner settings (see scripts/agent_runner.mjs)
-TB_DATA_REPO=Rumi-Shamz/task-brain-data
+TB_DATA_REPO=$data_repo
+TB_AGENT_HOME=$agent_home
 TB_CLAUDE_MODEL=sonnet
 TB_CLAUDE_BIN=${claude_bin:-claude}
 TB_OLLAMA_MODEL=qwen2.5:7b
@@ -45,9 +60,9 @@ CONF
   echo "Wrote $conf_dir/env"
 fi
 
-cat > "$units/task-brain-agent.service" <<UNIT
+cat > "$units/$name.service" <<UNIT
 [Unit]
-Description=task-brain assistant runner (one tick)
+Description=task-brain assistant runner, $data_repo (one tick)
 After=network-online.target
 
 [Service]
@@ -60,9 +75,9 @@ TimeoutStartSec=90min
 Nice=10
 UNIT
 
-cat > "$units/task-brain-agent.timer" <<UNIT
+cat > "$units/$name.timer" <<UNIT
 [Unit]
-Description=Run the task-brain assistant every 5 minutes
+Description=Run the task-brain assistant every 5 minutes ($data_repo)
 
 [Timer]
 OnBootSec=2min
@@ -74,11 +89,11 @@ WantedBy=timers.target
 UNIT
 
 systemctl --user daemon-reload
-systemctl --user enable --now task-brain-agent.timer
+systemctl --user enable --now "$name.timer"
 if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
   echo "Tip: 'loginctl enable-linger $USER' keeps the timer running while you are logged out."
 fi
-echo "Installed. Runner code: $repo"
-echo "  status:  systemctl --user list-timers task-brain-agent.timer"
-echo "  logs:    journalctl --user -u task-brain-agent -f"
-echo "  now:     systemctl --user start task-brain-agent"
+echo "Installed $name for $data_repo. Runner code: $repo"
+echo "  status:  systemctl --user list-timers $name.timer"
+echo "  logs:    journalctl --user -u $name -f"
+echo "  now:     systemctl --user start $name"

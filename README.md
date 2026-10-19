@@ -66,7 +66,10 @@ node scripts/agent_runner.mjs --dry-run         # what is due now
 node scripts/agent_runner.mjs --status          # runner state and recent runs
 journalctl --user -u task-brain-agent -f        # logs
 scripts/agent-runner/install.sh --remove        # stop it
+scripts/agent-runner/install.sh --staging       # second timer for task-brain-data-staging (own settings and clone)
 ```
+
+Staging and production each get their own runner, so assistant work tried on staging runs against the staging data. Both use the same Claude plan, so staging tests count towards its limits.
 
 ## Weekly loop (outside the browser)
 
@@ -85,7 +88,7 @@ Model: `ANTHROPIC_API_KEY` (default `claude-opus-5-5`), or a local model with `L
 The live app (GitHub Pages) only changes when a PR merges to `main`. To try changes first:
 
 - **On any device:** open the staging preview, https://task-brain-git-staging-rumi-shamzs-projects.vercel.app (the `staging` branch, kept at the newest unmerged work). Vercel previews ask for a Vercel login once per browser.
-- **Your data in a preview:** every URL is a separate site to the browser, so a preview starts empty with the default year rhythm until you connect sync (tap **Day Planner**). Connecting pulls your real `data.json`, rhythm included. Previews may write a newer data version than the live app reads, so connect them to a copy (e.g. a private `task-brain-data-test` repo holding a copy of `data.json`) until the PR is merged.
+- **Your data in a preview:** the app picks its data repo from the address. The published site (`rumi-shamz.github.io`) syncs the real `task-brain-data`; staging, Vercel previews and localhost sync `task-brain-data-staging`, and refuse the real repo even if you type it. Test imports and new data versions there; nothing reaches the real data. Your token needs access to both repos.
 - **Weekly extraction:** it runs on your computer, not in the app. `LLM_PROVIDER=ollama node scripts/extract_week.mjs transcript.txt --week 2026-W42 --out out/` (or with `ANTHROPIC_API_KEY`) writes `out/week-2026-W42.json`; import it on **01 Plan** and check the import report and **Import accuracy**. `--prebrief-only --data data.json` writes the prebrief without a model. The GitHub Action can only be started once its workflow is on `main`.
 
 ## Development
