@@ -31,6 +31,7 @@ export {
   importWeeklyPlanJson,
   parseCsvText,
   importDuplicateAction,
+  exportWeekReview,
 } from './import-plan.js';
 
 function untagedTasks() {

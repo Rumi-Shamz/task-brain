@@ -52,6 +52,7 @@
           Import week plan
           <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden onchange="importWeeklyPlanFile(this)" />
         </label>
+        <button class="btn" onclick="exportWeekReview()" title="Markdown review of the week before Week of: done, slipped, still open. Add it to the planning conversation.">Export review</button>
       </div>
       <div id="bulk-area" style="display:none;">
         <p class="bulk-hint">One task per line.</p>

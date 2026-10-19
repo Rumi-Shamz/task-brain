@@ -10,6 +10,8 @@ import { normalizeDomainId, domainLabel, DOMAINS as DOMAIN_LIST } from './domain
 import { ensureProjectForDomain, ensureProjectsMigrated } from './projects.js';
 import { deps } from './deps.js';
 import { findSimilar } from './similar.js';
+import { getPersistPayload } from './storage.js';
+import { isoWeek, previousWeek, buildPrebrief } from '../scripts/lib/week.mjs';
 
 export const DOMAINS = DOMAIN_LIST.map(d => d.id);
 export const LENGTHS = [15, 30, 60, 180];
@@ -62,6 +64,21 @@ export function defaultImportMonday(now = new Date()) {
 export function weekMondayForImport() {
   const picked = parseYmd(document.getElementById('week-plan-week')?.value || '');
   return picked ? mondayOnOrBefore(picked) : defaultImportMonday();
+}
+
+/**
+ * Review of the week before "Week of" as Markdown, for the weekly planning conversation:
+ * done, slipped, still open, someday items due. Same text as `extract_week.mjs --prebrief-only`.
+ */
+export function exportWeekReview() {
+  const label = isoWeek(weekMondayForImport());
+  const md = buildPrebrief(getPersistPayload(), label);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown' }));
+  a.download = `review-${previousWeek(label)}.md`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
 }
 
 /** Domain written in a task name ("Swing Buzz: Bus rental", "ALFA plan preparation"), longest match first. */

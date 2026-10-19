@@ -57,6 +57,8 @@ test('prebrief covers last week, slipped, someday due and skills', () => {
   const md = buildPrebrief(data, '2026-W42');
   assert.match(md, /Done 1 of 2 planned \(50%\)/);
   assert.match(md, /## Slipped[\s\S]*Venue email/);
+  assert.match(md, /## Done last week\n- Grant budget — ALFA · 180 min/);
+  assert.match(md, /## Still open\n[\s\S]*Venue email — SwingSociety · 2026-10-13 · 30 min/);
   assert.match(md, /## Someday[\s\S]*Newsletter/);
   assert.match(md, /Python async \(schedule\)/);
   assert.match(extractionContext(data), /Swing Buzz \(domain SwingSociety\)/);
