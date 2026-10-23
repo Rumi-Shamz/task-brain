@@ -119,11 +119,13 @@ test('edits made before sync is connected still count as unsynced', () => {
 
 test('only the production site may use the real data repo', async () => {
   const S = await import('../js/sync.js');
+  assert.equal(S.defaultDataRepo('shijin.anastasov.eu'), 'task-brain-data');
   assert.equal(S.defaultDataRepo('rumi-shamz.github.io'), 'task-brain-data');
   assert.equal(S.defaultDataRepo('task-brain-git-staging-rumi-shamzs-projects.vercel.app'), 'task-brain-data-staging');
   assert.equal(S.defaultDataRepo('localhost'), 'task-brain-data-staging');
   assert.equal(S.allowedRepo('task-brain-data', 'localhost'), 'task-brain-data-staging');
   assert.equal(S.allowedRepo('Task-Brain-Data', 'staging.example'), 'task-brain-data-staging');
+  assert.equal(S.allowedRepo('task-brain-data', 'shijin.anastasov.eu'), 'task-brain-data');
   assert.equal(S.allowedRepo('task-brain-data', 'rumi-shamz.github.io'), 'task-brain-data');
   assert.equal(S.allowedRepo('task-brain', 'rumi-shamz.github.io'), 'task-brain-data');
   assert.equal(S.allowedRepo('my-other-repo', 'localhost'), 'my-other-repo');
