@@ -20,7 +20,7 @@ export function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
 export const DEFAULT_DATA_OWNER = 'Rumi-Shamz';
 export const PRODUCTION_DATA_REPO = 'task-brain-data';
 export const STAGING_DATA_REPO = 'task-brain-data-staging';
-export const PRODUCTION_HOSTS = ['rumi-shamz.github.io'];
+export const PRODUCTION_HOSTS = ['shijin.anastasov.eu', 'rumi-shamz.github.io'];
 export const PUBLIC_APP_REPO = 'task-brain';
 export function isProductionHost(host = typeof location !== 'undefined' ? location.hostname : '') {
   return PRODUCTION_HOSTS.includes(String(host || '').toLowerCase());

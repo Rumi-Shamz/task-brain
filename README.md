@@ -2,7 +2,7 @@
 
 Beta. Hosted day planner for use across devices. This month is for living with the current app and finding problems. The items under Planned are in scope after that, target end of November 2026.
 
-Vanilla HTML/CSS/JS on GitHub Pages. No build step. Open https://rumi-shamz.github.io/task-brain/ on each device. Do not clone this repo to use the app, and do not put it on your GitHub account.
+Vanilla HTML/CSS/JS on GitHub Pages. No build step. Open https://shijin.anastasov.eu/ on each device (the old https://rumi-shamz.github.io/task-brain/ address redirects there). Do not clone this repo to use the app, and do not put it on your GitHub account.
 
 Your data lives in a **private GitHub repo you create**. The app reads and writes `data.json` there with a fine-grained PAT. The token stays in the browser on that device.
 
@@ -32,13 +32,13 @@ You need a GitHub account. You do not need this repository. Ask an agent that ca
 
 ## For an agent setting this up
 
-You are setting up a user. They already use https://rumi-shamz.github.io/task-brain/. Do not clone `task-brain` onto their account. Do not start a local server.
+You are setting up a user. They already use https://shijin.anastasov.eu/. Do not clone `task-brain` onto their account. Do not start a local server.
 
 1. `gh auth status`. If it fails, run `gh auth login` and let the user finish the browser login.
 2. Create a private data repo on **their** account. Any name except `task-brain` (the app rewrites that name). `task-brain-data` is fine.
    `gh repo create task-brain-data --private --confirm`
 3. Open https://github.com/settings/personal-access-tokens/new and have the user create a fine-grained PAT: only that repo, **Contents: Read and write**. They copy the token once. Do not commit it, and do not put it in this app repo.
-4. On each device they will use, open the Pages URL. Triple-tap **Day Planner**. Set **their** owner, **their** data repo, and the PAT. Leave the defaults (`Rumi-Shamz` / `task-brain-data`) only if this is that account. **Connect & pull**.
+4. On each device they will use, open https://shijin.anastasov.eu/. Triple-tap **Day Planner**. Set **their** owner, **their** data repo, and the PAT. Leave the defaults (`Rumi-Shamz` / `task-brain-data`) only if this is that account. **Connect & pull**.
 5. Confirm the sync line leaves "Local only" and a pull or first push succeeds. An empty repo is normal: **Push save** creates `data.json`.
 
 Same owner, same repo, a PAT for that repo, on every device.
@@ -88,7 +88,7 @@ Model: `ANTHROPIC_API_KEY` (default `claude-opus-5-5`), or a local model with `L
 The live app (GitHub Pages) only changes when a PR merges to `main`. To try changes first:
 
 - **On any device:** open the staging preview, https://task-brain-git-staging-rumi-shamzs-projects.vercel.app (the `staging` branch, kept at the newest unmerged work). Vercel previews ask for a Vercel login once per browser.
-- **Your data in a preview:** the app picks its data repo from the address. The published site (`rumi-shamz.github.io`) syncs the real `task-brain-data`; staging, Vercel previews and localhost sync `task-brain-data-staging`, and refuse the real repo even if you type it. Test imports and new data versions there; nothing reaches the real data. Your token needs access to both repos.
+- **Your data in a preview:** the app picks its data repo from the address. The published site (`shijin.anastasov.eu`) syncs the real `task-brain-data`; staging, Vercel previews and localhost sync `task-brain-data-staging`, and refuse the real repo even if you type it. Test imports and new data versions there; nothing reaches the real data. Your token needs access to both repos.
 - **Weekly extraction:** it runs on your computer, not in the app. `LLM_PROVIDER=ollama node scripts/extract_week.mjs transcript.txt --week 2026-W42 --out out/` (or with `ANTHROPIC_API_KEY`) writes `out/week-2026-W42.json`; import it on **01 Plan** and check the import report and **Import accuracy**. `--prebrief-only --data data.json` writes the prebrief without a model. The GitHub Action can only be started once its workflow is on `main`.
 
 ## Development
