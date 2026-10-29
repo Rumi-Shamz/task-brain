@@ -11,10 +11,10 @@
   <div class="header">
     <button type="button" id="app-logo" class="app-logo" title="Sync settings">Day Planner</button>
     <div class="phase-tabs">
-      <button class="phase-tab active" onclick="switchPhase('plan')">01 Plan</button>
-      <button class="phase-tab" onclick="switchPhase('dashboard')">02 Today</button>
-      <button class="phase-tab" onclick="switchPhase('skills')">03 Upskill</button>
-      <button class="phase-tab" onclick="switchPhase('year')">04 Year</button>
+      <button class="phase-tab active" onclick="switchPhase('plan')">01 Organize</button>
+      <button class="phase-tab" onclick="switchPhase('dashboard')">02 Act</button>
+      <button class="phase-tab" onclick="switchPhase('skills')">03 Develop</button>
+      <button class="phase-tab" onclick="switchPhase('year')">04 Plan</button>
     </div>
     <span id="sync-status" class="sync-status" aria-live="polite"></span>
   </div>
@@ -73,7 +73,7 @@
       <div id="merge-projects-panel"></div>
     </details>
     <div class="bottom-actions">
-      <button class="btn primary" onclick="switchPhase('dashboard')">Dashboard ›</button>
+      <button class="btn primary" onclick="switchPhase('dashboard')">Act ›</button>
       <button class="btn danger-outline" onclick="clearAll()">Clear all</button>
     </div>
   </div>
@@ -141,8 +141,8 @@
       </section>
     </div>
     <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('plan')">‹ Plan</button>
-      <button class="btn" onclick="switchPhase('skills')">Skills ›</button>
+      <button class="btn" onclick="switchPhase('plan')">‹ Organize</button>
+      <button class="btn" onclick="switchPhase('skills')">Develop ›</button>
     </div>
   </div>
 
@@ -151,8 +151,8 @@
     <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
     <div id="skills-panel" class="skills-panel"></div>
     <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('dashboard')">‹ Today</button>
-      <button class="btn" onclick="switchPhase('year')">Year ›</button>
+      <button class="btn" onclick="switchPhase('dashboard')">‹ Act</button>
+      <button class="btn" onclick="switchPhase('year')">Plan ›</button>
     </div>
   </div>
 
@@ -225,8 +225,8 @@
     </details>
 
     <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('skills')">‹ Skills</button>
-      <button class="btn" onclick="switchPhase('plan')">Plan ›</button>
+      <button class="btn" onclick="switchPhase('skills')">‹ Develop</button>
+      <button class="btn" onclick="switchPhase('plan')">Organize ›</button>
     </div>
   </div>
 </div>
