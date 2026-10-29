@@ -11,6 +11,13 @@ import { subtasksHTML, drainingHTML } from './plan-subtasks.js';
 import { WORKERS } from './agent-core.js';
 import { recoveryFor, recoveryText } from './recovery.js';
 
+/** Length choices; a length set elsewhere (drag-resize, import) stays selectable instead of showing as 15 min. */
+const LENGTHS = [15, 30, 45, 60, 90, 120, 180];
+const lengthOptions = d => {
+  const n = Number(d);
+  return n > 0 && !LENGTHS.includes(n) ? [...LENGTHS, n].sort((a, b) => a - b) : LENGTHS;
+};
+
 const cap = w => (w ? w[0].toUpperCase() + w.slice(1) : '');
 
 function scheduleFieldsHTML(t) {
@@ -149,7 +156,7 @@ export function singleCardHTML(t) {
     set.domain ? domainLabel(domain) : 'no domain yet', set.project && projects.find(p => p.id === pid)?.name,
     set.activity && cap(t.activity), set.parent && 'subtask of a bigger task', t.draining && 'draining',
   ].filter(Boolean);
-  const label = text => `<span class="plan-label">${text}</span>`;
+const label = text => `<span class="plan-label">${text}</span>`;
   return `<div class="plan-q ${editing ? 'plan-q-edit' : ''}">
     <div class="plan-task-head">
       <p class="plan-task-name">${set.domain ? domainDotHTML(domain) : ''}${esc(t.name)}${editing ? ' <span class="plan-edit-badge">editing</span>' : ''}</p>
@@ -188,7 +195,7 @@ export function singleCardHTML(t) {
       </div>
       <label class="${cls('length')} plan-length-select">${label('Length')}
         <select ${actOn('change', 'planPatch', {duration:'$number'})}>
-          ${[15, 30, 60, 180].map(n =>
+          ${lengthOptions(t.duration).map(n =>
             `<option value="${n}" ${Number(t.duration) === n ? 'selected' : ''}>${n} min</option>`
           ).join('')}
         </select>
