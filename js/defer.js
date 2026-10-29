@@ -30,6 +30,8 @@ export function deferTask(id, ymd) {
   if (ymd) {
     t.date = ymd;
     t.blockId = null;
+    // Scheduling a backlog item takes it out of the backlog.
+    if (t.status === 'someday') Object.assign(t, { status: 'todo', reviewAt: null, reviewSkips: 0, deleteCandidate: false });
   } else {
     t.status = 'someday';
     t.date = null;
@@ -60,6 +62,7 @@ export function openDeferMenu(id, ev) {
   const t = state.tasks.find(x => x.id === id);
   if (!t) return;
   const to = deferTargets(t);
+  const backlog = t.status === 'someday';
   const menu = document.createElement('div');
   menu.id = 'defer-menu';
   menu.className = 'defer-menu';
@@ -68,12 +71,12 @@ export function openDeferMenu(id, ev) {
   menu.onpointerdown = e => e.stopPropagation();
   menu.onclick = e => e.stopPropagation();
   menu.innerHTML = `
-    <div class="defer-title">Defer “${esc(t.name)}”</div>
+    <div class="defer-title">${backlog ? 'Schedule' : 'Defer'} “${esc(t.name)}”</div>
     <div class="defer-row">
       <label class="defer-pill defer-date" title="Pick a date (keeps ${esc(t.start || 'the time')})">Pick date
         <input type="date" aria-label="Pick a date" onclick="try { this.showPicker(); } catch (e) {}" min="${formatYmd(addDaysLocal(new Date(), 1))}" onchange="if (this.value) deferTask('${esc(t.id)}', this.value)" />
       </label>
-      <button type="button" class="defer-pill" onclick="deferTask('${esc(t.id)}', null)" title="Off the calendar, into Someday (review in 14 days)">Backlog</button>
+      ${backlog ? '' : `<button type="button" class="defer-pill" onclick="deferTask('${esc(t.id)}', null)" title="Off the calendar, into the backlog (review in 14 days)">Backlog</button>`}
     </div>
     <select class="defer-select" aria-label="Move by" onchange="if (this.value) deferTask('${esc(t.id)}', this.value)">
       <option value="">Move by…</option>

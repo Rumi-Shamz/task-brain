@@ -587,17 +587,15 @@ export function stopTaskTimer(id) {
   ensureTimerTick();
   deps.renderDashboard();
 }
+/** Tracked time and one timer button: ▶ starts, ■ stops (the time is kept, so stop = pause). */
 export function chipControlsHTML(t) {
   const running = !!t.timerStartedAt;
-  const elapsed = formatTracked(taskElapsedMs(t));
+  const ms = taskElapsedMs(t);
   return `<div class="chip-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-    ${ running ? '<span class="chip-timer-dot" title="Timer running"></span>' : '' }
-    <span class="chip-timer-time ${ running ? 'running' : '' }" data-timer-display="${ t.id }">${ elapsed }</span>
-    ${running
-      ? `<button type="button" class="chip-timer-btn active" onclick="pauseTaskTimer('${ t.id }')">Pause</button>
-         <button type="button" class="chip-timer-btn" onclick="stopTaskTimer('${ t.id }')">Stop</button>`
-      : `<button type="button" class="chip-timer-btn" onclick="startTaskTimer('${ t.id }')" ${ t.done ? 'disabled' : '' }>Start</button>`
-    }
+    <span class="chip-timer-time ${ running ? 'running' : '' } ${ ms ? '' : 'zero' }" data-timer-display="${ t.id }">${ formatTracked(ms) }</span>
+    ${ running
+      ? `<button type="button" class="chip-timer-btn card-btn active" onclick="stopTaskTimer('${ t.id }')" title="Stop the timer (time is kept)" aria-label="Stop timer">■</button>`
+      : `<button type="button" class="chip-timer-btn card-btn" onclick="startTaskTimer('${ t.id }')" ${ t.done ? 'disabled' : '' } title="Start the timer" aria-label="Start timer">▶</button>` }
   </div>`;
 }
 export function parseHHMM(str) {

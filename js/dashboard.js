@@ -192,7 +192,10 @@ function matchesActivityFilter(t) {
 export function renderProjectBoard() {
   const board = document.getElementById('project-board');
   if (!board) return;
-  const visible = (list) => state.hideDone ? list.filter(t => !t.done) : list;
+  // Act is about this week: tasks dated after Sunday (deferred, planned ahead) stay on Plan until their week.
+  const weekEnd = formatYmd(addDaysLocal(mondayOnOrBefore(new Date()), 6));
+  const later = t => !!t.date && t.date > weekEnd;
+  const visible = (list) => list.filter(t => !later(t) && !(state.hideDone && t.done));
   const activities = ACTIVITIES.length ? ACTIVITIES : LANES;
   const domains = allDomains();
   const collapsedDoms = domains.filter(d => isCollapsed(d.id));
@@ -242,6 +245,9 @@ export function renderProjectBoard() {
         <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">None</div>'}</div>
       </section>`;
     }).join('');
+    const laterCount = state.tasks.filter(t => t.status !== 'someday' && !t.done && isTopLevelTask(t) && taskDomain(t) === dom.id && later(t)).length;
+    const laterNote = laterCount
+      ? `<div class="board-later" title="Dated after this week: they show up here in their week, and on Plan now">+ ${laterCount} later</div>` : '';
     return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
         ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
         ondrop="dropOnDomainStack(event)">
@@ -251,7 +257,7 @@ export function renderProjectBoard() {
         <span class="domain-count">${count}</span>
         <span class="domain-chevron">▾</span>
       </button>
-      ${sections}
+      ${sections}${laterNote}
     </div>`;
   }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
 
@@ -382,6 +388,6 @@ export function renderDashboard() {
     window.renderSlippedPanel(document.getElementById('slipped-panel'));
     const n = document.querySelectorAll('#slipped-panel .someday-card').length;
     const sum = document.getElementById('slipped-summary');
-    if (sum) sum.textContent = n ? `Slipped (${n})` : 'Slipped';
+    if (sum) sum.innerHTML = n ? `Slipped <span class="panel-count attention">${n}</span>` : 'Slipped';
   }
 }

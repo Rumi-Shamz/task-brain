@@ -28,3 +28,13 @@ test('deferring keeps the time, records the day it left, and the review lists it
   assert.deepEqual(r.missed, []);
   assert.deepEqual(r.planned, [], 'deferred tasks no longer count as planned for the week they left');
 });
+
+test('scheduling a backlog item takes it out of the backlog', () => {
+  state.tasks = [normalizeTask({ id: 'c', name: 'Parked', status: 'someday', reviewAt: '2026-11-10', reviewSkips: 2 })];
+  deferTask('c', '2026-11-05');
+  const [c] = state.tasks;
+  assert.equal(c.status, 'todo');
+  assert.equal(c.date, '2026-11-05');
+  assert.equal(c.reviewAt, null);
+  assert.equal(c.reviewSkips, 0);
+});
