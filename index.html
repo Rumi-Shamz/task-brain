@@ -20,6 +20,7 @@
       <button class="phase-tab" onclick="switchPhase('skills')"><span class="tab-icon" aria-hidden="true">△</span>Develop</button>
       <button class="phase-tab" onclick="switchPhase('year')"><span class="tab-icon" aria-hidden="true">▦</span>Plan</button>
     </nav>
+    <p class="header-info" id="header-info" aria-live="off"></p>
   </div>
 
   <div id="sync-panel" class="sync-panel" style="display:none;">
@@ -89,7 +90,8 @@
     <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
     <div class="dash-mobile-tabs" role="tablist" aria-label="Dashboard screen">
       <button type="button" class="btn dash-m-tab active" id="dash-tab-day" onclick="setDashMobileScreen('day')">Day</button>
-      <button type="button" class="btn dash-m-tab" id="dash-tab-board" onclick="setDashMobileScreen('board')">Tasks</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-domains" onclick="setDashMobileScreen('domains')">Domains</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-needs" onclick="setDashMobileScreen('needs')">Needs you</button>
     </div>
     <div class="dash-layout">
       <aside class="day-panel" id="dash-day-panel">
@@ -106,7 +108,8 @@
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
       <section class="board-panel" id="dash-board-panel">
-        <section class="needs-you" id="needs-you" aria-live="polite" hidden></section>
+        <div class="board-switch" id="board-switch" role="tablist" aria-label="Show"></div>
+        <section class="needs-you" id="needs-you" aria-live="polite"></section>
         <div class="board-toolbar">
           <div class="add-project">
             <input type="text" id="new-domain-input" placeholder="New domain…"

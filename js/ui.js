@@ -1,4 +1,5 @@
 import { state, todayYmd } from './state.js';
+import { renderHeaderInfo } from './next-up.js';
 import { deps } from './deps.js';
 import { renderPlan } from './plan.js';
 import { renderYear, ensureYearWeekMonday } from './year.js';
@@ -16,6 +17,7 @@ export function switchPhase(phase) {
   // Legacy aliases
   if (phase === 'triage' || phase === 'organize' || phase === 'schedule') phase = 'plan';
   if (!PHASES.includes(phase)) phase = 'plan';
+  renderHeaderInfo();
 
   document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.phase-tab').forEach(t => t.classList.remove('active'));

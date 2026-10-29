@@ -368,14 +368,16 @@ export function weekLnoStats() {
   return { total, lMins, pct };
 }
 
+/** Phone: one row of tabs, Day · Domains · Needs you (the last two are the board's two views). */
 export function setDashMobileScreen(screen) {
+  if (screen === 'domains' || screen === 'needs') {
+    state.boardView = screen;
+    screen = 'board';
+  }
   state.dashMobileScreen = screen === 'board' ? 'board' : 'day';
   document.body.classList.toggle('dash-show-board', state.dashMobileScreen === 'board');
   document.body.classList.toggle('dash-show-day', state.dashMobileScreen !== 'board');
-  const dayTab = document.getElementById('dash-tab-day');
-  const boardTab = document.getElementById('dash-tab-board');
-  if (dayTab) dayTab.classList.toggle('active', state.dashMobileScreen === 'day');
-  if (boardTab) boardTab.classList.toggle('active', state.dashMobileScreen === 'board');
+  renderNeedsYou();
 }
 
 export function renderDashboard() {

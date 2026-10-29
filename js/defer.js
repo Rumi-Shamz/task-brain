@@ -99,9 +99,9 @@ export function doneBoxHTML(t) {
     onclick="event.stopPropagation(); toggleTaskDone('${esc(t.id)}', this.checked)" title="Mark done" aria-label="Mark done" />`;
 }
 
-/** Defer button beside the done box. Only for open tasks that sit on a day. */
+/** Defer button beside the done box, on every open task (one without a day gets a day or the backlog). */
 export function deferButtonHTML(t) {
-  if (!t || t.done || !t.date) return '';
+  if (!t || t.done) return '';
   return `<button type="button" class="chip-defer card-btn" title="Defer: pick a date, backlog, next week or month" aria-label="Defer"
     onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); openDeferMenu('${esc(t.id)}', event)">⇥</button>`;
 }

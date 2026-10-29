@@ -26,7 +26,7 @@ import { startNextUpTicker } from './next-up.js';
 import * as agentUi from './agent-ui.js';
 import * as defer from './defer.js';
 import * as outcome from './outcome.js';
-import { openDelegatedPanel } from './needs-you.js';
+import { openDelegatedPanel, setBoardView } from './needs-you.js';
 
 deps.save = save;
 deps.render = render;
@@ -43,7 +43,7 @@ window.deps = deps;
 window.deriveActivityRules = deriveActivityRules;
 
 Object.assign(window, plan, year, dashboard, agentUi, defer, outcome, {
-  openDelegatedPanel,
+  openDelegatedPanel, setBoardView,
   onTaskDoneMaybeOutcome: t => { if (outcome.needsOutcome(t)) outcome.openOutcome(t.id); },
   switchPhase,
   clearAll,

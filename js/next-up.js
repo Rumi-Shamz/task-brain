@@ -71,19 +71,36 @@ export function renderNextUp() {
   const nexts = a.next.map(i => `<span class="next-chip ${i.kind}" style="${domainStyleVar(i.domain)}">
       <span class="next-time">${formatHHMM(i.start)}</span> ${esc(i.name)} <span class="next-in">${inHowLong(i.start - nowMin)}</span></span>`).join('');
   const allDay = allDayOnDate(ymd).map(b => `<span class="next-chip event" style="${domainStyleVar(b.domain)}">${esc(b.name)}</span>`).join('');
-  const period = state.yearRhythm ? periodLine(d) : null;
   el.hidden = false;
-  el.innerHTML = `${nowHTML}<span class="next-list">${nexts}${allDay}</span>
-    ${period ? `<span class="period-line period-${period.kind}"><strong>${esc(period.title)}</strong> <span>${esc(period.switchText)}</span></span>` : ''}`;
+  el.innerHTML = `${nowHTML}<span class="next-list">${nexts}${allDay}</span>`;
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Header, right side: "Thursday 29 Oct · 14:05" and where you are in the work / rest rhythm. */
+export function renderHeaderInfo(d = new Date()) {
+  const el = document.getElementById('header-info');
+  if (!el) return;
+  const period = state.yearRhythm ? periodLine(d) : null;
+  el.innerHTML = `<span class="hi-date"><span class="hi-day">${WEEKDAY_LONG[d.getDay()]}</span> ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}</span>
+    <strong class="hi-time">${formatHHMM(d.getHours() * 60 + d.getMinutes())}</strong>
+    ${period ? `<span class="hi-period period-${period.kind}"><span class="hi-dot" aria-hidden="true"></span><strong>${esc(period.title)}</strong>
+      <span class="hi-switch">${esc(period.switchText)}</span></span>` : ''}`;
 }
 
 let tick = null;
-/** Keep the strip current while the app is open (no push notifications by design). */
+/** Keep the clock and the strip current while the app is open (no push notifications by design). */
 export function startNextUpTicker() {
   if (tick) return;
+  renderHeaderInfo();
+  let lastMin = new Date().getMinutes();
   tick = setInterval(() => {
+    const m = new Date().getMinutes();
+    if (m === lastMin) return;
+    lastMin = m;
+    renderHeaderInfo();
     if (document.getElementById('phase-dashboard')?.classList.contains('active')) renderNextUp();
-  }, 60000);
+  }, 5000);
 }
 
 export function delegatedTasks() {

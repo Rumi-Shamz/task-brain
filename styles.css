@@ -31,7 +31,9 @@
       --signal-ink: #23262B;
       --decided: rgba(29,158,117,0.16);
       --decided-line: rgba(29,158,117,0.55);
-      --work: #3E4150;
+      --decided-ink: #6FD0A4;
+      --decided-strong: #1F7A55;
+      --work: #8F93C4;
       --rest: #7E9A95;
       --radius: 8px;
       --radius-lg: 12px;
@@ -61,6 +63,8 @@
         --txt3: #767C83;
         --decided: #E3F1E7;
         --decided-line: #9CCBAE;
+        --decided-ink: #22744A;
+        --decided-strong: #2E7D52;
       }
     }
 
@@ -622,7 +626,7 @@
     /* Year protocol colors: muted earth tones, kept apart from the (saturated) domain colors. */
     .yc-fast { background: #8A6F5A; color: #fff; }
     .yc-restore { background: #D7C8B4; }
-    .yc-sprint { background: #3E4150; color: #fff; }
+    .yc-sprint { background: #B4B2D6; color: #1E2233; }
     .yc-deepRest { background: #7E9A95; color: #fff; }
     .yc-vacation { background: #9DAF3C; }
     .yc-work { background: rgba(128,128,128,0.35); color: var(--txt2); }
@@ -2111,4 +2115,83 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
   /* Month on a phone: rows sit together instead of stretching over the screen. */
   .year-month-mobile-wrap { min-height: 0; }
   .year-month-mobile-wrap .year-month-grid { flex: none; align-content: start; }
+}
+
+/* ---------- Round 2 (2026-10-29) ---------- */
+
+/* Organize card: only the decided answers are green; the field boxes stay plain. */
+.plan-field.is-set { background: none; box-shadow: none; padding: 0; margin: 0; }
+.plan-label { font-size: 12px; color: var(--txt3); }
+.plan-field.is-set > .plan-label { color: var(--decided-ink); font-weight: 700; }
+.plan-field.is-set > .plan-label::before { content: '✓ '; }
+.plan-field.is-set input:not([type="hidden"]):not([type="checkbox"]),
+.plan-field.is-set select, .plan-field.is-set textarea {
+  background: var(--decided); border-color: var(--decided-line);
+}
+.plan-field.is-set .btn.primary { background: var(--decided-strong); border-color: var(--decided-strong); color: #fff; }
+.plan-q .plan-row { margin-bottom: 14px; }
+.plan-q .plan-main-row { align-items: flex-start; gap: 12px 28px; }
+.plan-q .plan-main-row > .plan-field { flex: 0 0 auto; }
+.plan-blocking.is-blocking { flex: 1 1 260px !important; }
+.plan-block-search { display: flex; align-items: center; gap: 4px; }
+.plan-block-search input { flex: 1; min-width: 0; }
+.plan-x {
+  flex: none; width: 28px; height: 28px; border-radius: 999px; border: 1px solid var(--border-md);
+  background: var(--card); color: var(--txt2); font-size: 16px; line-height: 1; cursor: pointer;
+}
+.plan-x:hover { border-color: var(--txt); color: var(--txt); }
+.plan-where { margin-top: 0; }
+.plan-where > .plan-row { margin-bottom: 4px; }
+.plan-q .plan-more { border-top: 0; padding-top: 0; margin: 0 0 12px; }
+.plan-q textarea#plan-note { min-height: 3.2rem; }
+
+/* Header: tabs left, today's date, time and the work / rest rhythm right. */
+.header { flex-wrap: nowrap; }
+.header-info {
+  margin: 0 0 0 auto; display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; justify-content: flex-end;
+  font-size: 13px; color: var(--txt2); text-align: right; min-width: 0;
+}
+.hi-time { color: var(--txt); font-size: 15px; font-variant-numeric: tabular-nums; }
+.hi-period { display: inline-flex; align-items: baseline; gap: 6px; }
+.hi-period strong { color: var(--txt); }
+.hi-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--work); align-self: center; }
+.hi-period.period-rest .hi-dot { background: var(--rest); }
+.hi-switch { color: var(--txt3); }
+
+/* Act, right column: Domains or Needs you, one at a time. */
+.board-switch {
+  display: inline-flex; align-self: flex-start; gap: 2px; padding: 3px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border-md); flex-shrink: 0;
+  position: sticky; top: 0; z-index: 5;
+}
+.seg-tab {
+  display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 14px; padding: 6px 16px;
+  border-radius: 999px; border: 0; background: none; color: var(--txt2); cursor: pointer;
+}
+.seg-tab:hover { color: var(--txt); }
+.seg-tab.active { background: var(--card); color: var(--txt); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,0.12); }
+#dash-board-panel[data-view="domains"] > .needs-you { display: none; }
+#dash-board-panel[data-view="needs"] > :not(.board-switch):not(.needs-you) { display: none !important; }
+.needs-you { padding: 6px 14px; }
+
+/* Needs you rows: text left, all actions on the right, one line where it fits. */
+.needs-item { display: flex; align-items: center; gap: 8px 16px; padding: 8px 0; flex-wrap: wrap; }
+.needs-item:first-child { padding-top: 8px; }
+.needs-text { flex: 1 1 220px; min-width: 0; }
+.needs-name { margin: 1px 0 0; }
+.needs-actions { flex: 0 0 auto; margin-left: auto; flex-wrap: nowrap; }
+.needs-actions .pill { padding: 5px 12px; }
+
+@media (max-width: 900px) {
+  .header-info { font-size: 12px; gap: 2px 8px; }
+  .hi-day, .hi-switch { display: none; }
+  .board-switch { align-self: stretch; justify-content: stretch; }
+  .seg-tab { flex: 1; justify-content: center; }
+  .needs-actions { flex-wrap: wrap; margin-left: 0; }
+  .plan-q .plan-main-row { gap: 12px 18px; }
+}
+@media (max-width: 900px) {
+  /* One row of tabs on the phone; the desktop switch above the board is not needed. */
+  .board-switch { display: none !important; }
+  .dash-mobile-tabs .dash-m-tab { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 }
