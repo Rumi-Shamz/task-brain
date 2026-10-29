@@ -112,6 +112,10 @@
         <div class="board-head">
           <div class="board-switch" id="board-switch" role="tablist" aria-label="Show"></div>
           <div class="activity-filter" id="activity-filter" role="group" aria-label="Activity: show one kind of work across all domains"></div>
+          <label class="board-filter">
+            <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
+            Hide done
+          </label>
         </div>
         <section class="needs-you" id="needs-you" aria-live="polite"></section>
         <div class="board-toolbar">
@@ -120,10 +124,6 @@
           <input type="text" id="new-domain-input" class="add-domain-input" placeholder="New domain…"
             onkeydown="if(event.key==='Enter'){event.preventDefault();addDomainFromForm()}else if(event.key==='Escape'){toggleAddDomain(false)}" />
           <div class="domain-chip-strip" id="domain-chip-strip" aria-label="Domains shown"></div>
-          <label class="board-filter">
-            <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
-            Hide done
-          </label>
         </div>
         <div class="project-board" id="project-board"></div>
         <div class="dash-inbox" id="dash-inbox"
