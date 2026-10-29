@@ -130,6 +130,8 @@ function taskLine(t, projectName, { tracked = false, due = false } = {}) {
   return `- ${t.name} — ${bits.join(' · ')}${note ? ` — ${note.length > 160 ? note.slice(0, 157) + '…' : note}` : ''}`;
 }
 
+const OUTCOME_LABEL = { planned: 'done as planned', partial: 'partly', failed: "didn't work" };
+
 export function buildPrebrief(data, label) {
   const prev = previousWeek(label);
   const lines = [`# Prebrief ${label}`, ''];
@@ -150,7 +152,13 @@ export function buildPrebrief(data, label) {
       lines.push('', '## Done last week');
       r.done
         .slice().sort((a, b) => String(a.doneAt || a.date).localeCompare(String(b.doneAt || b.date)))
-        .forEach(t => lines.push(taskLine(t, r.projectName, { tracked: true })));
+        .forEach(t => {
+          lines.push(taskLine(t, r.projectName, { tracked: true }));
+          const o = t.outcome;
+          if (o && (o.result || o.note)) lines.push(`  - Outcome: ${[OUTCOME_LABEL[o.result], String(o.note || '').replace(/\s+/g, ' ').trim()].filter(Boolean).join(' — ')}`);
+          const opened = (data.tasks || []).filter(x => (x.blockedBy || []).includes(t.id)).map(x => x.name);
+          if (opened.length) lines.push(`  - Unlocks: ${opened.join(', ')}`);
+        });
     }
     if (r.missed.length) {
       lines.push('', '## Slipped (planned, not done)');

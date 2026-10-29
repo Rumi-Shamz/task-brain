@@ -1721,3 +1721,10 @@
 .defer-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .defer-row .btn { padding: 4px 8px; font-size: 12px; }
 .defer-row input[type=date] { padding: 3px 6px; border: 0.5px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt); }
+
+/* Outcomes and unlocks (js/outcome.js). */
+.board-row.locked { opacity: 0.6; }
+.tag-locked { border-style: dashed; }
+.oc-results { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+#oc-followups { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
+.oc-unlocked { margin: 4px 0 0 18px; padding: 0; text-transform: none; letter-spacing: normal; font-size: 13px; color: var(--txt); }

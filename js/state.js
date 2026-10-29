@@ -452,6 +452,11 @@ export function normalizeTask(t) {
     missed: Array.isArray(t.missed) ? [...new Set(t.missed.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
     // v13 → v14: days the task was deferred away from (js/defer.js; absent = never).
     deferred: Array.isArray(t.deferred) ? [...new Set(t.deferred.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
+    // v14 → v15: tasks it waits on, and what came out of it (js/outcome.js; absent = none).
+    blockedBy: Array.isArray(t.blockedBy) ? [...new Set(t.blockedBy.map(String).filter(id => id && id !== String(t.id)))] : [],
+    outcome: t.outcome && typeof t.outcome === 'object'
+      ? { result: ['planned', 'partial', 'failed'].includes(t.outcome.result) ? t.outcome.result : null, note: String(t.outcome.note || '') }
+      : null,
     priority: t.priority != null ? Number(t.priority) : null,
     timepressure: t.timepressure || null,
     trackedMs: Math.max(0, Number(t.trackedMs) || 0),
@@ -554,6 +559,7 @@ export function toggleTaskDone(id, checked) {
   if (document.getElementById('phase-year')?.classList.contains('active')) {
     deps.renderYear();
   }
+  if (becameDone && typeof window.onTaskDoneMaybeOutcome === 'function') window.onTaskDoneMaybeOutcome(t);
 }
 export function startTaskTimer(id) {
   const t = state.tasks.find(x => x.id === id);

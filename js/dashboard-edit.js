@@ -5,6 +5,7 @@ import { ACTIVITIES, projectsInDomain, ensureProjectForDomain } from './projects
 import { deps } from './deps.js';
 import { DAY_INTERVALS, KEEP_TIME, intervalForTask, placeInInterval, placementUnchanged, isTaskDay } from './blocks.js';
 import { renderDashboard } from './dashboard.js';
+import { blockerCandidates } from './outcome.js';
 
 export function openDashEdit(id) {
   state.dashEditId = id;
@@ -35,7 +36,9 @@ export function saveDashEdit() {
   t.activity = act;
   t.lane = act === 'research' ? 'research' : act;
   t.note = (document.getElementById('de-note')?.value || '').trim();
-  setTaskDone(t, !!document.getElementById('de-done')?.checked);
+  const waits = document.getElementById('de-waits');
+  if (waits) t.blockedBy = waits.value ? [waits.value] : [];
+  const becameDone = setTaskDone(t, !!document.getElementById('de-done')?.checked) && t.done;
   const ymd = document.getElementById('de-ymd')?.value || '';
   const interval = document.getElementById('de-interval')?.value || '';
   const dur = parseInt(document.getElementById('de-duration')?.value || '', 10);
@@ -49,6 +52,7 @@ export function saveDashEdit() {
   deps.save();
   closeDashEdit();
   deps.renderDashboard();
+  if (becameDone && typeof window.onTaskDoneMaybeOutcome === 'function') window.onTaskDoneMaybeOutcome(t);
 }
 
 export function renderDashEditSheet() {
@@ -102,6 +106,7 @@ export function renderDashEditSheet() {
       <div class="plan-field">Schedule
         ${dashPlacementHTML(t)}
       </div>
+      ${waitsOnHTML(t)}
       <label class="plan-field">Note
         <textarea id="de-note" rows="3">${esc(t.note || '')}</textarea>
       </label>
@@ -111,6 +116,20 @@ export function renderDashEditSheet() {
         <button type="button" class="btn" onclick="closeDashEdit()">Cancel</button>
       </div>
     </div>`;
+}
+
+/** "Waits on": the task stays locked (no next up, 🔒 on the board) until that one is done. */
+function waitsOnHTML(t) {
+  const cur = (t.blockedBy || [])[0] || '';
+  const opts = blockerCandidates(t);
+  const gone = cur && !opts.some(o => o.id === cur) ? state.tasks.find(x => x.id === cur) : null;
+  return `<label class="plan-field">Waits on
+    <select id="de-waits">
+      <option value="">— nothing</option>
+      ${gone ? `<option value="${esc(gone.id)}" selected>${esc(gone.name)}${gone.done ? ' (done)' : ''}</option>` : ''}
+      ${opts.map(o => `<option value="${esc(o.id)}" ${o.id === cur ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}
+    </select>
+  </label>`;
 }
 
 function dashPlacementHTML(t) {

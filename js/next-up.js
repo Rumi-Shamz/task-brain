@@ -4,6 +4,7 @@ import { blocksOnDate, allDayOnDate, slippedTasks } from './blocks.js';
 import { domainStyleVar } from './domains.js';
 import { deps } from './deps.js';
 import { agentTaskRowHTML, agentReadyCount, runnerStatusHTML } from './agent-ui.js';
+import { isLocked } from './outcome.js';
 
 function inHowLong(mins) {
   if (mins < 1) return 'now';
@@ -19,7 +20,7 @@ export function dayAgenda(ymd, nowMin) {
     kind: b.rule === 'event' ? 'event' : 'block', name: b.name, start: b.startMin, end: b.endMin, domain: b.domain,
   }));
   state.tasks.forEach(t => {
-    if (t.date !== ymd || !t.start || t.done || t.status === 'someday') return;
+    if (t.date !== ymd || !t.start || t.done || t.status === 'someday' || isLocked(t)) return;
     const start = parseHHMM(t.start);
     if (start == null) return;
     items.push({ kind: 'task', name: t.name, start, end: start + (Number(t.duration) || DEFAULT_DURATION), domain: t.domain, id: t.id });

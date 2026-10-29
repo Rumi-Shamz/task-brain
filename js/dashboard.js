@@ -21,6 +21,7 @@ import { renderErrandsPanel } from './agent-ui.js';
 export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
 import { deferButtonHTML } from './defer.js';
+import { lockTagHTML, isLocked } from './outcome.js';
 
 export * from './dashboard-drag.js';
 export * from './dashboard-edit.js';
@@ -64,8 +65,9 @@ export function boardRowHTML(t, { nested = false } = {}) {
     scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
     !t.done && t.missed && t.missed.length
       ? `<span class="tag tag-missed" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>` : '',
+    t.done ? '' : lockTagHTML(t),
   ].filter(Boolean).join('');
-  return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${running ? 'timer-running' : ''}"
+  return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${!t.done && isLocked(t) ? 'locked' : ''} ${running ? 'timer-running' : ''}"
       draggable="true" data-id="${t.id}"
       ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)"
       onclick="dashRowClick(event,'${t.id}')">

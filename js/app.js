@@ -25,6 +25,7 @@ import { getPersistPayload } from './storage.js';
 import { startNextUpTicker } from './next-up.js';
 import * as agentUi from './agent-ui.js';
 import * as defer from './defer.js';
+import * as outcome from './outcome.js';
 
 deps.save = save;
 deps.render = render;
@@ -40,7 +41,8 @@ deps.ghPush = ghPush;
 window.deps = deps;
 window.deriveActivityRules = deriveActivityRules;
 
-Object.assign(window, plan, year, dashboard, agentUi, defer, {
+Object.assign(window, plan, year, dashboard, agentUi, defer, outcome, {
+  onTaskDoneMaybeOutcome: t => { if (outcome.needsOutcome(t)) outcome.openOutcome(t.id); },
   switchPhase,
   clearAll,
   render,
