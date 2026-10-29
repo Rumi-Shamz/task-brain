@@ -20,6 +20,8 @@ import { renderErrandsPanel } from './agent-ui.js';
 
 export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
+import { deferButtonHTML, doneBoxHTML } from './defer.js';
+import { lockTagHTML, isLocked } from './outcome.js';
 
 export * from './dashboard-drag.js';
 export * from './dashboard-edit.js';
@@ -63,23 +65,20 @@ export function boardRowHTML(t, { nested = false } = {}) {
     scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
     !t.done && t.missed && t.missed.length
       ? `<span class="tag tag-missed" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>` : '',
+    t.done ? '' : lockTagHTML(t),
   ].filter(Boolean).join('');
-  return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${running ? 'timer-running' : ''}"
+  return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${!t.done && isLocked(t) ? 'locked' : ''} ${running ? 'timer-running' : ''}"
       draggable="true" data-id="${t.id}"
       ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)"
       onclick="dashRowClick(event,'${t.id}')">
     <div class="board-row-main">
-      <input type="checkbox" class="chip-done" ${t.done ? 'checked' : ''}
-        onpointerdown="event.stopPropagation()"
-        onclick="event.stopPropagation(); toggleTaskDone('${t.id}', this.checked)"
-        title="Mark done" aria-label="Mark done" />
       <div class="board-row-text">
         <span class="board-row-name">${esc(t.name)}</span>
         <span class="board-row-tags">${tags}</span>
       </div>
     </div>
-    <div class="board-row-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-      ${chipControlsHTML(t)}
+    <div class="board-row-controls card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+      ${chipControlsHTML(t)}${doneBoxHTML(t)}${deferButtonHTML(t)}
     </div>
   </div>`;
 }
@@ -140,13 +139,10 @@ export function renderDayCalendar() {
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) }"
         onpointerdown="calBlockPointerDown(event)">
       <div class="cal-block-top">
-        <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
-          onpointerdown="event.stopPropagation()"
-          onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)" title="Mark done" aria-label="Mark done" />
         <div class="cal-block-name">${ esc(t.name) }</div>
-      </div>
-      <div class="cal-block-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-        ${ chipControlsHTML(t) }
+        <div class="card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+          ${ chipControlsHTML(t) }${ doneBoxHTML(t) }${ deferButtonHTML(t) }
+        </div>
       </div>
       <div class="cal-resize" data-resize="1"></div>
     </div>`;
@@ -156,7 +152,7 @@ export function renderDayCalendar() {
     const height = durationToH(b.endMin - b.startMin);
     return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="${domainStyleVar(b.domain)}top:${top}px;height:${height}px"
         title="${esc(b.name)} · ${esc(formatHHMM(b.startMin))}–${esc(formatHHMM(b.endMin))} · ${esc(seriesDetails(b))}">
-      <span>${b.rule === 'event' ? `${esc(formatHHMM(b.startMin))} ` : ''}${esc(b.name)}</span>
+      <span>${esc(b.name)}</span>
     </div>`;
   }).join('');
   root.innerHTML = `<div class="day-hours">${ hours.join('') }</div><div class="cal-blocks">${ bands }${ blocks }</div>`;
@@ -196,7 +192,10 @@ function matchesActivityFilter(t) {
 export function renderProjectBoard() {
   const board = document.getElementById('project-board');
   if (!board) return;
-  const visible = (list) => state.hideDone ? list.filter(t => !t.done) : list;
+  // Act is about this week: tasks dated after Sunday (deferred, planned ahead) stay on Plan until their week.
+  const weekEnd = formatYmd(addDaysLocal(mondayOnOrBefore(new Date()), 6));
+  const later = t => !!t.date && t.date > weekEnd;
+  const visible = (list) => list.filter(t => !later(t) && !(state.hideDone && t.done));
   const activities = ACTIVITIES.length ? ACTIVITIES : LANES;
   const domains = allDomains();
   const collapsedDoms = domains.filter(d => isCollapsed(d.id));
@@ -246,6 +245,9 @@ export function renderProjectBoard() {
         <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">None</div>'}</div>
       </section>`;
     }).join('');
+    const laterCount = state.tasks.filter(t => t.status !== 'someday' && !t.done && isTopLevelTask(t) && taskDomain(t) === dom.id && later(t)).length;
+    const laterNote = laterCount
+      ? `<div class="board-later" title="Dated after this week: they show up here in their week, and on Plan now">+ ${laterCount} later</div>` : '';
     return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
         ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
         ondrop="dropOnDomainStack(event)">
@@ -255,7 +257,7 @@ export function renderProjectBoard() {
         <span class="domain-count">${count}</span>
         <span class="domain-chevron">▾</span>
       </button>
-      ${sections}
+      ${sections}${laterNote}
     </div>`;
   }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
 
@@ -386,6 +388,6 @@ export function renderDashboard() {
     window.renderSlippedPanel(document.getElementById('slipped-panel'));
     const n = document.querySelectorAll('#slipped-panel .someday-card').length;
     const sum = document.getElementById('slipped-summary');
-    if (sum) sum.textContent = n ? `Slipped (${n})` : 'Slipped';
+    if (sum) sum.innerHTML = n ? `Slipped <span class="panel-count attention">${n}</span>` : 'Slipped';
   }
 }

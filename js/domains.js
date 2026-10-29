@@ -17,7 +17,7 @@ export const DEFAULT_DOMAIN_COLORS = {
   SwingSociety: '#D4537E',
   SwingShuffle: '#378ADD',
   Dorst: '#EF9F27',
-  Dev: '#5B8DEF',
+  Dev: '#8E5BD8', // violet: blue is Swing & Shuffle's
   Personal: '#1D9E75',
 };
 const CUSTOM_DOMAIN_PALETTE = ['#7F77DD', '#2A9D8F', '#C17A3A', '#9B59B6', '#16A085', '#E76F51', '#8D99AE', '#B5838D'];

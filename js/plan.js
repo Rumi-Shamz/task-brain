@@ -1,4 +1,4 @@
-/** 01 Plan — single-screen triage + batches + merge projects. */
+/** 01 Organize — single-screen triage + batches + merge projects. */
 import {
   state, esc, newTask, isTopLevelTask, childTasksOf,
 } from './state.js';

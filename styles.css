@@ -418,8 +418,8 @@
       display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
     }
     .year-rest-band {
-      border: 1px solid #7F77DD; border-radius: var(--radius);
-      background: rgba(127,119,221,0.12); padding: 10px 12px; text-align: center;
+      border: 1px solid #7E9A95; border-radius: var(--radius);
+      background: rgba(126,154,149,0.14); padding: 10px 12px; text-align: center;
     }
     .year-rest-band strong { display: block; font-size: 13px; margin-bottom: 2px; }
     .year-rest-band span { font-size: 12px; color: var(--txt2); }
@@ -555,6 +555,13 @@
     .year-week-protocol {
       position: absolute; inset: 0; opacity: 0.28; pointer-events: none; z-index: 0;
     }
+    /* Hours of a boundary day that belong to the other period (Monday morning in the work week, Friday morning on the weekend). */
+    .year-week-outside {
+      position: absolute; left: 0; right: 0; z-index: 2;
+      background: repeating-linear-gradient(135deg, rgba(0,0,0,0.06) 0 6px, transparent 6px 12px);
+      background-color: rgba(128,128,128,0.18);
+      pointer-events: none;
+    }
     .year-week-season {
       position: absolute; left: 0; right: 0; z-index: 1;
       background: rgba(128,128,128,0.28);
@@ -584,14 +591,15 @@
     .year-substats { font-size: 11px; color: var(--txt3); margin: -0.5rem 0 1rem; line-height: 1.4; }
     .year-month-card.large .year-cell { height: 54px; min-height: 54px; font-size: 13px; }
     .year-month-card.large h4 { font-size: 16px; }
-    .yc-fast { background: #EF9F27; }
-    .yc-restore { background: #FAC775; }
-    .yc-sprint { background: #378ADD; }
-    .yc-deepRest { background: #7F77DD; }
-    .yc-vacation { background: #1D9E75; }
+    /* Year protocol colors: muted earth tones, kept apart from the (saturated) domain colors. */
+    .yc-fast { background: #8A6F5A; color: #fff; }
+    .yc-restore { background: #D7C8B4; }
+    .yc-sprint { background: #3E4150; color: #fff; }
+    .yc-deepRest { background: #7E9A95; color: #fff; }
+    .yc-vacation { background: #9DAF3C; }
     .yc-work { background: rgba(128,128,128,0.35); color: var(--txt2); }
     .yc-free { background: transparent; color: var(--txt3); }
-    .yc-conflict { background: #E24B4A; }
+    .yc-conflict { background: repeating-linear-gradient(45deg, #2b2b2b 0 4px, #E8C547 4px 8px); color: #fff; }
     .year-import textarea {
       width: 100%; min-height: 110px; font-size: 12px; font-family: var(--mono);
       padding: 10px 12px; background: var(--card); border: 0.5px solid var(--border-md);
@@ -1695,3 +1703,126 @@
     .import-dup em { color: var(--txt3); font-style: normal; }
     .import-dup-actions { display: flex; gap: 4px; flex-wrap: wrap; color: var(--txt3); }
     .import-dup-actions .btn { padding: 2px 8px; font-size: 11px; }
+
+/* Defer: the button beside the done box and its menu (js/defer.js). */
+.chip-defer {
+  flex-shrink: 0; padding: 0 4px; line-height: 14px; font-size: 11px; cursor: pointer;
+  border: 0.5px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt2, var(--txt));
+}
+.chip-defer:hover { background: var(--txt); color: var(--card); }
+.cal-block .chip-defer, .year-task-block .chip-defer { line-height: 12px; font-size: 10px; padding: 0 3px; }
+.defer-menu {
+  position: absolute; z-index: 1000; max-width: min(440px, calc(100vw - 16px));
+  padding: 10px; border: 0.5px solid var(--border-md); border-radius: var(--radius);
+  background: var(--card); color: var(--txt); box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; gap: 6px; font-size: 12px;
+}
+.defer-title { font-weight: 600; }
+.defer-label { font-size: 11px; color: var(--txt3); }
+.defer-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.defer-row .btn { padding: 4px 8px; font-size: 12px; }
+.defer-row input[type=date] { padding: 3px 6px; border: 0.5px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt); }
+
+/* Outcomes and unlocks (js/outcome.js). */
+.board-row.locked { opacity: 0.6; }
+.tag-locked { border-style: dashed; }
+.oc-results { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+#oc-followups { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
+.oc-unlocked { margin: 4px 0 0 18px; padding: 0; text-transform: none; letter-spacing: normal; font-size: 13px; color: var(--txt); }
+
+/*
+ * Calendar cards (Act day calendar, Plan week). Tasks are neutral cards with their domain color as a
+ * strip along the bottom; recurring blocks keep the color, titled vertically on their left edge, and
+ * tasks start right of that title so both stay readable.
+ */
+#day-calendar .cal-block, #year-grid .year-task-block {
+  left: 22px; right: 4px;
+  background: var(--card); color: var(--txt);
+  border: 0.5px solid var(--border-md);
+  box-shadow: inset 0 -3px 0 var(--dc, var(--border-md));
+  padding: 4px 6px 6px;
+}
+#day-calendar .cal-block-name, #year-grid .year-task-block .yt-name { font-size: 13px; font-weight: 550; line-height: 1.25; }
+#day-calendar .cal-block.done .cal-block-name, #year-grid .year-task-block.done .yt-name { color: var(--txt3); }
+.cal-block-top, .yt-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.cal-block-name, .yt-name { flex: 1; min-width: 0; }
+.card-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.card-actions .chip-actions { flex-wrap: nowrap; }
+.card-actions .card-btn, .chip-actions .card-btn {
+  appearance: none; -webkit-appearance: none;
+  width: 22px; height: 22px; margin: 0; padding: 0; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-md); border-radius: 6px;
+  background: var(--surface); color: var(--txt2);
+  font-size: 13px; line-height: 1; cursor: pointer;
+}
+.card-actions .card-btn:hover, .chip-actions .card-btn:hover { border-color: var(--txt); color: var(--txt); background: var(--surface); }
+.card-actions input.card-btn:checked { background: var(--txt); border-color: var(--txt); }
+.card-actions input.card-btn:checked::after { content: '✓'; color: var(--card); font-size: 13px; }
+#day-calendar .cal-block .chip-timer-btn { font-size: 10px; padding: 3px 6px; }
+#day-calendar .cal-block .chip-timer-time { font-size: 10px; }
+
+#day-calendar .cal-protocol, #year-grid .year-week-series {
+  left: 2px; right: 2px; padding: 0; border-left: 0; border-radius: 4px; overflow: hidden;
+  background: color-mix(in srgb, var(--dc, #378ADD) 10%, transparent);
+}
+#day-calendar .cal-protocol.event, #year-grid .year-week-series.event {
+  background: color-mix(in srgb, var(--dc, #B47828) 18%, transparent);
+}
+#day-calendar .cal-protocol > span, #year-grid .year-week-series > span {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 18px;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  padding: 4px 0; box-sizing: border-box; text-align: center;
+  font-size: 10px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: color-mix(in srgb, var(--dc, #378ADD) 30%, transparent); color: var(--txt2);
+}
+
+/* Defer menu: two pills, then a "move by" dropdown. */
+.defer-menu { max-width: 320px; }
+.defer-pill {
+  display: inline-flex; align-items: center; gap: 6px; position: relative;
+  padding: 6px 14px; border-radius: 999px; font-size: 13px; cursor: pointer;
+  border: 1px solid var(--border-md); background: var(--surface); color: var(--txt);
+}
+.defer-pill:hover { border-color: var(--txt); }
+/* The date input covers the pill, so a click anywhere on it opens the picker. */
+.defer-date input[type=date] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.defer-select {
+  width: 100%; padding: 6px 8px; font-size: 13px;
+  border: 1px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt);
+}
+/* Names wrap to two lines on cards tall enough; the timer shows only while it runs. */
+#day-calendar .cal-block-name, #year-grid .year-task-block .yt-name {
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.cal-block-top, .yt-head { align-items: flex-start; }
+
+/* Timer: ▶ / ■ in the same square as done and defer; red-ish only while running. */
+.chip-actions .chip-timer-btn.card-btn { font-family: inherit; font-size: 11px; }
+.chip-actions .chip-timer-btn.card-btn.active { background: var(--txt); border-color: var(--txt); color: var(--card); }
+.chip-actions .chip-timer-btn.card-btn:disabled { opacity: 0.4; cursor: default; }
+#day-calendar .cal-block .chip-timer-time, .board-row .chip-timer-time { font-size: 11px; min-width: 0; }
+/* Block titles take their own block's color (darker), not one blue for all. */
+#day-calendar .cal-protocol, #year-grid .year-week-series { --bc: var(--dc, #378ADD); }
+#day-calendar .cal-protocol.event, #year-grid .year-week-series.event { --bc: var(--dc, #B47828); }
+#day-calendar .cal-protocol, #year-grid .year-week-series { background: color-mix(in srgb, var(--bc) 10%, transparent); }
+#day-calendar .cal-protocol.event, #year-grid .year-week-series.event { background: color-mix(in srgb, var(--bc) 18%, transparent); }
+#day-calendar .cal-protocol > span, #year-grid .year-week-series > span {
+  background: color-mix(in srgb, var(--bc) 32%, transparent);
+  color: color-mix(in srgb, var(--bc) 55%, var(--txt));
+}
+
+/* Panel counts: Slipped and Backlog show how much waits, in color when it needs a decision. */
+.panel-count {
+  display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px;
+  font-size: 11px; line-height: 18px; background: var(--surface); color: var(--txt2); border: 0.5px solid var(--border-md);
+  letter-spacing: 0; text-transform: none;
+}
+.panel-count.attention { background: #E8C547; border-color: #E8C547; color: #2b2b2b; font-weight: 600; }
+.board-later { font-size: 11px; color: var(--txt3); padding: 6px 10px 8px; }
+.backlog-group { margin-top: 10px; }
+.backlog-domain { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+.backlog-domain .project-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dc, var(--txt3)); }
+.backlog-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 0.5px solid var(--border); }
+.backlog-name { flex: 1; min-width: 0; font-size: 13px; }
+.backlog-row .btn { padding: 3px 8px; font-size: 12px; }

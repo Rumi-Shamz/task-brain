@@ -19,6 +19,8 @@ export const state = {
   yearCalendarView: 'year',
   yearWeekMonday: 0,
   yearFocusMonday: null,
+  /** Plan → Week: a day of the work or rest period on screen (js/year-period.js). */
+  yearFocusDate: null,
   activityRules: [],
   blockSkips: [],
   ruleOffer: null,
@@ -443,8 +445,18 @@ export function normalizeTask(t) {
     draining: !!t.draining,
     done: status === 'done' || done,
     status,
+    // v12 → v13: when the task was finished, and when done was last switched either way (absent = unknown).
+    doneAt: t.doneAt ? String(t.doneAt) : null,
+    doneChangedAt: t.doneChangedAt ? String(t.doneChangedAt) : null,
     reviewAt: t.reviewAt || null,
     missed: Array.isArray(t.missed) ? [...new Set(t.missed.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
+    // v13 → v14: days the task was deferred away from (js/defer.js; absent = never).
+    deferred: Array.isArray(t.deferred) ? [...new Set(t.deferred.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
+    // v14 → v15: tasks it waits on, and what came out of it (js/outcome.js; absent = none).
+    blockedBy: Array.isArray(t.blockedBy) ? [...new Set(t.blockedBy.map(String).filter(id => id && id !== String(t.id)))] : [],
+    outcome: t.outcome && typeof t.outcome === 'object'
+      ? { result: ['planned', 'partial', 'failed'].includes(t.outcome.result) ? t.outcome.result : null, note: String(t.outcome.note || '') }
+      : null,
     priority: t.priority != null ? Number(t.priority) : null,
     timepressure: t.timepressure || null,
     trackedMs: Math.max(0, Number(t.trackedMs) || 0),
@@ -514,13 +526,25 @@ export function setHideDone(v) {
   if (toggle) toggle.checked = state.hideDone;
   deps.renderDashboard();
 }
+/**
+ * Switch done on or off and record when. The merge resolves done by `doneChangedAt`, not by the
+ * record's `updatedAt`, so a stale device rolling the task forward cannot undo a check-off.
+ */
+export function setTaskDone(t, checked, now = new Date().toISOString()) {
+  const done = !!checked;
+  if (!!t.done === done) return false;
+  t.done = done;
+  if (done) t.status = 'done';
+  else if (t.status === 'done') t.status = 'todo';
+  t.doneAt = done ? now : null;
+  t.doneChangedAt = now;
+  return true;
+}
 export function toggleTaskDone(id, checked) {
   const t = state.tasks.find(x => x.id === id);
   if (!t) return;
   const becameDone = !!checked && !t.done;
-  t.done = !!checked;
-  if (t.done) t.status = 'done';
-  else if (t.status === 'done') t.status = 'todo';
+  setTaskDone(t, checked);
   if (t.done && t.timerStartedAt) { t.trackedMs = taskElapsedMs(t);
     t.timerStartedAt = null; }
   if (becameDone && typeof window.onTaskDoneMaybeLearn === 'function') {
@@ -535,6 +559,7 @@ export function toggleTaskDone(id, checked) {
   if (document.getElementById('phase-year')?.classList.contains('active')) {
     deps.renderYear();
   }
+  if (becameDone && typeof window.onTaskDoneMaybeOutcome === 'function') window.onTaskDoneMaybeOutcome(t);
 }
 export function startTaskTimer(id) {
   const t = state.tasks.find(x => x.id === id);
@@ -562,17 +587,15 @@ export function stopTaskTimer(id) {
   ensureTimerTick();
   deps.renderDashboard();
 }
+/** Tracked time and one timer button: ▶ starts, ■ stops (the time is kept, so stop = pause). */
 export function chipControlsHTML(t) {
   const running = !!t.timerStartedAt;
-  const elapsed = formatTracked(taskElapsedMs(t));
+  const ms = taskElapsedMs(t);
   return `<div class="chip-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-    ${ running ? '<span class="chip-timer-dot" title="Timer running"></span>' : '' }
-    <span class="chip-timer-time ${ running ? 'running' : '' }" data-timer-display="${ t.id }">${ elapsed }</span>
-    ${running
-      ? `<button type="button" class="chip-timer-btn active" onclick="pauseTaskTimer('${ t.id }')">Pause</button>
-         <button type="button" class="chip-timer-btn" onclick="stopTaskTimer('${ t.id }')">Stop</button>`
-      : `<button type="button" class="chip-timer-btn" onclick="startTaskTimer('${ t.id }')" ${ t.done ? 'disabled' : '' }>Start</button>`
-    }
+    <span class="chip-timer-time ${ running ? 'running' : '' } ${ ms ? '' : 'zero' }" data-timer-display="${ t.id }">${ formatTracked(ms) }</span>
+    ${ running
+      ? `<button type="button" class="chip-timer-btn card-btn active" onclick="stopTaskTimer('${ t.id }')" title="Stop the timer (time is kept)" aria-label="Stop timer">■</button>`
+      : `<button type="button" class="chip-timer-btn card-btn" onclick="startTaskTimer('${ t.id }')" ${ t.done ? 'disabled' : '' } title="Start the timer" aria-label="Start timer">▶</button>` }
   </div>`;
 }
 export function parseHHMM(str) {

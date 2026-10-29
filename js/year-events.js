@@ -1,4 +1,7 @@
-/** Year → Recurring: appointments and task containers by domain, domain colors, .ics import/export. */
+/**
+ * Plan → Recurring: external events (set by others or imported from another calendar; fixed time, no
+ * tasks inside) and task containers by domain, domain colors, .ics import/export. Data: rule 'event' | 'leverage' | 'any'.
+ */
 import { state, esc, uid, formatHHMM, parseHHMM, todayYmd, WEEKDAY_SHORT } from './state.js';
 import { deps } from './deps.js';
 import { dayBlocks, activityRules } from './blocks.js';
@@ -10,7 +13,7 @@ import { parseIcs, eventsToSeries, seriesToIcs } from './ics.js';
 let openId = null;
 let icsMessage = '';
 
-const KIND_LABEL = { event: 'Appointment', leverage: 'Deep-work container (L tasks)', any: 'Container (any task)' };
+const KIND_LABEL = { event: 'External event', leverage: 'Deep-work container (L tasks)', any: 'Container (any task)' };
 const FREQ_LABEL = { once: 'Once', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
 
 function rerender() {
@@ -97,12 +100,12 @@ export function renderRecurringEditor() {
   el.innerHTML = `
     <div class="section-label">Domain colors</div>
     <div class="domain-colors">${colors}</div>
-    <div class="section-label">Appointments · fixed time, nothing scheduled inside</div>
+    <div class="section-label">External events · set by others or imported (.ics) · fixed time, no tasks inside</div>
     ${events.map(seriesRowHTML).join('') || '<p class="bulk-hint">None yet.</p>'}
     <div class="section-label">Containers · time blocks that tasks are placed into</div>
     ${containers.map(seriesRowHTML).join('') || '<p class="bulk-hint">None yet.</p>'}
     <div class="series-toolbar">
-      <button type="button" class="btn primary" onclick="addSeries('event')">Add appointment</button>
+      <button type="button" class="btn primary" onclick="addSeries('event')">Add external event</button>
       <button type="button" class="btn" onclick="addSeries('any')">Add container</button>
       <label class="btn">Import .ics<input type="file" accept=".ics,text/calendar" hidden onchange="importIcsFile(this)" /></label>
       <select id="ics-domain" title="Domain for imported events">
@@ -122,7 +125,7 @@ export function addSeries(kind) {
   const wd = (new Date().getDay() + 6) % 7;
   const b = {
     id: uid(),
-    name: rule === 'event' ? 'Appointment' : 'Container',
+    name: rule === 'event' ? 'External event' : 'Container',
     weekdays: rule === 'event' ? [wd] : [0, 1, 2, 3, 4],
     startMin: rule === 'event' ? 18 * 60 : 15 * 60,
     endMin: rule === 'event' ? 19 * 60 : 16 * 60,

@@ -8,14 +8,14 @@ Your data lives in a **private GitHub repo you create**. The app reads and write
 
 ## What it does
 
-- **01 Plan** — add tasks (one or bulk), triage (size, L/N/O, blocking, who is affected, subtasks), mark draining work and add recovery buffers, assign domain / project / activity (`research` | `communicate` | `act` | `learn`), schedule a slot or a batch, merge duplicate projects.
+- **01 Organize** — add tasks (one or bulk), triage (size, L/N/O, blocking, who is affected, subtasks), mark draining work and add recovery buffers, assign domain / project / activity (`research` | `communicate` | `act` | `learn`), schedule a slot or a batch, merge duplicate projects.
 - **Import** — weekly plan from `.json`, `.csv`, or `.xlsx`. Bad rows are reported. Schema: `schema/plan.schema.json`.
-- **02 Today** — day calendar (click to edit, drag to move, resize the bottom edge), domain board, inbox, someday review (delegate, convert, delete, or defer). A **next up** strip shows what is on now and the next three items with time left, refreshed every minute while open (no push notifications). **Delegated** lists tasks handed to a person or to the assistant; **Slipped** lists tasks whose day passed.
+- **02 Act** — day calendar (click to edit, drag to move, resize the bottom edge, **⇥** beside the done box to defer a task to a day next week, +1 week / month / 3 months, a date, or the backlog; the weekly review lists deferred tasks apart from slipped ones), domain board, inbox, **Backlog** (every parked task by domain, with Schedule; items due for review first: delegate, next action, delete, or push the review). A **next up** strip shows what is on now and the next three items with time left, refreshed every minute while open (no push notifications). **Delegated** lists tasks handed to a person or to the assistant; **Slipped** lists tasks whose day passed. **Waits on** (in the edit sheet) locks a task until another is done: 🔒 on the board, left out of next up. Checking off a bigger task (size Mid/Complex, in a project, or something waits on it) asks for the outcome (result + note) and follow-ups, which wait on it; small tasks stay one click. The weekly review shows outcomes and what each task unlocked.
 - **Who does it** — each task is for me, someone else (with a name), or the assistant. For the assistant, the note is the brief: pick **Claude** or **Local** (Ollama) and whether it may see your open plan. Results show in **Delegated**: accept (done, result kept in the note), run again with feedback, or take back.
-- **Errands** (on 02 Today) — briefs the assistant runs on a schedule (weekly on chosen days, or monthly, at a time), each with its own results: mark seen, make a task from one, run now, pause.
-- **03 Upskill** — skill backlog by utility × time-to-learn. `schedule` skills seed a weekly Learn block and reviews at +1, +7, and +30 days. Shows the share of scheduled minutes on L this week.
-- **04 Year** — year / month / week, seasons, protocol blocks (sprint, vacation, fast, restore, deep rest), hour stats.
-- **Recurring** (04 Year) — appointments (fixed time) and containers (time blocks tasks go into), each with a domain and project. Repeats weekly (every N weeks, chosen days), monthly (day N, or the 2nd / last weekday), yearly, or once, with start and end dates, optionally only on work days. Domain colors are editable and tint the calendars and board. **Import .ics** (e.g. a Google Calendar export; re-importing updates instead of duplicating) and **Export .ics**.
+- **Errands** (on 02 Act) — briefs the assistant runs on a schedule (weekly on chosen days, or monthly, at a time), each with its own results: mark seen, make a task from one, run now, pause.
+- **03 Develop** — skill backlog by utility × time-to-learn. `schedule` skills seed a weekly Learn block and reviews at +1, +7, and +30 days. Shows the share of scheduled minutes on L this week.
+- **04 Plan** — year / month / week, seasons, protocol blocks (sprint, vacation, fast, restore, deep rest), hour stats. Week shows one period at a time: the work week (Mon–Fri long season, Mon–Thu short) or the rest between (Fri noon–Mon noon, or Thu noon–Mon noon). Click a day in Year or Month to open its period; Prev/Next alternate work and rest.
+- **Recurring** (04 Plan) — external events (set by others or imported from another calendar: fixed time, no tasks inside) and containers (your own time blocks that tasks go into), each with a domain and project. Repeats weekly (every N weeks, chosen days), monthly (day N, or the 2nd / last weekday), yearly, or once, with start and end dates, optionally only on work days. Domain colors are editable and tint the calendars and board. **Import .ics** (e.g. a Google Calendar export; re-importing updates instead of duplicating) and **Export .ics**.
 - **Sync** — on open, the app pulls `data.json` from the private repo before it can push, so one device cannot overwrite the other with stale data.
 
 ## Planned after this beta
@@ -76,8 +76,8 @@ Staging and production each get their own runner, so assistant work tried on sta
 Replace `2026-W42` below with the ISO week you are planning (an example, not the current week).
 
 1. Before the session: `node scripts/extract_week.mjs --prebrief-only --data data.json --week 2026-W42` writes `prebrief-2026-W42.md` (last week's done vs. planned, slipped tasks, hours by domain, % L, someday items due).
-2. After the session: `node scripts/extract_week.mjs transcript.txt --data data.json --week 2026-W42` writes a validated `week-2026-W42.json`. Import it on **01 Plan**.
-3. **Import accuracy** on 01 Plan counts tasks corrected or deleted by hand after each import. v2 is done at 0 for three weeks in a row.
+2. After the session: `node scripts/extract_week.mjs transcript.txt --data data.json --week 2026-W42` writes a validated `week-2026-W42.json`. Import it on **01 Organize**.
+3. **Import accuracy** on 01 Organize counts tasks corrected or deleted by hand after each import. v2 is done at 0 for three weeks in a row.
 
 The **Extract week plan** GitHub Action does the same in the cloud, but only for the repository's owner: it is wired to `Rumi-Shamz/task-brain-data` (read `transcripts/week-<week>.txt` and `data.json`, commit results to `weeks/`) and needs the `DATA_REPO_TOKEN` and `ANTHROPIC_API_KEY` secrets on this repo. It does not work against a different data repository; anyone else should run the script locally as above.
 
@@ -89,7 +89,7 @@ The live app (GitHub Pages) only changes when a PR merges to `main`. To try chan
 
 - **On any device:** open the staging preview, https://task-brain-git-staging-rumi-shamzs-projects.vercel.app (the `staging` branch, kept at the newest unmerged work). Vercel previews ask for a Vercel login once per browser.
 - **Your data in a preview:** the app picks its data repo from the address. The published site (`shijin.anastasov.eu`) syncs the real `task-brain-data`; staging, Vercel previews and localhost sync `task-brain-data-staging`, and refuse the real repo even if you type it. Test imports and new data versions there; nothing reaches the real data. Your token needs access to both repos.
-- **Weekly extraction:** it runs on your computer, not in the app. `LLM_PROVIDER=ollama node scripts/extract_week.mjs transcript.txt --week 2026-W42 --out out/` (or with `ANTHROPIC_API_KEY`) writes `out/week-2026-W42.json`; import it on **01 Plan** and check the import report and **Import accuracy**. `--prebrief-only --data data.json` writes the prebrief without a model. The GitHub Action can only be started once its workflow is on `main`.
+- **Weekly extraction:** it runs on your computer, not in the app. `LLM_PROVIDER=ollama node scripts/extract_week.mjs transcript.txt --week 2026-W42 --out out/` (or with `ANTHROPIC_API_KEY`) writes `out/week-2026-W42.json`; import it on **01 Organize** and check the import report and **Import accuracy**. `--prebrief-only --data data.json` writes the prebrief without a model. The GitHub Action can only be started once its workflow is on `main`.
 
 ## Development
 

@@ -6,3 +6,4 @@
 /data.json
 # Supabase CLI local state (project ref, pooler URL)
 supabase/.temp/
+.playwright-mcp/
