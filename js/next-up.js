@@ -1,6 +1,7 @@
 /** Today: in-app reminders (what is on now, what is next) and the Delegated list. */
-import { state, esc, todayYmd, parseHHMM, formatHHMM, DEFAULT_DURATION } from './state.js';
-import { blocksOnDate, allDayOnDate, slippedTasks } from './blocks.js';
+import { state, esc, todayYmd, parseHHMM, formatHHMM, formatYmd, parseYmd, defaultWorkSchedule, DEFAULT_DURATION } from './state.js';
+import { periodForDate } from './year-period.js';
+import { blocksOnDate, allDayOnDate } from './blocks.js';
 import { domainStyleVar } from './domains.js';
 import { deps } from './deps.js';
 import { agentTaskRowHTML, agentReadyCount, runnerStatusHTML } from './agent-ui.js';
@@ -33,6 +34,26 @@ export function dayAgenda(ymd, nowMin) {
   };
 }
 
+const WEEKDAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function clockText(min) {
+  return min === 12 * 60 ? 'noon' : min === 0 ? 'midnight' : formatHHMM(min);
+}
+
+/** "Work week, day 4 of 5" and when the other half starts, from the season's work window. */
+export function periodLine(now = new Date(), schedule = (state.yearRhythm && state.yearRhythm.workSchedule) || defaultWorkSchedule()) {
+  const ymd = formatYmd(now);
+  const p = periodForDate(ymd, schedule);
+  const day = p.dates.indexOf(ymd) + 1;
+  const end = parseYmd(p.end);
+  const switchText = `${p.kind === 'work' ? 'Rest' : 'Work'} starts ${WEEKDAY_LONG[end.getDay()]} at ${clockText(p.closeMin)}`;
+  return { kind: p.kind, title: `${p.kind === 'work' ? 'Work week' : 'Rest'}, day ${day} of ${p.dates.length}`, switchText };
+}
+
+/**
+ * The strip at the top of Act: what is on now (bold, highlighted), the next items, and where you are
+ * in the work / rest rhythm. Only on today's view.
+ */
 export function renderNextUp() {
   const el = document.getElementById('dash-next-up');
   if (!el) return;
@@ -41,18 +62,19 @@ export function renderNextUp() {
   const d = new Date();
   const nowMin = d.getHours() * 60 + d.getMinutes();
   const a = dayAgenda(ymd, nowMin);
-  const slipped = slippedTasks().length;
-  const chip = (i, label) => `<span class="next-chip ${i.kind}" style="${domainStyleVar(i.domain)}">${label}</span>`;
-  const parts = [];
-  a.now.forEach(i => parts.push(chip(i, `Now · ${esc(i.name)} until ${formatHHMM(i.end)}`)));
-  a.next.forEach(i => parts.push(chip(i, `${formatHHMM(i.start)} ${esc(i.name)} · ${inHowLong(i.start - nowMin)}`)));
-  allDayOnDate(ymd).forEach(b => parts.push(chip({ kind: 'event', domain: b.domain }, esc(b.name))));
-  const counts = [
-    a.openToday ? `${a.openToday} open today` : 'nothing open today',
-    slipped ? `${slipped} slipped` : '',
-  ].filter(Boolean).join(' · ');
+  // A task on now wins over the block it sits in.
+  const now = a.now.find(i => i.kind === 'task') || a.now[0];
+  const nowHTML = now
+    ? `<span class="now-pill" style="${domainStyleVar(now.domain)}"><span class="now-dot" aria-hidden="true"></span><span class="now-label">Now</span>
+        <strong class="now-name">${esc(now.name)}</strong><span class="now-until">until ${formatHHMM(now.end)}</span></span>`
+    : `<span class="now-pill idle"><span class="now-label">Now</span><strong class="now-name">Nothing scheduled</strong></span>`;
+  const nexts = a.next.map(i => `<span class="next-chip ${i.kind}" style="${domainStyleVar(i.domain)}">
+      <span class="next-time">${formatHHMM(i.start)}</span> ${esc(i.name)} <span class="next-in">${inHowLong(i.start - nowMin)}</span></span>`).join('');
+  const allDay = allDayOnDate(ymd).map(b => `<span class="next-chip event" style="${domainStyleVar(b.domain)}">${esc(b.name)}</span>`).join('');
+  const period = state.yearRhythm ? periodLine(d) : null;
   el.hidden = false;
-  el.innerHTML = `${parts.join('') || '<span class="next-chip">Nothing else scheduled today</span>'}<span class="next-counts">${counts}</span>`;
+  el.innerHTML = `${nowHTML}<span class="next-list">${nexts}${allDay}</span>
+    ${period ? `<span class="period-line period-${period.kind}"><strong>${esc(period.title)}</strong> <span>${esc(period.switchText)}</span></span>` : ''}`;
 }
 
 let tick = null;

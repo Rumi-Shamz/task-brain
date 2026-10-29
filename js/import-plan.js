@@ -227,7 +227,7 @@ export function validateAndBuildItems(items, opts = {}) {
     let reviewAt = item.reviewAt || null;
     if (status === 'someday' && !reviewAt) {
       reviewAt = formatYmd(addDaysLocal(mon, 7));
-      reports.push({ row, level: 'info', message: `someday review set to ${reviewAt} ("${name}")` });
+      reports.push({ row, level: 'info', message: `backlog review set to ${reviewAt} ("${name}")` });
     }
 
     // Size column wins; without one, size follows priority.
@@ -245,7 +245,7 @@ export function validateAndBuildItems(items, opts = {}) {
     if (activityRaw && activity !== activityRaw) warnings.push(`activity "${item.activity}" is not research|communicate|act|learn → act`);
     const lnoRaw = String(item.lno || '').trim().toLowerCase();
     const lno = LNO_WORDS[lnoRaw] || null;
-    if (lnoRaw && !lno) warnings.push(`LNO "${item.lno}" is not L|N|O → unset`);
+    if (lnoRaw && !lno) warnings.push(`importance "${item.lno}" is not L, N or O (Leverage, Neutral, Optional), left empty`);
     const who = item.who != null && item.who !== ''
       ? parseWho(item.who)
       : { assignee: item.assignee, delegateTo: String(item.delegateTo || '').trim() };

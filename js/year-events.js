@@ -116,7 +116,7 @@ export function renderRecurringEditor() {
     </div>
     ${icsMessage ? `<p class="bulk-hint">${esc(icsMessage)}</p>` : ''}
     <div class="section-label">Activity rules</div>
-    <ul class="plan-batch-list">${rules || '<li>No rules yet. Correct an activity on Plan to save one.</li>'}</ul>`;
+    <ul class="plan-batch-list">${rules || '<li>No rules yet. Change the activity of a task in Organize to save one.</li>'}</ul>`;
 }
 
 export function addSeries(kind) {

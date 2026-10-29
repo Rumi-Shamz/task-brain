@@ -208,7 +208,7 @@ export function weekTaskTrayHTML(weekDates) {
         ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
         <span class="board-chip-name">${ esc(t.name) }</span>
       </div>`).join('')
-    : '<span class="dash-inbox-empty">All tasks are on the calendar — drag from Dashboard inbox/lanes too.</span>';
+    : '<span class="dash-inbox-empty">Every task is on the calendar. You can also drag tasks here from Act.</span>';
   return `<div class="section-label" style="margin-bottom:6px;">Tasks — drag onto a day column to schedule</div>
     <div class="year-task-tray" id="year-task-tray">${ chips }</div>`;
 }

@@ -1,18 +1,43 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Atkinson Hyperlegible (SIL Open Font License, fonts/OFL.txt), served from this repo: no outside requests. */
+    @font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 400; font-display: swap;
+      src: url(fonts/ah-400-latin.woff2) format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    @font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 400; font-display: swap;
+      src: url(fonts/ah-400-latin-ext.woff2) format('woff2');
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+    @font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 700; font-display: swap;
+      src: url(fonts/ah-700-latin.woff2) format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    @font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 700; font-display: swap;
+      src: url(fonts/ah-700-latin-ext.woff2) format('woff2');
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+    /*
+     * Tokens. Ink on a cool fog grey, white cards. Color is for meaning only: domain colors as dots and
+     * strips, the rhythm (work / rest), and one signal yellow for "now" and "needs you".
+     */
     :root {
-      --bg: #0e0e0e;
-      --surface: #161616;
-      --card: #1c1c1c;
+      --bg: #16181B;
+      --surface: #1E2125;
+      --card: #24272C;
       --border: rgba(255,255,255,0.08);
-      --border-md: rgba(255,255,255,0.15);
-      --txt: #f0f0ee;
-      --txt2: #a0a09a;
-      --txt3: #5a5a56;
+      --border-md: rgba(255,255,255,0.16);
+      --txt: #EDEFEE;
+      --txt2: #A9AFB5;
+      --txt3: #80868D;
+      --signal: #E8C547;
+      --signal-ink: #23262B;
+      --decided: rgba(29,158,117,0.16);
+      --decided-line: rgba(29,158,117,0.55);
+      --work: #3E4150;
+      --rest: #7E9A95;
       --radius: 8px;
       --radius-lg: 12px;
-      --mono: 'Courier New', monospace;
-      --sans: system-ui, -apple-system, sans-serif;
+      --sans: 'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif;
+      /* No monospace: Atkinson's figures are clear enough for times and timers. */
+      --mono: var(--sans);
       --accent: #E24B4A;
       --accent-dim: rgba(226,75,74,0.12);
       --p-swing: #378ADD;
@@ -21,18 +46,21 @@
       --p-personal: #1D9E75;
       --hour-h: 36px;
       --view-hours: 16; /* 06:00–22:00 viewport */
+      --tabbar-h: 0px;
     }
 
     @media (prefers-color-scheme: light) {
       :root {
-        --bg: #f5f4f0;
-        --surface: #ebebea;
+        --bg: #EEF0EE;
+        --surface: #E3E6E3;
         --card: #ffffff;
-        --border: rgba(0,0,0,0.08);
-        --border-md: rgba(0,0,0,0.15);
-        --txt: #111110;
-        --txt2: #5a5a56;
-        --txt3: #a0a09a;
+        --border: rgba(35,38,43,0.09);
+        --border-md: rgba(35,38,43,0.18);
+        --txt: #23262B;
+        --txt2: #5D636B;
+        --txt3: #767C83;
+        --decided: #E3F1E7;
+        --decided-line: #9CCBAE;
       }
     }
 
@@ -60,8 +88,8 @@
     .app-logo {
       font-size: 13px;
       font-weight: 500;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
+      
+ 
       color: var(--txt3);
     }
     .app-logo {
@@ -85,8 +113,8 @@
       color: var(--txt3);
       cursor: pointer;
       transition: all 0.15s;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      
+ 
     }
     .phase-tab.active { background: var(--txt); color: var(--bg); border-color: var(--txt); }
 
@@ -118,7 +146,7 @@
       cursor: pointer;
       white-space: nowrap;
       transition: all 0.12s;
-      letter-spacing: 0.04em;
+      
       font-family: var(--sans);
     }
     .btn:hover { background: var(--surface); }
@@ -170,7 +198,7 @@
 
     .triage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
     .triage-field { display: flex; flex-direction: column; gap: 5px; }
-    .triage-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt3); font-weight: 500; }
+    .triage-label { font-size: 10px;  color: var(--txt3); font-weight: 500; }
     .triage-field input {
       font-size: 13px;
       padding: 5px 8px;
@@ -229,7 +257,7 @@
       border-radius: var(--radius-lg);
     }
 
-    .section-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--txt3); font-weight: 500; margin-bottom: 10px; }
+    .section-label { font-size: 10px;  color: var(--txt3); font-weight: 500; margin-bottom: 10px; }
 
     .organized-list { display: flex; flex-direction: column; gap: 6px; }
 
@@ -275,7 +303,7 @@
       padding: 14px 16px;
       margin-bottom: 1.5rem;
     }
-    .plan-summary h3 { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt3); margin-bottom: 10px; }
+    .plan-summary h3 { font-size: 10px;  color: var(--txt3); margin-bottom: 10px; }
     .plan-stats { display: flex; gap: 2rem; }
     .plan-stat { font-size: 24px; font-weight: 500; }
     .plan-stat-label { font-size: 11px; color: var(--txt3); }
@@ -370,7 +398,7 @@
       margin-bottom: 1.25rem;
     }
     .year-controls label {
-      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--txt3);
+      font-size: 11px;  color: var(--txt3);
       display: flex; flex-direction: column; gap: 4px;
     }
     .year-controls input[type="date"] {
@@ -386,7 +414,7 @@
     .year-callout p { font-size: 13px; color: var(--txt2); line-height: 1.45; }
     .year-stats { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
     .year-stat { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
-    .year-stat-label { font-size: 11px; color: var(--txt3); text-transform: uppercase; letter-spacing: 0.06em; }
+    .year-stat-label { font-size: 11px; color: var(--txt3);  }
     .year-legend {
       display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px;
       font-size: 11px; color: var(--txt2);
@@ -514,8 +542,8 @@
     .year-config > summary {
       cursor: pointer;
       font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      
+ 
       color: var(--txt3);
       padding: 10px 0;
       list-style: none;
@@ -623,8 +651,8 @@
     .dash-extras > summary {
       cursor: pointer;
       font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      
+ 
       color: var(--txt3);
       padding: 8px 0;
       list-style: none;
@@ -741,7 +769,7 @@
     .plan-choices.compact .btn { padding: 4px 10px; font-size: 12px; }
     .plan-field {
       display: flex; flex-direction: column; gap: 4px;
-      font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+      font-size: 10px; 
       color: var(--txt3); margin-bottom: 0;
       min-width: 0;
     }
@@ -803,7 +831,7 @@
       margin-top: 2px;
     }
     .plan-subtasks-label {
-      font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em;
+      font-size: 10px; 
       color: var(--txt3);
     }
     .plan-subtasks .subtask-list { margin-top: 0; }
@@ -854,7 +882,7 @@
       border-radius: var(--radius); background: var(--bg); color: var(--txt); font-family: var(--sans);
     }
     .skills-quad { margin-top: 8px; }
-    .skills-quad h4 { font-size: 12px; color: var(--txt3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .skills-quad h4 { font-size: 12px; color: var(--txt3); margin-bottom: 4px;  }
     .skills-quad ul { margin: 0; padding-left: 1.1rem; font-size: 13px; color: var(--txt2); }
     .someday-panel {
       margin-bottom: 0; padding: 10px 12px;
@@ -899,7 +927,7 @@
 
     .sync-status {
       font-size: 11px; color: var(--txt3); margin-left: auto;
-      letter-spacing: 0.04em;
+      
     }
     .sync-panel {
       background: var(--card); border: 0.5px solid var(--border-md);
@@ -912,7 +940,7 @@
       gap: 10px; margin-bottom: 10px;
     }
     .sync-grid label {
-      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--txt3);
+      font-size: 11px;  color: var(--txt3);
       display: flex; flex-direction: column; gap: 4px;
     }
     .sync-grid input {
@@ -967,8 +995,8 @@
     }
     .day-panel-header h2 {
       font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      
+ 
       color: var(--txt3);
       font-weight: 500;
     }
@@ -1207,7 +1235,7 @@
       border-bottom: 0.5px solid var(--border);
       font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.04em;
+      
       display: flex;
       align-items: center;
       gap: 6px;
@@ -1246,8 +1274,8 @@
     .lane-block.drag-over, .lane-block.pointer-over { background: rgba(55,138,221,0.08); }
     .lane-label {
       font-size: 9px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
+      
+ 
       color: var(--txt3);
       font-weight: 500;
       flex-shrink: 0;
@@ -1510,8 +1538,8 @@
     .domain-activity { margin-top: 8px; }
     .domain-activity-label {
       font-size: 10px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      
+ 
       color: var(--txt3);
       margin: 0 0 4px;
     }
@@ -1613,7 +1641,7 @@
         background: var(--card); color: var(--txt);
         font: inherit; cursor: pointer;
       }
-      .year-day-pill .ydp-wd { font-size: 10px; color: var(--txt3); text-transform: uppercase; }
+      .year-day-pill .ydp-wd { font-size: 10px; color: var(--txt3); }
       .year-day-pill .ydp-dd { font-size: 16px; font-weight: 600; }
       .year-day-pill.active {
         outline: 2px solid var(--txt); background: var(--surface);
@@ -1826,3 +1854,261 @@
 .backlog-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 0.5px solid var(--border); }
 .backlog-name { flex: 1; min-width: 0; font-size: 13px; }
 .backlog-row .btn { padding: 3px 8px; font-size: 12px; }
+
+/* =====================================================================================
+ * Redesign (2026-10-29): one type family, sentence case, color only for meaning, the same page
+ * width on every tab, a bold "Now" strip, one "Needs you" list, and an app-like phone layout with
+ * the tabs at the bottom.
+ * ===================================================================================== */
+
+html { -webkit-text-size-adjust: 100%; }
+/* No sideways pull: nothing may push the page wider than the screen. */
+html, body { overflow-x: clip; overscroll-behavior: none; }
+body {
+  font-size: 14px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums;
+}
+html body, html body.plan-active, html body.year-active, html body.dashboard-active {
+  max-width: 1440px !important; width: 100%; margin: 0 auto !important;
+}
+html body { padding: 0.9rem 1.25rem 0.75rem; }
+button, input, select, textarea { font-family: var(--sans); }
+:focus-visible { outline: 2px solid var(--txt); outline-offset: 2px; }
+
+/* Labels: sentence case, readable size, quiet color. */
+.section-label, .plan-field, .triage-label, .domain-activity-label, .dash-extras > summary,
+.year-config > summary, .plan-summary h3, .year-stat-label {
+  font-size: 12px; color: var(--txt2); font-weight: 400;
+}
+.section-label, .dash-extras > summary, .year-config > summary { font-weight: 700; }
+.btn { letter-spacing: 0; font-size: 13px; }
+.btn.primary { background: var(--txt); color: var(--bg); }
+
+/* Header: the name opens sync settings; the tabs carry no numbers. */
+.header { align-items: center; gap: 1rem; margin-bottom: 1rem; padding-bottom: 0.75rem; }
+.header h1, .app-logo { font-size: 15px; font-weight: 700; color: var(--txt); }
+.phase-tabs { gap: 4px; }
+.phase-tab {
+  font-size: 14px; padding: 6px 14px; border-radius: 999px; color: var(--txt2);
+  border: 1px solid transparent; display: inline-flex; align-items: center; gap: 6px;
+}
+.phase-tab:hover { color: var(--txt); background: var(--surface); }
+.phase-tab.active { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+.tab-icon { display: none; }
+
+/* Sync status lives in a footer at the end of the page. */
+.app-footer { padding: 14px 0 6px; text-align: center; flex-shrink: 0; }
+.app-footer .sync-status { margin: 0; font-size: 12px; color: var(--txt3); }
+body.dashboard-active .app-footer { padding: 6px 0 0; }
+
+/* Organize: week + file actions on one line, then the task input with its Add button. */
+.organize-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 10px; }
+.week-of { white-space: nowrap; font-size: 13px; color: var(--txt2); gap: 8px; }
+.week-of input { padding: 6px 8px; border: 1px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt); }
+.organize-actions { display: flex; gap: 6px; margin-left: auto; }
+.file-btn { cursor: pointer; display: inline-flex; align-items: center; }
+.input-row.add-row { flex-wrap: nowrap; }
+.input-row.add-row input { flex: 1 1 auto; min-width: 0; font-size: 15px; }
+
+/* Organize card: what is decided (green), what is left. */
+.plan-decided { font-size: 13px; color: var(--txt2); margin: -2px 0 12px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.plan-decided strong { color: var(--txt); }
+.plan-decided-done { color: var(--txt3); }
+.plan-field { font-size: 12px; }
+.plan-field.is-set {
+  background: var(--decided); box-shadow: inset 3px 0 0 var(--decided-line);
+  border-radius: var(--radius); padding: 6px 8px 8px 11px; margin: -6px -8px 0 -11px;
+}
+.plan-field.is-set > .plan-pair .plan-field, .plan-pair .plan-field.is-set { background: none; box-shadow: none; margin: 0; padding: 0; }
+.plan-more { margin: 4px 0 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.plan-more > summary { cursor: pointer; font-size: 13px; font-weight: 700; color: var(--txt2); padding: 4px 0 8px; }
+.plan-more-set { font-weight: 400; color: var(--txt3); margin-left: 6px; }
+.plan-more[open] > summary { margin-bottom: 6px; }
+
+/* Act: the Now strip. */
+#phase-dashboard > .next-up {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  margin: 0 0 12px; flex-shrink: 0;
+}
+#phase-dashboard > .next-up[hidden] { display: none; }
+.now-pill {
+  display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; max-width: 100%;
+  padding: 8px 16px 8px 12px; border-radius: 999px;
+  background: var(--signal); color: var(--signal-ink);
+  box-shadow: inset 4px 0 0 var(--dc, transparent);
+}
+.now-pill.idle { background: var(--surface); color: var(--txt2); box-shadow: none; }
+.now-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--signal-ink); align-self: center; animation: now-pulse 2s ease-in-out infinite; }
+@keyframes now-pulse { 50% { opacity: 0.35; } }
+.now-label { font-size: 12px; font-weight: 700; }
+.now-name { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.now-until { font-size: 13px; white-space: nowrap; }
+.next-list { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+#phase-dashboard .next-chip {
+  font-size: 13px; padding: 5px 12px; border-radius: 999px; color: var(--txt);
+  border: 1px solid var(--border-md); border-left: 3px solid var(--dc, var(--border-md)); background: var(--card);
+}
+.next-time { font-weight: 700; }
+.next-in { color: var(--txt3); }
+.period-line {
+  margin-left: auto; display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; padding: 6px 12px; border-radius: 999px; background: var(--work); color: #EDEFEE;
+}
+.period-line.period-rest { background: var(--rest); }
+.period-line span { color: #C9CCD3; }
+.period-line.period-rest span { color: #EEF3F2; }
+
+/* Act: Needs you. */
+.needs-you { background: var(--card); border: 1px solid var(--border-md); border-radius: var(--radius-lg); padding: 12px 14px; flex-shrink: 0; }
+.needs-you[hidden] { display: none; }
+.needs-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.needs-list { display: flex; flex-direction: column; }
+.needs-item { padding: 10px 0; border-top: 1px solid var(--border); }
+.needs-item:first-child { border-top: 0; padding-top: 2px; }
+.needs-kind { font-size: 12px; color: var(--txt2); }
+.needs-name { font-size: 15px; font-weight: 700; margin: 2px 0 8px; }
+.needs-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  font-size: 13px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-md); background: var(--card); color: var(--txt);
+}
+.pill:hover { border-color: var(--txt); }
+.pill-main { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+.domain-empty { padding: 4px 10px 10px; }
+.board-row { border-radius: var(--radius); }
+.board-row-name { font-size: 14px; }
+
+/* Plan: months as buttons, one row per season's work window. */
+.season-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; width: 100%; }
+.season-month {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 2px; cursor: pointer;
+  border-radius: var(--radius); border: 1px solid var(--border-md); font-size: 13px; font-weight: 700;
+}
+.season-month small { font-size: 11px; font-weight: 400; }
+.season-month.season-long, .season-swatch.season-long { background: #5D636B; color: #fff; border-color: #5D636B; }
+.season-month.season-short, .season-swatch.season-short { background: #D3D8DC; color: #23262B; border-color: #C3C9CE; }
+.season-window { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--txt2); margin-bottom: 8px; width: 100%; }
+.season-window strong { color: var(--txt); min-width: 120px; }
+.season-window select { padding: 4px 6px; border: 1px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt); }
+.season-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid transparent; }
+.mobile-only-note { display: none; }
+
+/* Develop: the skills grid across the page, this week's learning beside it. */
+.develop-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
+#phase-skills .skills-panel { background: var(--card); border: 1px solid var(--border); padding: 16px; margin: 0; }
+#phase-skills .skills-add { gap: 8px; margin-bottom: 16px; }
+#phase-skills .skills-add input[type=text] { flex: 1 1 220px; font-size: 15px; padding: 8px 10px; background: var(--bg); }
+.seg { display: inline-flex; border: 1px solid var(--border-md); border-radius: 999px; padding: 2px; gap: 2px; }
+.seg label { cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--txt2); }
+.seg input:checked + span { background: var(--txt); color: var(--bg); }
+.seg input:focus-visible + span { outline: 2px solid var(--txt); outline-offset: 1px; }
+.skill-matrix {
+  display: grid; grid-template-columns: 20px 1fr 1fr; grid-template-rows: auto auto 20px;
+  grid-template-areas: "y now schedule" "y opp decide" ". x x"; gap: 8px;
+}
+.skill-now { grid-area: now; } .skill-schedule { grid-area: schedule; }
+.skill-opportunistic { grid-area: opp; } .skill-decide { grid-area: decide; }
+.axis { font-size: 12px; color: var(--txt3); }
+.axis-y { grid-area: y; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; }
+.axis-x { grid-area: x; text-align: center; }
+.skill-cell { min-height: 150px; border-radius: var(--radius-lg); padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); }
+.skill-now { background: color-mix(in srgb, var(--signal) 22%, var(--card)); }
+.skill-cell h3 { font-size: 15px; font-weight: 700; }
+.skill-hint { font-size: 12px; color: var(--txt2); margin: 2px 0 10px; }
+.skill-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.skill-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; padding: 4px 6px 4px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--border-md); }
+.skill-chip button { border: 0; background: none; color: var(--txt3); cursor: pointer; font-size: 11px; padding: 2px 4px; }
+.skill-chip button:hover { color: var(--txt); }
+.skill-empty { font-size: 13px; color: var(--txt3); }
+.develop-side { display: flex; flex-direction: column; gap: 12px; }
+.develop-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+.develop-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.develop-note { font-size: 13px; color: var(--txt2); }
+.meter { height: 10px; border-radius: 999px; background: var(--surface); overflow: hidden; margin-bottom: 8px; }
+.meter i { display: block; height: 100%; background: var(--txt); border-radius: 999px; }
+.develop-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.develop-list li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.develop-list li.done span { text-decoration: line-through; color: var(--txt3); }
+.develop-list label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.develop-date { color: var(--txt3); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .now-dot { animation: none; }
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+
+/* ---------- Phones: an app, not a web page ---------- */
+@media (max-width: 900px) {
+  :root { --tabbar-h: calc(60px + env(safe-area-inset-bottom, 0px)); }
+  html body { padding: 0.6rem 0.75rem calc(var(--tabbar-h) + 0.5rem) !important; }
+  html body.dashboard-active { padding-bottom: calc(var(--tabbar-h) + 0.25rem) !important; }
+  .header { margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 0; }
+  /* Tabs become a bottom bar. */
+  .header .phase-tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    height: var(--tabbar-h); padding: 4px 6px env(safe-area-inset-bottom, 0px);
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    background: var(--card); border-top: 1px solid var(--border-md);
+  }
+  .header .phase-tab {
+    flex-direction: column; justify-content: center; gap: 2px; height: 52px;
+    border-radius: 12px; font-size: 12px; padding: 0; background: none; border: 0; color: var(--txt3);
+  }
+  .header .phase-tab.active { background: none; color: var(--txt); font-weight: 700; }
+  .header .phase-tab.active .tab-icon { background: var(--txt); color: var(--bg); }
+  .tab-icon { display: grid; place-items: center; width: 40px; height: 26px; border-radius: 999px; font-size: 15px; }
+  .app-footer { padding: 10px 0 4px; }
+
+  /* Organize: week on its own line, the three file actions on one row, input + Add together. */
+  .organize-toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .week-of { justify-content: space-between; }
+  .week-of input { flex: 1; max-width: 60%; }
+  .organize-actions { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .organize-actions .btn { padding: 9px 4px; font-size: 13px; text-align: center; justify-content: center; white-space: nowrap; }
+  .input-row.add-row input { flex: 1 1 auto !important; }
+  .input-row.add-row .btn { flex: 0 0 auto; min-width: 64px; }
+  .plan-row.plan-row-2 { grid-template-columns: 1fr; }
+
+  /* Bigger targets for a finger. */
+  .btn { min-height: 38px; }
+  .card-actions .card-btn, .chip-actions .card-btn { width: 34px; height: 34px; }
+  .pill { padding: 8px 14px; font-size: 14px; }
+
+  /* Act on a phone: strip on top, then Day / Tasks. */
+  #phase-dashboard > .next-up { margin-bottom: 8px; gap: 6px; }
+  .now-pill { width: 100%; }
+  .next-list { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
+  .next-list::-webkit-scrollbar { display: none; }
+  #phase-dashboard .next-chip { white-space: nowrap; }
+  .period-line { margin-left: 0; font-size: 12px; padding: 4px 10px; }
+  .board-toolbar .add-project, .board-domain-tools { display: none; }
+
+  /* Plan on a phone: the calendars only. */
+  #year-recurring-wrap, #year-config { display: none !important; }
+  .mobile-only-note { display: block; font-size: 13px; color: var(--txt3); margin-top: 12px; }
+
+  /* Develop on a phone: one column. */
+  .develop-layout { grid-template-columns: 1fr; }
+  .skill-matrix { grid-template-columns: 1fr; grid-template-areas: "now" "schedule" "opp" "decide"; grid-template-rows: none; }
+  .axis { display: none; }
+  .skill-cell { min-height: 0; }
+}
+
+/* Act: the right column scrolls as one page (Needs you, domains, inbox, panels), not in a small inner box. */
+#dash-board-panel { overflow-y: auto; padding-right: 2px; }
+#dash-board-panel > .project-board { flex: none; overflow: visible; }
+#dash-board-panel > * { flex-shrink: 0; }
+.dash-inbox-chips .dash-inbox-empty { font-size: 12px; }
+@media (max-width: 900px) {
+  /* Calendar cards are short: 28px buttons fit a 30-minute card, and the name stays on one line. */
+  #day-calendar .card-actions .card-btn, #day-calendar .chip-actions .card-btn { width: 28px; height: 28px; }
+  #day-calendar .cal-block-name { -webkit-line-clamp: 1; font-size: 14px; }
+  #day-calendar .cal-block:not(.timer-running) .chip-timer-time.zero { display: none; }
+}
+@media (max-width: 900px) {
+  /* Month on a phone: rows sit together instead of stretching over the screen. */
+  .year-month-mobile-wrap { min-height: 0; }
+  .year-month-mobile-wrap .year-month-grid { flex: none; align-content: start; }
+}

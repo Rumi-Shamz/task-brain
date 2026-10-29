@@ -3,7 +3,7 @@ import { deps } from './deps.js';
 import { renderPlan } from './plan.js';
 import { renderYear, ensureYearWeekMonday } from './year.js';
 import { renderDashboard } from './dashboard.js';
-import { renderSkillsPanel } from './skills.js';
+import { renderSkillsPanel, renderDevelopSide } from './skills.js';
 import { weekLnoStats } from './dashboard.js';
 
 const PHASES = ['plan', 'dashboard', 'skills', 'year'];
@@ -39,13 +39,7 @@ export function switchPhase(phase) {
   }
   if (phase === 'skills') {
     renderSkillsPanel(document.getElementById('skills-panel'));
-    const el = document.getElementById('lno-week-stat');
-    if (el) {
-      const s = weekLnoStats();
-      el.textContent = s.total
-        ? `This week: ${s.pct}% of scheduled minutes on L (${s.lMins}m / ${s.total}m)`
-        : 'This week: no scheduled minutes yet — tag L/N/O in Plan.';
-    }
+    renderDevelopSide(document.getElementById('develop-side'), weekLnoStats());
   }
   if (phase === 'year') {
     ensureYearWeekMonday();

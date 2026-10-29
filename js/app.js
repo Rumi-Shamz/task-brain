@@ -11,7 +11,7 @@ import { deps } from './deps.js';
 import { ensureProjectsMigrated, mergeProjects } from './projects.js';
 import { applyGroupSchedule, ensureGroups } from './groups.js';
 import {
-  ensureSkills, addSkillFromForm, renderSkillsPanel, onTaskDoneMaybeLearn,
+  ensureSkills, addSkillFromForm, renderSkillsPanel, onTaskDoneMaybeLearn, removeSkill,
   ensureWeeklyLearnBlock,
 } from './skills.js';
 import {
@@ -26,6 +26,7 @@ import { startNextUpTicker } from './next-up.js';
 import * as agentUi from './agent-ui.js';
 import * as defer from './defer.js';
 import * as outcome from './outcome.js';
+import { openDelegatedPanel } from './needs-you.js';
 
 deps.save = save;
 deps.render = render;
@@ -42,6 +43,7 @@ window.deps = deps;
 window.deriveActivityRules = deriveActivityRules;
 
 Object.assign(window, plan, year, dashboard, agentUi, defer, outcome, {
+  openDelegatedPanel,
   onTaskDoneMaybeOutcome: t => { if (outcome.needsOutcome(t)) outcome.openOutcome(t.id); },
   switchPhase,
   clearAll,
@@ -62,6 +64,7 @@ Object.assign(window, plan, year, dashboard, agentUi, defer, outcome, {
   ghDisconnect,
   toggleSyncPanel,
   addSkillFromForm,
+  removeSkill,
   renderSkillsPanel,
   onTaskDoneMaybeLearn,
   renderSomedayPanel,

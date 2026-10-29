@@ -22,6 +22,7 @@ export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
 import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import { lockTagHTML, isLocked } from './outcome.js';
+import { renderNeedsYou } from './needs-you.js';
 
 export * from './dashboard-drag.js';
 export * from './dashboard-edit.js';
@@ -29,6 +30,9 @@ export * from './dashboard-edit.js';
 const DAY_OFFSET = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
 const SLOT_START = { morning: 9 * 60, afternoon: 13 * 60, evening: 18 * 60 };
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+/** Importance (the old L / N / O field), as written on tags and in Organize. */
+export const IMPORTANCE_LABEL = { L: 'Leverage', N: 'Neutral', O: 'Optional' };
 
 export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
 export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 28); }
@@ -59,7 +63,7 @@ export function boardRowHTML(t, { nested = false } = {}) {
   const tags = [
     `<span class="tag">${esc(activityLabel(act))}</span>`,
     proj ? `<span class="tag">${esc(proj.name)}</span>` : '',
-    t.lno ? `<span class="tag">LNO ${esc(t.lno)}</span>` : '',
+    t.lno ? `<span class="tag">${esc(IMPORTANCE_LABEL[t.lno] || t.lno)}</span>` : '',
     t.assignee === 'person' ? `<span class="tag tag-assignee">→ ${esc(t.delegateTo || 'someone')}</span>` : '',
     t.assignee === 'ai' ? '<span class="tag tag-assignee">Assistant</span>' : '',
     scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
@@ -240,11 +244,12 @@ export function renderProjectBoard() {
         const kids = visible(childTasksOf(t.id).filter(c => (c.activity || c.lane || 'act') === a.id && matchesActivityFilter(c)));
         return boardRowHTML(t) + kids.map(c => boardRowHTML(c, { nested: true })).join('');
       }).join('');
-      return `<section class="domain-activity">
+      // Only activities that have tasks: empty "None" sections were noise.
+      return rows ? `<section class="domain-activity">
         <div class="domain-activity-label">${esc(a.label)}</div>
-        <div class="domain-task-rows">${rows || '<div class="dash-inbox-empty">None</div>'}</div>
-      </section>`;
-    }).join('');
+        <div class="domain-task-rows">${rows}</div>
+      </section>` : '';
+    }).join('') || '<div class="dash-inbox-empty domain-empty">Nothing this week.</div>';
     const laterCount = state.tasks.filter(t => t.status !== 'someday' && !t.done && isTopLevelTask(t) && taskDomain(t) === dom.id && later(t)).length;
     const laterNote = laterCount
       ? `<div class="board-later" title="Dated after this week: they show up here in their week, and on Plan now">+ ${laterCount} later</div>` : '';
@@ -384,10 +389,5 @@ export function renderDashboard() {
   renderNextUp();
   renderDelegatedPanel();
   renderErrandsPanel();
-  if (typeof window.renderSlippedPanel === 'function') {
-    window.renderSlippedPanel(document.getElementById('slipped-panel'));
-    const n = document.querySelectorAll('#slipped-panel .someday-card').length;
-    const sum = document.getElementById('slipped-summary');
-    if (sum) sum.innerHTML = n ? `Slipped <span class="panel-count attention">${n}</span>` : 'Slipped';
-  }
+  renderNeedsYou();
 }

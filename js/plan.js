@@ -163,7 +163,7 @@ function progressHTML() {
   const pct = total ? Math.round((done / total) * 100) : 0;
   return `<div class="plan-progress">
     <div class="plan-progress-bar"><i style="width:${pct}%"></i></div>
-    <span>${done} / ${total} triaged · ${list.length} left</span>
+    <span>${list.length ? `${list.length} ${list.length === 1 ? 'task' : 'tasks'} to sort` : 'All sorted'}${total ? `, ${done} of ${total} done` : ''}</span>
   </div>`;
 }
 
@@ -260,7 +260,7 @@ function planTaskListHTML() {
           <span class="plan-task-row-tags">
             ${t.domain ? `<span class="tag">${esc(domainLabel(t.domain))}</span>` : ''}
             ${proj ? `<span class="tag">${esc(proj.name)}</span>` : ''}
-            ${!t.triaged ? '<span class="tag tag-warn">inbox</span>' : ''}
+            ${!t.triaged ? '<span class="tag tag-warn">to sort</span>' : ''}
           </span>
         </div>
         <button type="button" class="btn" onclick="planStartEdit('${t.id}')">Edit</button>
@@ -288,7 +288,7 @@ export function renderPlanWizard() {
     if (cardTask && (editing || !cardTask.triaged)) {
       card = singleCardHTML(cardTask);
     } else if (!editing) {
-      card = `<div class="empty-state">All tasks triaged — edit below, open Dashboard, or add more above.</div>`;
+      card = `<div class="empty-state">Every task is sorted. Edit one below, or add more above.</div>`;
     }
     root.innerHTML = progressHTML() + card + (editing ? '' : planTaskListHTML());
     const focusId = takeFocusSubtaskId();
@@ -298,7 +298,7 @@ export function renderPlanWizard() {
     }
   } catch (e) {
     console.error('renderPlanWizard', e);
-    root.innerHTML = `${progressHTML()}<div class="empty-state">Could not render triage card — see console.</div>`;
+    root.innerHTML = `${progressHTML()}<div class="empty-state">This task could not be shown. The browser console has the details.</div>`;
   }
 }
 
@@ -356,6 +356,11 @@ export function planFinish(mode) {
   const day = (weekdayNameFromYmd(document.getElementById('plan-ymd')?.value) || 'monday').toLowerCase();
   const slot = 'afternoon';
 
+  if (mode === 'auto') {
+    // One button: a batch if one was picked or named, else the day and time if a time was picked.
+    const wantsBatch = !!(document.getElementById('plan-group')?.value || (document.getElementById('plan-group-name')?.value || '').trim());
+    mode = wantsBatch ? 'batch' : document.getElementById('plan-interval')?.value ? 'slot' : 'none';
+  }
   if (mode === 'none') {
     placeInInterval(t, '', '');
   } else if (mode === 'slot') {
@@ -426,12 +431,12 @@ export function renderPlan() {
   if (batches) {
     const gs = listGroups();
     batches.innerHTML = gs.length
-      ? `<div class="section-label">Execution batches</div>
+      ? `<div class="section-label">Batches</div>
         <ul class="plan-batch-list">${gs.map(g => {
           const n = g.taskIds.length;
-          const win = g.preferredDay ? `${g.preferredDay} ${g.preferredStart || ''}` : 'no window';
-          return `<li><strong>${esc(g.name)}</strong> · ${n} tasks · ${esc(win)}
-            <button type="button" class="btn" onclick="applyGroupSchedule('${g.id}')">Apply window</button></li>`;
+          const win = g.preferredDay ? `${g.preferredDay} ${g.preferredStart || ''}` : 'no time set';
+          return `<li><strong>${esc(g.name)}</strong>, ${n} ${n === 1 ? 'task' : 'tasks'}, ${esc(win)}
+            <button type="button" class="btn" onclick="applyGroupSchedule('${g.id}')">Schedule the batch</button></li>`;
         }).join('')}</ul>`
       : '';
   }
