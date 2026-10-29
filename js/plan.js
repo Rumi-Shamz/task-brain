@@ -13,6 +13,7 @@ import { placeInInterval, weekdayNameFromYmd, stampActivityFromBlock, DAY_INTERV
 import { renderImportHealth } from './import-plan.js';
 import { singleCardHTML, commitSchedule } from './plan-card.js';
 import { ensureSubtasks, takeFocusSubtaskId } from './plan-subtasks.js';
+import { act } from './actions.js';
 
 export {
   planToggleDraining, planAddBuffer, planRemoveBuffer,
@@ -20,8 +21,10 @@ export {
 } from './plan-subtasks.js';
 
 export {
-  planComboOpen, planComboFilter, planComboBlur, planComboPickFromEl, planComboPick, planComboKey,
+  planComboOpen, planComboFilter, planComboBlur, planComboPickFromEl, planComboPickDown, planComboPick, planComboKey,
 } from './plan-combo.js';
+
+export { planMoreToggle, planStartBlocking, planDelegateVia, planPickAssignee } from './plan-card.js';
 
 export {
   importWeeklyPlanFile,
@@ -120,6 +123,8 @@ export function planSaveEdit() {
 export function markTriaged(t) {
   if (t) t.triaged = true;
 }
+
+export function addSingleOnEnter(e) { if (e.key === 'Enter') addSingle(); }
 
 export function addSingle() {
   const inp = document.getElementById('single-input');
@@ -250,7 +255,7 @@ function planTaskListHTML() {
             ${cproj ? `<span class="tag">${esc(cproj.name)}</span>` : ''}
           </span>
         </div>
-        <button type="button" class="btn" onclick="planStartEdit('${c.id}')">Edit</button>
+        <button type="button" class="btn" ${act('planStartEdit', c.id)}>Edit</button>
       </div>`;
     }).join('');
     return `<div class="plan-task-block">
@@ -263,7 +268,7 @@ function planTaskListHTML() {
             ${!t.triaged ? '<span class="tag tag-warn">to sort</span>' : ''}
           </span>
         </div>
-        <button type="button" class="btn" onclick="planStartEdit('${t.id}')">Edit</button>
+        <button type="button" class="btn" ${act('planStartEdit', t.id)}>Edit</button>
       </div>
       ${childRows}
     </div>`;
@@ -405,7 +410,7 @@ export function renderMergePanel() {
         <select id="merge-sources" multiple size="6">${opts}</select>
       </label>
     </div>
-    <button type="button" class="btn primary" onclick="runMergeProjects()">Merge</button>
+    <button type="button" class="btn primary" ${act('runMergeProjects')}>Merge</button>
     <p id="merge-msg" class="bulk-hint"></p>`;
 }
 
@@ -436,7 +441,7 @@ export function renderPlan() {
           const n = g.taskIds.length;
           const win = g.preferredDay ? `${g.preferredDay} ${g.preferredStart || ''}` : 'no time set';
           return `<li><strong>${esc(g.name)}</strong>, ${n} ${n === 1 ? 'task' : 'tasks'}, ${esc(win)}
-            <button type="button" class="btn" onclick="applyGroupSchedule('${g.id}')">Schedule the batch</button></li>`;
+            <button type="button" class="btn" ${act('applyGroupSchedule', g.id)}>Schedule the batch</button></li>`;
         }).join('')}</ul>`
       : '';
   }

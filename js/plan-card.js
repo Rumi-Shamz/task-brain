@@ -4,7 +4,8 @@ import { domainLabel, normalizeDomainId, domainDotHTML } from './domains.js';
 import { ensureProjectsMigrated, projectsInDomain } from './projects.js';
 import { ensureGroups, listGroups } from './groups.js';
 import { DAY_INTERVALS, intervalForTask, placeInInterval, upcomingWorkDates, weekdayNameFromYmd } from './blocks.js';
-import { parentTaskLabel } from './plan.js';
+import { parentTaskLabel, planPatch } from './plan.js';
+import { act, actOn } from './actions.js';
 import { comboHTML } from './plan-combo.js';
 import { subtasksHTML, drainingHTML } from './plan-subtasks.js';
 import { WORKERS } from './agent-core.js';
@@ -21,12 +22,12 @@ function scheduleFieldsHTML(t) {
   const cur = selected ? intervalForTask(t) : '';
   const cls = `plan-field ${decidedFields(t).schedule ? 'is-set' : ''}`;
   return `<label class="${cls}"><span class="plan-label">Day</span>
-      <select id="plan-ymd" onchange="planScheduleChanged('day')">
+      <select id="plan-ymd" ${actOn('change', 'planScheduleChanged', 'day')}>
         ${dates.map(d => `<option value="${d}" ${d === shownDay ? 'selected' : ''}>${cap(weekdayNameFromYmd(d))} ${d.slice(5)}</option>`).join('') || '<option value="">No open work day</option>'}
       </select>
     </label>
     <label class="${cls}"><span class="plan-label">When</span>
-      <select id="plan-interval" onchange="planScheduleChanged()">
+      <select id="plan-interval" ${actOn('change', 'planScheduleChanged')}>
         <option value="" ${!cur ? 'selected' : ''}>Leave open</option>
         ${DAY_INTERVALS.map(i => `<option value="${i.id}" title="${esc(i.focus)}" ${i.id === cur ? 'selected' : ''}>${esc(i.label)} · ${esc(i.focus)}</option>`).join('')}
       </select>
@@ -41,13 +42,13 @@ function delegateNamesHTML() {
 
 /** Who does it: three choices; Delegate and Assistant swap them for their own controls (× goes back). */
 function whoHTML(t) {
-  const back = `<button type="button" class="plan-x" onclick="planPatch({assignee:'me'})" title="Back to: I do it myself" aria-label="Do it myself">×</button>`;
+  const back = `<button type="button" class="plan-x" ${act('planPatch', {assignee:'me'})} title="Back to: I do it myself" aria-label="Do it myself">×</button>`;
   if (t.assignee === 'person') {
     return `<div class="plan-inline">
       <input type="text" id="plan-delegate-to" list="plan-delegate-names" autocomplete="off" placeholder="Who"
-        value="${esc(t.delegateTo || '')}" onchange="planPatch({delegateTo:this.value})" />
+        value="${esc(t.delegateTo || '')}" ${actOn('change', 'planPatch', {delegateTo:'$value'})} />
       <datalist id="plan-delegate-names">${delegateNamesHTML()}</datalist>
-      <select aria-label="How" onchange="planPatch({delegateVia:this.value || null})">
+      <select aria-label="How" ${actOn('change', 'planDelegateVia', '$value')}>
         <option value="" ${!t.delegateVia ? 'selected' : ''}>How?</option>
         ${[['call', 'Call'], ['message', 'Message'], ['email', 'Email']].map(([v, l]) =>
           `<option value="${v}" ${t.delegateVia === v ? 'selected' : ''}>${l}</option>`).join('')}
@@ -59,16 +60,16 @@ function whoHTML(t) {
     return `<div class="plan-inline">
       <div class="plan-choices compact">
         ${WORKERS.map(w => `<button type="button" class="btn ${t.agentWorker === w.id ? 'primary' : ''}" title="${esc(w.hint)}"
-          onclick="planPatch({agentWorker:'${w.id}'})">${esc(w.label)}</button>`).join('')}
+          ${act('planPatch', {agentWorker:w.id})}>${esc(w.label)}</button>`).join('')}
       </div>
       <label class="plan-check" title="The note is the brief. The runner on your desktop picks it up within a few minutes; the result shows in Act → Needs you.">
-        <input type="checkbox" ${t.agentWithPlan ? 'checked' : ''} onchange="planPatch({agentWithPlan:this.checked})" /> Share my plan</label>
+        <input type="checkbox" ${t.agentWithPlan ? 'checked' : ''} ${actOn('change', 'planPatch', {agentWithPlan:'$checked'})} /> Share my plan</label>
       ${back}
     </div>`;
   }
   return `<div class="plan-choices compact">
     ${[['me', 'Me'], ['person', 'Delegate'], ['ai', 'Assistant']].map(([v, l]) =>
-      `<button type="button" class="btn ${t.assignee === v ? 'primary' : ''}" onclick="planPatch({assignee:'${v}'})${v !== 'me' ? `; setTimeout(() => document.getElementById('plan-delegate-to')?.focus(), 0)` : ''}">${l}</button>`
+      `<button type="button" class="btn ${t.assignee === v ? 'primary' : ''}" ${act('planPickAssignee', v)}>${l}</button>`
     ).join('')}
   </div>`;
 }
@@ -100,13 +101,18 @@ export function decidedFields(t) {
 
 const CORE = [['lno', 'Importance'], ['size', 'Size'], ['schedule', 'Day and time']];
 
-if (typeof window !== 'undefined') {
-  // Keep the collapsible parts as you left them across re-renders while you work through the list.
-  window.planMoreToggle = open => { state.planMoreOpen = !!open; };
-  window.planStartBlocking = () => {
-    window.planPatch({ blocking: true });
-    setTimeout(() => document.getElementById('plan-blocking-note')?.focus(), 0);
-  };
+// Keep the collapsible parts as you left them across re-renders while you work through the list.
+export function planMoreToggle(open) { state.planMoreOpen = !!open; }
+export function planStartBlocking() {
+  planPatch({ blocking: true });
+  setTimeout(() => document.getElementById('plan-blocking-note')?.focus(), 0);
+}
+/** "How?" select: an empty choice clears the way. */
+export function planDelegateVia(value) { planPatch({ delegateVia: value || null }); }
+/** Me / Delegate / Assistant; the two that take more input then focus the who field. */
+export function planPickAssignee(v) {
+  planPatch({ assignee: v });
+  if (v !== 'me') setTimeout(() => document.getElementById('plan-delegate-to')?.focus(), 0);
 }
 
 /** What a task can block: other open tasks, projects, and project objectives (searchable list). */
@@ -147,7 +153,7 @@ export function singleCardHTML(t) {
   return `<div class="plan-q ${editing ? 'plan-q-edit' : ''}">
     <div class="plan-task-head">
       <p class="plan-task-name">${set.domain ? domainDotHTML(domain) : ''}${esc(t.name)}${editing ? ' <span class="plan-edit-badge">editing</span>' : ''}</p>
-      <span class="task-del" onclick="deleteTask('${t.id}')" title="Delete" aria-label="Delete">✕</span>
+      <span class="task-del" ${act('deleteTask', t.id)} title="Delete" aria-label="Delete">✕</span>
     </div>
     <p class="plan-decided">${open.length
       ? `<span>To decide: <strong>${esc(open.join(', '))}</strong></span>`
@@ -156,32 +162,32 @@ export function singleCardHTML(t) {
     <div class="plan-row plan-main-row">
       <div class="${cls('lno')}">${label('Importance')}
         <div class="plan-choices compact">
-          <button type="button" class="btn ${t.lno === 'L' ? 'primary' : ''}" onclick="planPatch({lno:'L'})" title="Big return for the effort: give it your best energy">Leverage</button>
-          <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" onclick="planPatch({lno:'N'})" title="Do it well enough">Neutral</button>
-          <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" onclick="planPatch({lno:'O'})" title="Keep it small: batch it or hand it off">Optional</button>
+          <button type="button" class="btn ${t.lno === 'L' ? 'primary' : ''}" ${act('planPatch', {lno:'L'})} title="Big return for the effort: give it your best energy">Leverage</button>
+          <button type="button" class="btn ${t.lno === 'N' ? 'primary' : ''}" ${act('planPatch', {lno:'N'})} title="Do it well enough">Neutral</button>
+          <button type="button" class="btn ${t.lno === 'O' ? 'primary' : ''}" ${act('planPatch', {lno:'O'})} title="Keep it small: batch it or hand it off">Optional</button>
         </div>
       </div>
       <div class="${cls('blocking')} plan-blocking ${t.blocking === true ? 'is-blocking' : ''}">${label('Blocking')}
         ${t.blocking === true ? `<div class="plan-block-search">
             <input type="text" id="plan-blocking-note" list="plan-blocking-options" autocomplete="off"
               value="${esc(t.blockingNote || '')}" placeholder="Search tasks, projects, objectives"
-              onchange="planPatch({blockingNote:this.value})" />
+              ${actOn('change', 'planPatch', {blockingNote:'$value'})} />
             <datalist id="plan-blocking-options">${blockingOptionsHTML(t)}</datalist>
-            <button type="button" class="plan-x" onclick="planPatch({blocking:false})" title="Not blocking anything" aria-label="Cancel blocking">×</button>
+            <button type="button" class="plan-x" ${act('planPatch', {blocking:false})} title="Not blocking anything" aria-label="Cancel blocking">×</button>
           </div>` : `<div class="plan-choices compact">
-            <button type="button" class="btn" onclick="planStartBlocking()" title="Pick what it blocks">Yes</button>
-            <button type="button" class="btn ${t.blocking === false ? 'primary' : ''}" onclick="planPatch({blocking:false})">No</button>
+            <button type="button" class="btn" ${act('planStartBlocking')} title="Pick what it blocks">Yes</button>
+            <button type="button" class="btn ${t.blocking === false ? 'primary' : ''}" ${act('planPatch', {blocking:false})}>No</button>
           </div>`}
       </div>
       <div class="${cls('size')}">${label('Size')}
         <div class="plan-choices compact">
-          <button type="button" class="btn ${t.size === 'simple' ? 'primary' : ''}" onclick="planPatch({size:'simple'})">Simple</button>
-          <button type="button" class="btn ${t.size === 'mid' ? 'primary' : ''}" onclick="planPatch({size:'mid'})">Mid</button>
-          <button type="button" class="btn ${t.size === 'complex' ? 'primary' : ''}" onclick="planPatch({size:'complex'})">Complex</button>
+          <button type="button" class="btn ${t.size === 'simple' ? 'primary' : ''}" ${act('planPatch', {size:'simple'})}>Simple</button>
+          <button type="button" class="btn ${t.size === 'mid' ? 'primary' : ''}" ${act('planPatch', {size:'mid'})}>Mid</button>
+          <button type="button" class="btn ${t.size === 'complex' ? 'primary' : ''}" ${act('planPatch', {size:'complex'})}>Complex</button>
         </div>
       </div>
       <label class="${cls('length')} plan-length-select">${label('Length')}
-        <select onchange="planPatch({duration:Number(this.value)})">
+        <select ${actOn('change', 'planPatch', {duration:'$number'})}>
           ${[15, 30, 60, 180].map(n =>
             `<option value="${n}" ${Number(t.duration) === n ? 'selected' : ''}>${n} min</option>`
           ).join('')}
@@ -199,13 +205,13 @@ export function singleCardHTML(t) {
 
     <div class="plan-row plan-row-full">
       <label class="${cls('note')} plan-note-col">${label('Note')}
-        <textarea id="plan-note" rows="2" placeholder="Optional note" onchange="planPatch({note:this.value})">${esc(t.note || '')}</textarea>
+        <textarea id="plan-note" rows="2" placeholder="Optional note" ${actOn('change', 'planPatch', {note:'$value'})}>${esc(t.note || '')}</textarea>
       </label>
     </div>
 
     ${subtasksHTML(t) ? `<div class="plan-row plan-row-full">${subtasksHTML(t)}</div>` : ''}
 
-    <details class="plan-more" ${state.planMoreOpen ? 'open' : ''} ontoggle="planMoreToggle(this.open)">
+    <details class="plan-more" ${state.planMoreOpen ? 'open' : ''} ${actOn('toggle', 'planMoreToggle', '$open')}>
       <summary>More${moreSet.length ? ` <span class="plan-more-set">${esc(moreSet.join(' · '))}</span>` : ''}</summary>
       <div class="plan-row plan-row-2">
         <div class="${cls('domain')}">${label('Domain')}
@@ -227,7 +233,7 @@ export function singleCardHTML(t) {
         <div class="${cls('activity')}">${label('Activity')}
           <div class="plan-choices compact">
             ${['research', 'communicate', 'act', 'learn'].map(a =>
-              `<button type="button" class="btn ${t.activity === a ? 'primary' : ''}" onclick="planSetActivity('${a}')">${a[0].toUpperCase()}${a.slice(1)}</button>`
+              `<button type="button" class="btn ${t.activity === a ? 'primary' : ''}" ${act('planSetActivity', a)}>${a[0].toUpperCase()}${a.slice(1)}</button>`
             ).join('')}
           </div>
         </div>
@@ -264,11 +270,11 @@ export function singleCardHTML(t) {
 
     <div class="plan-step-actions">
       ${editing ? `
-        <button type="button" class="btn primary" onclick="planSaveEdit()">Save</button>
-        <button type="button" class="btn" onclick="planStopEdit()">Back to the list</button>
+        <button type="button" class="btn primary" ${act('planSaveEdit')}>Save</button>
+        <button type="button" class="btn" ${act('planStopEdit')}>Back to the list</button>
       ` : `
-        <button type="button" class="btn primary" onclick="planFinish('auto')" title="Places it at the day and time you picked, or in the batch you picked">Save and next</button>
-        <button type="button" class="btn" onclick="planFinish('none')" title="Keeps it without a day">Save without a day</button>
+        <button type="button" class="btn primary" ${act('planFinish', 'auto')} title="Places it at the day and time you picked, or in the batch you picked">Save and next</button>
+        <button type="button" class="btn" ${act('planFinish', 'none')} title="Keeps it without a day">Save without a day</button>
       `}
     </div>
   </div>`;

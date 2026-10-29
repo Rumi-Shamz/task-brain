@@ -7,6 +7,7 @@ import { deps } from './deps.js';
 import { agentTaskRowHTML, agentReadyCount, runnerStatusHTML } from './agent-ui.js';
 import { isLocked } from './outcome.js';
 import { recoveriesOnDate } from './recovery.js';
+import { act } from './actions.js';
 
 function inHowLong(mins) {
   if (mins < 1) return 'now';
@@ -127,8 +128,8 @@ export function renderDelegatedPanel() {
       <div class="someday-name">${esc(t.name)}</div>
       <div class="someday-meta">${t.assignee === 'ai' ? 'Assistant' : `→ ${esc(t.delegateTo || 'someone')}`}${t.date ? ` · due ${esc(t.date)}` : ''}${t.note ? ` · ${esc(t.note.slice(0, 80))}` : ''}</div>
       <div class="someday-actions">
-        <button type="button" class="btn" onclick="toggleTaskDone('${t.id}', true)">Done</button>
-        <button type="button" class="btn" onclick="takeBackTask('${t.id}')">Take back</button>
+        <button type="button" class="btn" ${act('toggleTaskDone', t.id, true)}>Done</button>
+        <button type="button" class="btn" ${act('takeBackTask', t.id)}>Take back</button>
       </div>
     </div>`;
   const people = list.filter(t => t.assignee === 'person');

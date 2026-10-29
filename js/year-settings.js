@@ -7,6 +7,7 @@ import { activityRules, cycleDayIndex } from './blocks.js';
 import { deps } from './deps.js';
 import { renderRecurringEditor } from './year-events.js';
 import { renderYear } from './year.js';
+import { act, actOn } from './actions.js';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SEASON_NAME = { long: 'Long work week', short: 'Short work week' };
@@ -36,13 +37,13 @@ export function renderYearScheduleControls() {
       ${ MONTHS.map((m, i) => {
         const key = s.short.months.includes(i) ? 'short' : 'long';
         return `<button type="button" class="season-month season-${ key }" aria-pressed="${ key === 'short' }"
-          title="${ m }: ${ SEASON_NAME[key].toLowerCase() }. Click to switch." onclick="toggleSeasonMonth(${ i })">${ m }<small>${ key === 'short' ? 'short' : 'long' }</small></button>`;
+          title="${ m }: ${ SEASON_NAME[key].toLowerCase() }. Click to switch." ${act('toggleSeasonMonth', i)}>${ m }<small>${ key === 'short' ? 'short' : 'long' }</small></button>`;
       }).join('') }
     </div>
     ${ windowRow('long') }${ windowRow('short') }
-    <button class="btn" type="button" onclick="resetWorkScheduleDefaults()">Restore default seasons</button>`;
+    <button class="btn" type="button" ${act('resetWorkScheduleDefaults')}>Restore default seasons</button>`;
   el.querySelectorAll('select[data-ws]').forEach(inp => {
-    inp.onchange = () => {
+    inp.addEventListener('change', () => {
       const key = inp.getAttribute('data-ws');
       const field = inp.getAttribute('data-field');
       const spec = { ...state.yearRhythm.workSchedule[key] };
@@ -50,7 +51,7 @@ export function renderYearScheduleControls() {
       state.yearRhythm.workSchedule = normalizeWorkSchedule({ ...state.yearRhythm.workSchedule, [key]: spec });
       deps.save();
       deps.renderYear();
-    };
+    });
   });
 }
 
@@ -81,14 +82,14 @@ export function renderProtocolEditor() {
   if (!el || !state.yearRhythm) return;
   const r = state.yearRhythm;
   const cycles = (r.cycles || []).map((c, i) =>
-    `<label>Cycle ${i + 1}<input type="date" value="${protocolDate(c.startDay)}" onchange="setProtocolCycle(${i}, this.value)" /></label>`
+    `<label>Cycle ${i + 1}<input type="date" value="${protocolDate(c.startDay)}" ${actOn('change', 'setProtocolCycle', i, '$value')} /></label>`
   ).join('');
   const vacs = (r.vacations || []).map((v, i) =>
-    `<label>Vacation ${i + 1}<input type="date" value="${protocolDate(v.startDay)}" onchange="setProtocolVacation(${i}, this.value)" /></label>`
+    `<label>Vacation ${i + 1}<input type="date" value="${protocolDate(v.startDay)}" ${actOn('change', 'setProtocolVacation', i, '$value')} /></label>`
   ).join('');
   el.innerHTML = `<div class="section-label">Protocol start dates (they repeat every 364 days)</div>
     <div class="proto-grid">${cycles}
-      <label>Deep rest<input type="date" value="${protocolDate(r.deepRest.startDay)}" onchange="setProtocolDeepRest(this.value)" /></label>
+      <label>Deep rest<input type="date" value="${protocolDate(r.deepRest.startDay)}" ${actOn('change', 'setProtocolDeepRest', '$value')} /></label>
       ${vacs}
     </div>`;
   renderRecurringEditor();

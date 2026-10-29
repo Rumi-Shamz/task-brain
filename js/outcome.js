@@ -6,6 +6,7 @@
  */
 import { state, esc, newTask } from './state.js';
 import { deps } from './deps.js';
+import { act } from './actions.js';
 
 export const RESULTS = [
   { id: 'planned', label: 'Done as planned' },
@@ -123,15 +124,15 @@ function renderOutcomeSheet() {
   }
   const unlocked = dependentsOf(t.id).filter(d => !d.done);
   el.innerHTML = `
-    <div class="dash-edit-backdrop" onclick="closeOutcome()"></div>
+    <div class="dash-edit-backdrop" ${act('closeOutcome')}></div>
     <div class="dash-edit-panel" role="dialog" aria-label="Outcome">
       <div class="dash-edit-head">
         <strong>Done · ${esc(t.name)}</strong>
-        <button type="button" class="btn" onclick="closeOutcome()">Skip</button>
+        <button type="button" class="btn" ${act('closeOutcome')}>Skip</button>
       </div>
       <div class="plan-field">Result
         <div class="oc-results">${RESULTS.map(r =>
-          `<button type="button" class="btn ${draft.result === r.id ? 'primary' : ''}" data-result="${r.id}" onclick="setOutcomeResult('${r.id}')">${esc(r.label)}</button>`).join('')}
+          `<button type="button" class="btn ${draft.result === r.id ? 'primary' : ''}" data-result="${r.id}" ${act('setOutcomeResult', r.id)}>${esc(r.label)}</button>`).join('')}
         </div>
       </div>
       <label class="plan-field">Outcome
@@ -142,11 +143,11 @@ function renderOutcomeSheet() {
       </div>` : ''}
       <div class="plan-field">Follow-ups
         <div id="oc-followups"><input type="text" class="oc-followup" placeholder="Next step this opens up" /></div>
-        <button type="button" class="btn" onclick="addOutcomeFollowUp()">+ another</button>
+        <button type="button" class="btn" ${act('addOutcomeFollowUp')}>+ another</button>
       </div>
       <div class="plan-step-actions">
-        <button type="button" class="btn primary" onclick="saveOutcome()">Save</button>
-        <button type="button" class="btn" onclick="closeOutcome()">Skip</button>
+        <button type="button" class="btn primary" ${act('saveOutcome')}>Save</button>
+        <button type="button" class="btn" ${act('closeOutcome')}>Skip</button>
       </div>
     </div>`;
 }

@@ -24,6 +24,7 @@ import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import { isLocked, blockersOf } from './outcome.js';
 import { renderNeedsYou } from './needs-you.js';
 import { recoveriesOnDate, recoveryLabelHTML } from './recovery.js';
+import { act, actOn, stop } from './actions.js';
 
 export * from './dashboard-drag.js';
 export * from './dashboard-edit.js';
@@ -91,8 +92,8 @@ export function chipHTML(t) {
   return boardRowHTML(t);
 }
 
-function activityLabel(act) {
-  const id = act || 'act';
+function activityLabel(activityId) {
+  const id = activityId || 'act';
   return (ACTIVITIES.find(a => a.id === id) || LANES.find(a => a.id === id))?.label || id;
 }
 
@@ -132,15 +133,15 @@ export function boardRowHTML(t, { nested = false, showActivity = false } = {}) {
   const meta = metaLineHTML(t, { showActivity });
   return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${!t.done && isLocked(t) ? 'locked' : ''} ${running ? 'timer-running' : ''}"
       draggable="true" data-id="${t.id}"
-      ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)"
-      onclick="dashRowClick(event,'${t.id}')">
+      ${actOn('dragstart', 'dashChipDragStart', '$event')} ${actOn('dragend', 'dashChipDragEnd', '$event')}
+      ${act('dashRowClick', '$event',t.id)}>
     <div class="board-row-main">
       <div class="board-row-text">
         <span class="board-row-name">${domainDotHTML(taskDomain(t))}${esc(t.name)}</span>
         ${meta ? `<span class="board-row-meta">${meta}</span>` : ''}
       </div>
     </div>
-    <div class="board-row-controls card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+    <div class="board-row-controls card-actions"${stop('pointerdown', 'click')}>
       ${chipControlsHTML(t)}${doneBoxHTML(t)}${deferButtonHTML(t)}
     </div>
   </div>`;
@@ -193,9 +194,9 @@ export function renderDayCalendar() {
     hours.push(`<div class="day-hour ${ folded && isNightHour(h) ? 'night' : '' }" data-hour="${ h }" style="height:${ hourH[h] }px">
       <div class="day-hour-label">${ pad2(h) }:00</div>
       <div class="day-slot"
-        ondragover="calSlotDragOver(event)"
-        ondragleave="calSlotDragLeave(event)"
-        ondrop="calSlotDrop(event, ${ h })"></div>
+        ${actOn('dragover', 'calSlotDragOver', '$event')}
+        ${actOn('dragleave', 'calSlotDragLeave', '$event')}
+        ${actOn('drop', 'calSlotDrop', '$event', h)}></div>
     </div>`);
   }
   const dayTasks = state.tasks.filter(t => t.date === ymd && t.start && !(state.hideDone && t.done));
@@ -208,10 +209,10 @@ export function renderDayCalendar() {
     return `<div class="cal-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }" data-id="${ t.id }"
         style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ minsToY(startMins) }px;height:${ spanToH(startMins, dur) }px;"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) }"
-        onpointerdown="calBlockPointerDown(event)">
+        ${actOn('pointerdown', 'calBlockPointerDown', '$event')}>
       <div class="cal-block-top">
         <div class="cal-block-name">${ esc(t.name) }</div>
-        <div class="card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+        <div class="card-actions"${stop('pointerdown', 'click')}>
           ${ chipControlsHTML(t) }${ doneBoxHTML(t) }${ deferButtonHTML(t) }
         </div>
       </div>
@@ -233,8 +234,8 @@ export function renderDayCalendar() {
         title="${ esc(r.planned ? 'Break after ' : 'Suggested break after ') }${ esc(t.name) }">
       <span class="cal-recovery-label">${ recoveryLabelHTML(r) }</span>
       <span class="cal-recovery-actions">
-        <button type="button" class="cal-recovery-btn" onclick="planRecovery('${ t.id }')" title="${ r.planned ? 'Back to a suggestion' : 'Take this break' }" aria-label="${ r.planned ? 'Unplan break' : 'Take this break' }">${ r.planned ? '↺' : '✓' }</button>
-        <button type="button" class="cal-recovery-btn" onclick="skipRecovery('${ t.id }')" title="No break after this task" aria-label="Skip break">×</button>
+        <button type="button" class="cal-recovery-btn" ${act('planRecovery', t.id)} title="${ r.planned ? 'Back to a suggestion' : 'Take this break' }" aria-label="${ r.planned ? 'Unplan break' : 'Take this break' }">${ r.planned ? '↺' : '✓' }</button>
+        <button type="button" class="cal-recovery-btn" ${act('skipRecovery', t.id)} title="No break after this task" aria-label="Skip break">×</button>
       </span>
     </div>`;
   }).join('');
@@ -266,10 +267,10 @@ function isCollapsed(domainId) {
 function matchesActivityFilter(t) {
   const f = state.dashActivityFilter || 'all';
   if (f === 'all') return true;
-  const act = t.activity || t.lane || 'act';
-  if (f === 'learn') return act === 'learn';
-  if (f === 'research') return act === 'research';
-  return act === f;
+  const kind = t.activity || t.lane || 'act';
+  if (f === 'learn') return kind === 'learn';
+  if (f === 'research') return kind === 'research';
+  return kind === f;
 }
 
 const IMP_RANK = { L: 0, N: 1, O: 2 };
@@ -285,6 +286,15 @@ function boardSort(a, b) {
   const ia = IMP_RANK[a.lno] ?? 3, ib = IMP_RANK[b.lno] ?? 3;
   if (ia !== ib) return ia - ib;
   return String(a.name || '').localeCompare(String(b.name || ''));
+}
+
+/** Domain chip: show or hide that domain's column (and close the add-domain form). */
+export function toggleDomainChip(id) { toggleAddDomain(false); toggleDomainCol(id); }
+
+/** Keys in the new-domain input: Enter adds it, Escape closes the form. */
+export function newDomainKey(e) {
+  if (e.key === 'Enter') { e.preventDefault(); addDomainFromForm(); }
+  else if (e.key === 'Escape') toggleAddDomain(false);
 }
 
 export function toggleAddDomain(open) {
@@ -326,7 +336,7 @@ export function renderProjectBoard() {
       const hidden = isCollapsed(dom.id);
       const count = rootsOf(dom).length;
       return `<button type="button" class="domain-chip ${hidden ? 'is-hidden' : ''}" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
-          aria-pressed="${!hidden}" onclick="toggleAddDomain(false); toggleDomainCol('${dom.id}')" title="${hidden ? 'Show' : 'Hide'} ${esc(dom.label)}">
+          aria-pressed="${!hidden}" ${act('toggleDomainChip', dom.id)} title="${hidden ? 'Show' : 'Hide'} ${esc(dom.label)}">
         <span class="project-dot"></span>
         <span class="domain-chip-label">${esc(dom.label)}</span>
         <span class="domain-count">${count}</span>
@@ -340,7 +350,7 @@ export function renderProjectBoard() {
   if (filterEl) {
     filterEl.innerHTML = activities.map(a =>
       `<button type="button" class="seg-tab ${filter === a.id ? 'active' : ''}" aria-pressed="${filter === a.id}"
-        onclick="setDashActivityFilter('${filter === a.id ? 'all' : a.id}')">${esc(activityLabel(a.id))}</button>`
+        ${act('setDashActivityFilter', filter === a.id ? 'all' : a.id)}>${esc(activityLabel(a.id))}</button>`
     ).join('');
   }
 
@@ -365,8 +375,8 @@ export function renderProjectBoard() {
       const laterNote = laterCount
         ? `<div class="board-later" title="Dated after this week: they show up here in their week, and on Plan now">+ ${laterCount} later</div>` : '';
       return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
-          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
-          ondrop="dropOnDomainStack(event)">
+          ${actOn('dragover', 'boardDragOver', '$event')} ${actOn('dragleave', 'boardDragLeave', '$event')}
+          ${actOn('drop', 'dropOnDomainStack', '$event')}>
         <div class="act-dom-head">
           <span class="project-dot"></span>
           <span class="domain-toggle-label">${esc(dom.label)}</span>

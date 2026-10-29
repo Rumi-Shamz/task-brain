@@ -9,6 +9,7 @@ import { allDomains, domainColor, domainLabel, domainStyleVar, setDomainColor } 
 import { projectsInDomain } from './projects.js';
 import { FREQS, describeRepeat, monthlyChoices, normalizeRepeat } from './recurring.js';
 import { parseIcs, eventsToSeries, seriesToIcs } from './ics.js';
+import { act, actOn } from './actions.js';
 
 let openId = null;
 let icsMessage = '';
@@ -27,7 +28,7 @@ function seriesRowHTML(b) {
   const where = b.domain ? domainLabel(b.domain) : 'no domain';
   const open = openId === b.id;
   return `<div class="series-row${open ? ' open' : ''}" style="${domainStyleVar(b.domain)}">
-    <button type="button" class="series-summary" onclick="editSeries('${b.id}')" aria-expanded="${open}">
+    <button type="button" class="series-summary" ${act('editSeries', b.id)} aria-expanded="${open}">
       <span class="series-swatch"></span>
       <span class="series-name">${esc(b.name)}</span>
       <span class="series-meta">${esc(time)} · ${esc(describeRepeat(b))} · ${esc(where)}${b.workDaysOnly ? ' · work days' : ''}${b.location ? ` · ${esc(b.location)}` : ''}</span>
@@ -45,42 +46,42 @@ function seriesFormHTML(b) {
   const projectOpts = [`<option value="">No project</option>`]
     .concat(projects.map(p => `<option value="${esc(p.id)}" ${b.projectId === p.id ? 'selected' : ''}>${esc(p.name)}</option>`)).join('');
   const weekdays = WEEKDAY_SHORT.map((label, i) =>
-    `<button type="button" class="btn wd-toggle ${b.weekdays.includes(i) ? 'primary' : ''}" onclick="toggleSeriesWeekday('${id}',${i})">${label}</button>`).join('');
+    `<button type="button" class="btn wd-toggle ${b.weekdays.includes(i) ? 'primary' : ''}" ${act('toggleSeriesWeekday', id,i)}>${label}</button>`).join('');
   const monthly = r.freq === 'monthly'
-    ? `<label>On <select onchange="patchSeries('${id}','monthly',this.value)">
+    ? `<label>On <select ${actOn('change', 'patchSeries', id,'monthly','$value')}>
         ${monthlyChoices(r.from).map(c => `<option value="${c.id}" ${r.monthly === c.id ? 'selected' : ''}>${esc(c.label)}</option>`).join('')}
       </select></label>` : '';
   return `<div class="series-form">
-    <label>Name <input type="text" value="${esc(b.name)}" onchange="patchSeries('${id}','name',this.value)" /></label>
-    <label>Kind <select onchange="patchSeries('${id}','rule',this.value)">
+    <label>Name <input type="text" value="${esc(b.name)}" ${actOn('change', 'patchSeries', id,'name','$value')} /></label>
+    <label>Kind <select ${actOn('change', 'patchSeries', id,'rule','$value')}>
       ${Object.entries(KIND_LABEL).map(([k, l]) => `<option value="${k}" ${b.rule === k ? 'selected' : ''}>${l}</option>`).join('')}
     </select></label>
-    <label>Domain <select onchange="patchSeries('${id}','domain',this.value)">${domainOpts}</select></label>
-    ${b.domain ? `<label>Project <select onchange="patchSeries('${id}','projectId',this.value)">${projectOpts}</select></label>` : ''}
-    ${b.rule !== 'event' ? `<label>Stamps activity <select onchange="patchSeries('${id}','activity',this.value)">
+    <label>Domain <select ${actOn('change', 'patchSeries', id,'domain','$value')}>${domainOpts}</select></label>
+    ${b.domain ? `<label>Project <select ${actOn('change', 'patchSeries', id,'projectId','$value')}>${projectOpts}</select></label>` : ''}
+    ${b.rule !== 'event' ? `<label>Stamps activity <select ${actOn('change', 'patchSeries', id,'activity','$value')}>
       <option value="">None</option>
       ${['research', 'communicate', 'act', 'learn'].map(a => `<option value="${a}" ${b.activity === a ? 'selected' : ''}>${a}</option>`).join('')}
     </select></label>` : ''}
-    ${b.rule === 'event' ? `<label class="inline"><input type="checkbox" ${b.allDay ? 'checked' : ''} onchange="patchSeries('${id}','allDay',this.checked)" /> All day</label>` : ''}
-    ${b.allDay ? '' : `<label>From <input type="time" value="${formatHHMM(b.startMin)}" onchange="patchSeries('${id}','start',this.value)" /></label>
-    <label>To <input type="time" value="${formatHHMM(b.endMin)}" onchange="patchSeries('${id}','end',this.value)" /></label>`}
-    <label>Repeats <select onchange="patchSeries('${id}','freq',this.value)">
+    ${b.rule === 'event' ? `<label class="inline"><input type="checkbox" ${b.allDay ? 'checked' : ''} ${actOn('change', 'patchSeries', id,'allDay','$checked')} /> All day</label>` : ''}
+    ${b.allDay ? '' : `<label>From <input type="time" value="${formatHHMM(b.startMin)}" ${actOn('change', 'patchSeries', id,'start','$value')} /></label>
+    <label>To <input type="time" value="${formatHHMM(b.endMin)}" ${actOn('change', 'patchSeries', id,'end','$value')} /></label>`}
+    <label>Repeats <select ${actOn('change', 'patchSeries', id,'freq','$value')}>
       ${FREQS.map(f => `<option value="${f}" ${r.freq === f ? 'selected' : ''}>${FREQ_LABEL[f]}</option>`).join('')}
     </select></label>
-    ${r.freq !== 'once' ? `<label>Every <input type="number" min="1" max="52" value="${r.interval}" onchange="patchSeries('${id}','interval',this.value)" />
+    ${r.freq !== 'once' ? `<label>Every <input type="number" min="1" max="52" value="${r.interval}" ${actOn('change', 'patchSeries', id,'interval','$value')} />
       ${r.freq === 'weekly' ? 'week(s)' : r.freq === 'monthly' ? 'month(s)' : 'year(s)'}</label>` : ''}
     ${r.freq === 'weekly' ? `<div class="wd-row">${weekdays}</div>` : ''}
-    <label>${r.freq === 'once' ? 'Date' : 'Starts'} <input type="date" value="${esc(r.from || '')}" onchange="patchSeries('${id}','from',this.value)" /></label>
+    <label>${r.freq === 'once' ? 'Date' : 'Starts'} <input type="date" value="${esc(r.from || '')}" ${actOn('change', 'patchSeries', id,'from','$value')} /></label>
     ${monthly}
-    ${r.freq !== 'once' ? `<label>Ends <input type="date" value="${esc(r.until || '')}" onchange="patchSeries('${id}','until',this.value)" /></label>` : ''}
-    <label class="inline"><input type="checkbox" ${b.workDaysOnly ? 'checked' : ''} onchange="patchSeries('${id}','workDaysOnly',this.checked)" /> Only on work / sprint days</label>
-    <label class="wide">Location <input type="text" value="${esc(b.location || '')}" onchange="patchSeries('${id}','location',this.value)" /></label>
-    <label class="wide">Link <input type="url" placeholder="https://…" value="${esc(b.url || '')}" onchange="patchSeries('${id}','url',this.value)" />
+    ${r.freq !== 'once' ? `<label>Ends <input type="date" value="${esc(r.until || '')}" ${actOn('change', 'patchSeries', id,'until','$value')} /></label>` : ''}
+    <label class="inline"><input type="checkbox" ${b.workDaysOnly ? 'checked' : ''} ${actOn('change', 'patchSeries', id,'workDaysOnly','$checked')} /> Only on work / sprint days</label>
+    <label class="wide">Location <input type="text" value="${esc(b.location || '')}" ${actOn('change', 'patchSeries', id,'location','$value')} /></label>
+    <label class="wide">Link <input type="url" placeholder="https://…" value="${esc(b.url || '')}" ${actOn('change', 'patchSeries', id,'url','$value')} />
       ${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener">open</a>` : ''}</label>
-    <label class="wide">Notes <textarea rows="3" onchange="patchSeries('${id}','note',this.value)">${esc(b.note || '')}</textarea></label>
+    <label class="wide">Notes <textarea rows="3" ${actOn('change', 'patchSeries', id,'note','$value')}>${esc(b.note || '')}</textarea></label>
     <div class="series-actions">
-      <button type="button" class="btn" onclick="editSeries('${id}')">Done</button>
-      <button type="button" class="btn danger-outline" onclick="removeSeries('${id}')">Delete</button>
+      <button type="button" class="btn" ${act('editSeries', id)}>Done</button>
+      <button type="button" class="btn danger-outline" ${act('removeSeries', id)}>Delete</button>
     </div>
   </div>`;
 }
@@ -92,11 +93,11 @@ export function renderRecurringEditor() {
   const events = blocks.filter(b => b.rule === 'event');
   const containers = blocks.filter(b => b.rule !== 'event');
   const colors = allDomains().map(d => `<label class="domain-color">
-      <input type="color" value="${domainColor(d.id)}" onchange="setDomainColorFromInput('${esc(d.id)}', this.value)" />
+      <input type="color" value="${domainColor(d.id)}" ${actOn('change', 'setDomainColorFromInput', d.id, '$value')} />
       ${esc(d.label)}
     </label>`).join('');
   const rules = activityRules().map(rule => `<li>${esc(rule.kind)} “${esc(rule.value)}” → ${esc(rule.activity)}
-    <button type="button" class="btn" onclick="removeActivityRule('${rule.id}')">Remove</button></li>`).join('');
+    <button type="button" class="btn" ${act('removeActivityRule', rule.id)}>Remove</button></li>`).join('');
   el.innerHTML = `
     <div class="section-label">Domain colors</div>
     <div class="domain-colors">${colors}</div>
@@ -105,14 +106,14 @@ export function renderRecurringEditor() {
     <div class="section-label">Containers · time blocks that tasks are placed into</div>
     ${containers.map(seriesRowHTML).join('') || '<p class="bulk-hint">None yet.</p>'}
     <div class="series-toolbar">
-      <button type="button" class="btn primary" onclick="addSeries('event')">Add external event</button>
-      <button type="button" class="btn" onclick="addSeries('any')">Add container</button>
-      <label class="btn">Import .ics<input type="file" accept=".ics,text/calendar" hidden onchange="importIcsFile(this)" /></label>
+      <button type="button" class="btn primary" ${act('addSeries', 'event')}>Add external event</button>
+      <button type="button" class="btn" ${act('addSeries', 'any')}>Add container</button>
+      <label class="btn">Import .ics<input type="file" accept=".ics,text/calendar" hidden ${actOn('change', 'importIcsFile', '$el')} /></label>
       <select id="ics-domain" title="Domain for imported events">
         <option value="">Imported events: no domain</option>
         ${allDomains().map(d => `<option value="${esc(d.id)}">Imported events → ${esc(d.label)}</option>`).join('')}
       </select>
-      <button type="button" class="btn" onclick="exportIcs()">Export .ics</button>
+      <button type="button" class="btn" ${act('exportIcs')}>Export .ics</button>
     </div>
     ${icsMessage ? `<p class="bulk-hint">${esc(icsMessage)}</p>` : ''}
     <div class="section-label">Activity rules</div>

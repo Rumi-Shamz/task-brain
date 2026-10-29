@@ -10,6 +10,7 @@ import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import {
   taskDomain, applyCalBlockStyle, dropOnDomainLane, minsToY, yToMins, openDashEdit, renderDashboard,
 } from './dashboard.js';
+import { actOn, stop } from './actions.js';
 
 export function dashChipDragStart(e) {
   if (e.target.closest('input, button, .chip-actions, .card-actions, .board-row-controls')) { e.preventDefault();
@@ -194,6 +195,8 @@ export function scheduleTaskOnDate(taskId, ymd, startMin) {
   t.start = formatHHMM(start);
   deps.save();
 }
+/** Double-click on a week-view block: back to the tray. */
+export function unscheduleWeekTask(taskId) { unscheduleTask(taskId); deps.renderYear(); }
 export function unscheduleTask(taskId) {
   const t = state.tasks.find(x => x.id === taskId);
   if (!t) return;
@@ -205,7 +208,7 @@ export function weekTaskTrayHTML(weekDates) {
   const unscheduled = state.tasks.filter(t => !(t.date && t.start));
   const chips = unscheduled.length
     ? unscheduled.map(t => `<div class="board-chip" draggable="true" data-id="${ esc(t.id) }"
-        ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
+        ${actOn('dragstart', 'dashChipDragStart', '$event')} ${actOn('dragend', 'dashChipDragEnd', '$event')}>
         <span class="board-chip-name">${ esc(t.name) }</span>
       </div>`).join('')
     : '<span class="dash-inbox-empty">Every task is on the calendar. You can also drag tasks here from Act.</span>';
@@ -226,8 +229,8 @@ export function weekTaskBlocksHTML(ymd, keep = () => true) {
     return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ esc(t.id) }" data-ymd="${ esc(ymd) }"
         style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ top }px;height:${ Math.max(height, 28) }px"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
-        onpointerdown="weekTaskPointerDown(event)"
-        ondblclick="event.stopPropagation();unscheduleTask(${ esc(JSON.stringify(t.id)) });renderYear();">
+        ${actOn('pointerdown', 'weekTaskPointerDown', '$event')}
+        ${actOn('dblclick', 'unscheduleWeekTask', t.id)}${stop('dblclick')}>
       <div class="yt-head">
         <div class="yt-name">${ esc(t.name) }</div>
         <div class="card-actions">${ doneBoxHTML(t) }${ deferButtonHTML(t) }</div>
@@ -237,7 +240,7 @@ export function weekTaskBlocksHTML(ymd, keep = () => true) {
 }
 
 export function yearWeekColDragAttrs(ymd) {
-  return `ondragover="yearWeekTaskDragOver(event)" ondragleave="yearWeekTaskDragLeave(event)" ondrop="yearWeekTaskDrop(event, '${ ymd }')"`;
+  return `${actOn('dragover', 'yearWeekTaskDragOver', '$event')} ${actOn('dragleave', 'yearWeekTaskDragLeave', '$event')} ${actOn('drop', 'yearWeekTaskDrop', '$event', ymd)}`;
 }
 export function yearWeekTaskDragOver(e) {
   e.preventDefault();

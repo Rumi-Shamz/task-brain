@@ -6,6 +6,7 @@ import { describeRepeat } from './recurring.js';
 import {
   WORKERS, RESULTS_PATH, normalizeErrand, runsFor, taskAgentStatus, errandDueToday, errandRunKey, localYmd,
 } from './agent-core.js';
+import { act, actOn } from './actions.js';
 
 const LS_RESULTS = 'tb-agent-results';
 const REFRESH_MS = 2 * 60000;
@@ -71,7 +72,7 @@ export function runnerStatusHTML() {
   const waits = Object.entries(r.waiting || {}).map(([w, x]) =>
     `${workerLabel(w)} is unavailable since ${when(x.since)} (${esc(String(x.message || '').slice(0, 120))}); its work waits and retries.`);
   return `<p class="someday-hint agent-runner ${stale ? 'stale' : ''}">Runner on ${esc(r.host || 'desktop')} · last report ${ago(r.lastTickAt)}${stale ? ' — is the desktop on?' : ''}
-    <button type="button" class="btn btn-link" onclick="agentRefresh()">Refresh</button></p>
+    <button type="button" class="btn btn-link" ${act('agentRefresh')}>Refresh</button></p>
     ${waits.map(w => `<p class="someday-hint agent-wait">${w}</p>`).join('')}`;
 }
 
@@ -127,9 +128,9 @@ export function agentTaskRowHTML(t) {
       ${s.state !== 'queued' ? `<textarea class="agent-feedback" id="agent-fb-${esc(t.id)}" rows="2"
         placeholder="Feedback for another run (optional)">${esc(t.agentFeedback || '')}</textarea>` : ''}
       <div class="someday-actions">
-        ${s.state === 'ready' ? `<button type="button" class="btn primary" onclick="agentAccept(${q(t.id)})">Accept → done</button>` : ''}
-        ${s.state !== 'queued' ? `<button type="button" class="btn" onclick="agentRerun(${q(t.id)})">Run again</button>` : ''}
-        <button type="button" class="btn" onclick="takeBackTask(${q(t.id)})">Take back</button>
+        ${s.state === 'ready' ? `<button type="button" class="btn primary" ${act('agentAccept', t.id)}>Accept → done</button>` : ''}
+        ${s.state !== 'queued' ? `<button type="button" class="btn" ${act('agentRerun', t.id)}>Run again</button>` : ''}
+        <button type="button" class="btn" ${act('takeBackTask', t.id)}>Take back</button>
       </div>
     </div>`;
 }
@@ -178,7 +179,7 @@ function errandEditorHTML(e) {
       <label class="plan-field">Brief <textarea id="er-brief" rows="4" placeholder="What to do each time, and what a good result looks like">${esc(e.brief)}</textarea></label>
       <div class="errand-row">
         <label class="plan-field">Repeats
-          <select id="er-freq" onchange="errandFormFreq(this.value)">
+          <select id="er-freq" ${actOn('change', 'errandFormFreq', '$value')}>
             <option value="weekly" ${freq === 'weekly' ? 'selected' : ''}>Weekly</option>
             <option value="monthly" ${freq === 'monthly' ? 'selected' : ''}>Monthly (same day as the start date)</option>
           </select>
@@ -198,9 +199,9 @@ function errandEditorHTML(e) {
         <label class="errand-day"><input type="checkbox" id="er-plan" ${e.withPlan ? 'checked' : ''} />Share my open plan with it</label>
       </div>
       <div class="someday-actions">
-        <button type="button" class="btn primary" onclick="errandSave()">Save</button>
-        <button type="button" class="btn" onclick="errandCancel()">Cancel</button>
-        ${state.errands.some(x => x.id === e.id) ? `<button type="button" class="btn" onclick="errandDelete(${q(e.id)})">Delete</button>` : ''}
+        <button type="button" class="btn primary" ${act('errandSave')}>Save</button>
+        <button type="button" class="btn" ${act('errandCancel')}>Cancel</button>
+        ${state.errands.some(x => x.id === e.id) ? `<button type="button" class="btn" ${act('errandDelete', e.id)}>Delete</button>` : ''}
       </div>
     </div>`;
 }
@@ -220,11 +221,11 @@ function errandRowHTML(e) {
       ${last ? runDetailsHTML(last, fresh) : ''}
       ${runs.length > 1 ? `<details class="agent-run"><summary>Earlier runs (${runs.length - 1})</summary>${runs.slice(1).map(r => runDetailsHTML(r, false)).join('')}</details>` : ''}
       <div class="someday-actions">
-        ${fresh ? `<button type="button" class="btn primary" onclick="errandSeen(${q(e.id)})">Seen</button>` : ''}
-        ${last && last.output ? `<button type="button" class="btn" onclick="errandToTask(${q(last.id)})">Make a task from it</button>` : ''}
-        <button type="button" class="btn" onclick="errandRunNow(${q(e.id)})" ${pending ? 'disabled' : ''}>Run now</button>
-        <button type="button" class="btn" onclick="errandToggle(${q(e.id)})">${e.enabled ? 'Pause' : 'Resume'}</button>
-        <button type="button" class="btn" onclick="errandEdit(${q(e.id)})">Edit</button>
+        ${fresh ? `<button type="button" class="btn primary" ${act('errandSeen', e.id)}>Seen</button>` : ''}
+        ${last && last.output ? `<button type="button" class="btn" ${act('errandToTask', last.id)}>Make a task from it</button>` : ''}
+        <button type="button" class="btn" ${act('errandRunNow', e.id)} ${pending ? 'disabled' : ''}>Run now</button>
+        <button type="button" class="btn" ${act('errandToggle', e.id)}>${e.enabled ? 'Pause' : 'Resume'}</button>
+        <button type="button" class="btn" ${act('errandEdit', e.id)}>Edit</button>
       </div>
     </div>`;
 }
@@ -248,7 +249,7 @@ export function renderErrandsPanel() {
   el.innerHTML = `${runnerStatusHTML()}
     <p class="someday-hint">Errands repeat: the assistant runs the brief at the time you set and the result shows up here.</p>
     ${state.errands.map(e => (editing && editing.id === e.id ? errandEditorHTML(e) : errandRowHTML(e))).join('')}
-    ${editing && editing.id === 'new' ? errandEditorHTML(editing) : `<button type="button" class="btn" onclick="errandNew()">+ Errand</button>`}`;
+    ${editing && editing.id === 'new' ? errandEditorHTML(editing) : `<button type="button" class="btn" ${act('errandNew')}>+ Errand</button>`}`;
 }
 
 export function renderAgentPanels() {
