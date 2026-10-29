@@ -95,6 +95,8 @@ export function weekReview(data, label) {
   const planned = tasks.filter(t => (t.date && dates.has(t.date)) || (t.missed || []).some(d => dates.has(d)) || doneInWeek(t));
   const done = planned.filter(doneInWeek);
   const missed = planned.filter(t => (t.missed || []).some(d => dates.has(d)) && !doneByWeekEnd(t));
+  // Moved on purpose (Defer) away from a day in the week, and not done in it.
+  const deferred = tasks.filter(t => (t.deferred || []).some(d => dates.has(d)) && !doneInWeek(t));
   const projects = projectNames(data || {});
   const byDomain = {};
   let doneMin = 0, lMin = 0;
@@ -107,7 +109,7 @@ export function weekReview(data, label) {
   });
   return {
     label,
-    planned, done, missed,
+    planned, done, missed, deferred,
     doneMinutes: doneMin,
     lPercent: doneMin ? Math.round((lMin / doneMin) * 100) : 0,
     byDomain,
@@ -155,6 +157,10 @@ export function buildPrebrief(data, label) {
       r.missed
         .sort((a, b) => (b.missed || []).length - (a.missed || []).length)
         .forEach(t => lines.push(`- ${t.name}${(t.missed || []).length > 1 ? ` — slipped ${(t.missed || []).length}×` : ''}`));
+    }
+    if (r.deferred.length) {
+      lines.push('', '## Deferred (moved on purpose)');
+      r.deferred.forEach(t => lines.push(`- ${t.name} — ${t.status === 'someday' ? 'to the backlog' : `to ${t.date || '?'}`}`));
     }
     const open = (data.tasks || []).filter(t => !t.done && t.status !== 'done' && t.status !== 'someday' && !t.parentId);
     if (open.length) {

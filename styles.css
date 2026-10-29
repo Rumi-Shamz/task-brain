@@ -1702,3 +1702,22 @@
     .import-dup em { color: var(--txt3); font-style: normal; }
     .import-dup-actions { display: flex; gap: 4px; flex-wrap: wrap; color: var(--txt3); }
     .import-dup-actions .btn { padding: 2px 8px; font-size: 11px; }
+
+/* Defer: the button beside the done box and its menu (js/defer.js). */
+.chip-defer {
+  flex-shrink: 0; padding: 0 4px; line-height: 14px; font-size: 11px; cursor: pointer;
+  border: 0.5px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt2, var(--txt));
+}
+.chip-defer:hover { background: var(--txt); color: var(--card); }
+.cal-block .chip-defer, .year-task-block .chip-defer { line-height: 12px; font-size: 10px; padding: 0 3px; }
+.defer-menu {
+  position: absolute; z-index: 1000; max-width: min(440px, calc(100vw - 16px));
+  padding: 10px; border: 0.5px solid var(--border-md); border-radius: var(--radius);
+  background: var(--card); color: var(--txt); box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column; gap: 6px; font-size: 12px;
+}
+.defer-title { font-weight: 600; }
+.defer-label { font-size: 11px; color: var(--txt3); }
+.defer-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.defer-row .btn { padding: 4px 8px; font-size: 12px; }
+.defer-row input[type=date] { padding: 3px 6px; border: 0.5px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt); }

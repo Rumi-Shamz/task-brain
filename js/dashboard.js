@@ -20,6 +20,7 @@ import { renderErrandsPanel } from './agent-ui.js';
 
 export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
+import { deferButtonHTML } from './defer.js';
 
 export * from './dashboard-drag.js';
 export * from './dashboard-edit.js';
@@ -73,6 +74,7 @@ export function boardRowHTML(t, { nested = false } = {}) {
         onpointerdown="event.stopPropagation()"
         onclick="event.stopPropagation(); toggleTaskDone('${t.id}', this.checked)"
         title="Mark done" aria-label="Mark done" />
+      ${deferButtonHTML(t)}
       <div class="board-row-text">
         <span class="board-row-name">${esc(t.name)}</span>
         <span class="board-row-tags">${tags}</span>
@@ -143,6 +145,7 @@ export function renderDayCalendar() {
         <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
           onpointerdown="event.stopPropagation()"
           onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)" title="Mark done" aria-label="Mark done" />
+        ${ deferButtonHTML(t) }
         <div class="cal-block-name">${ esc(t.name) }</div>
       </div>
       <div class="cal-block-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">

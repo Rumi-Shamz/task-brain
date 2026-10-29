@@ -6,6 +6,7 @@ import {
 } from './state.js';
 import { deps } from './deps.js';
 import { domainStyleVar } from './domains.js';
+import { deferButtonHTML } from './defer.js';
 import {
   taskDomain, applyCalBlockStyle, dropOnDomainLane, minsToY, yToMins, openDashEdit, renderDashboard,
 } from './dashboard.js';
@@ -231,6 +232,7 @@ export function weekTaskBlocksHTML(ymd, keep = () => true) {
         <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
           onpointerdown="event.stopPropagation()"
           onclick="event.stopPropagation(); toggleTaskDone(${ esc(JSON.stringify(t.id)) }, this.checked)" title="Mark done" aria-label="Mark done" />
+        ${ deferButtonHTML(t) }
         <div class="yt-name">${ esc(t.name) }</div>
       </div>
     </div>`;

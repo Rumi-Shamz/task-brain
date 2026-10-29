@@ -450,6 +450,8 @@ export function normalizeTask(t) {
     doneChangedAt: t.doneChangedAt ? String(t.doneChangedAt) : null,
     reviewAt: t.reviewAt || null,
     missed: Array.isArray(t.missed) ? [...new Set(t.missed.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
+    // v13 → v14: days the task was deferred away from (js/defer.js; absent = never).
+    deferred: Array.isArray(t.deferred) ? [...new Set(t.deferred.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
     priority: t.priority != null ? Number(t.priority) : null,
     timepressure: t.timepressure || null,
     trackedMs: Math.max(0, Number(t.trackedMs) || 0),
