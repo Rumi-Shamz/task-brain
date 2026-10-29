@@ -2195,3 +2195,47 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
   .board-switch { display: none !important; }
   .dash-mobile-tabs .dash-m-tab { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 }
+
+/* ---------- Round 3 (2026-10-29) ---------- */
+
+/* Domain color on a task: one small dot before the name. */
+.dom-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--dc);
+  margin-right: 7px; vertical-align: 0.12em; flex: none;
+}
+
+/* Header: tabs left, Now in the middle, date and rhythm right. */
+.header > .next-up {
+  flex: 1 1 auto; display: flex; justify-content: center; align-items: center; gap: 8px;
+  min-width: 0; margin: 0; flex-wrap: nowrap;
+}
+.header > .next-up[hidden] { display: none; }
+.header .now-pill { padding: 6px 14px 6px 12px; }
+.header .now-name { font-size: 15px; }
+.header .next-list { flex-wrap: nowrap; overflow: hidden; }
+.header .next-list > :not(:first-child) { display: none; }
+.next-up .next-chip {
+  font-size: 13px; padding: 5px 12px; border-radius: 999px; color: var(--txt); white-space: nowrap;
+  border: 1px solid var(--border-md); border-left: 3px solid var(--dc, var(--border-md)); background: var(--card);
+}
+.header-info { flex: none; }
+@media (max-width: 1280px) { .header .next-list { display: none; } .header .hi-switch { display: none; } }
+
+/* Day calendar: night folded into thin rows. */
+.night-toggle[aria-pressed="true"] { background: var(--txt); color: var(--card); border-color: var(--txt); }
+#day-calendar.night-folded .day-hour.night { border-bottom: 0; background: var(--surface); }
+#day-calendar.night-folded .day-hour.night .day-hour-label { display: none; }
+#day-calendar.night-folded .day-hour.night .day-slot::after { display: none; }
+#day-calendar.night-folded .day-hour[data-hour="6"] { border-top: 1px solid var(--border-md); }
+
+/* Board toolbar: field and button the same height. */
+.board-toolbar .add-project { flex-wrap: nowrap; }
+.board-toolbar .add-project input { height: 36px; font-size: 13px; padding: 0 10px; box-sizing: border-box; }
+.board-toolbar .add-project .btn { height: 36px; box-sizing: border-box; }
+
+@media (max-width: 900px) {
+  .header { flex-wrap: wrap; }
+  .header > .next-up { order: 3; flex: 1 0 100%; justify-content: stretch; }
+  .header .now-pill { width: 100%; }
+}
+@media (max-width: 900px) { .night-label { display: none; } .night-toggle { min-width: 42px; } }

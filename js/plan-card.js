@@ -1,6 +1,6 @@
 /** Plan card markup for one task, and committing its Day / When choice. */
 import { state, esc, formatYmd } from './state.js';
-import { domainLabel, normalizeDomainId } from './domains.js';
+import { domainLabel, normalizeDomainId, domainDotHTML } from './domains.js';
 import { ensureProjectsMigrated, projectsInDomain } from './projects.js';
 import { ensureGroups, listGroups } from './groups.js';
 import { DAY_INTERVALS, intervalForTask, placeInInterval, upcomingWorkDates, weekdayNameFromYmd } from './blocks.js';
@@ -58,12 +58,11 @@ export function decidedFields(t) {
   };
 }
 
-const CORE = [['lno', 'Importance'], ['size', 'Size'], ['schedule', 'Day and time'], ['domain', 'Domain'], ['project', 'Project']];
+const CORE = [['lno', 'Importance'], ['size', 'Size'], ['schedule', 'Day and time']];
 
 if (typeof window !== 'undefined') {
   // Keep the collapsible parts as you left them across re-renders while you work through the list.
   window.planMoreToggle = open => { state.planMoreOpen = !!open; };
-  window.planWhereToggle = open => { state.planWhereOpen = !!open; };
   window.planStartBlocking = () => {
     window.planPatch({ blocking: true });
     setTimeout(() => document.getElementById('plan-blocking-note')?.focus(), 0);
@@ -100,13 +99,14 @@ export function singleCardHTML(t) {
   const cls = k => `plan-field ${set[k] ? 'is-set' : ''}`;
   const open = CORE.filter(([k]) => !set[k]).map(([, l]) => l);
   const done = CORE.filter(([k]) => set[k]).map(([, l]) => l);
-  const moreSet = [set.parent && 'subtask of a bigger task', t.draining && 'draining'].filter(Boolean);
+  const moreSet = [
+    set.domain ? domainLabel(domain) : 'no domain yet', set.project && projects.find(p => p.id === pid)?.name,
+    set.activity && cap(t.activity), set.parent && 'subtask of a bigger task', t.draining && 'draining',
+  ].filter(Boolean);
   const label = text => `<span class="plan-label">${text}</span>`;
-  const where = [set.domain && domainLabel(domain), set.project && projects.find(p => p.id === pid)?.name].filter(Boolean);
-  const whereOpen = state.planWhereOpen ?? !(set.domain && set.project);
   return `<div class="plan-q ${editing ? 'plan-q-edit' : ''}">
     <div class="plan-task-head">
-      <p class="plan-task-name">${esc(t.name)}${editing ? ' <span class="plan-edit-badge">editing</span>' : ''}</p>
+      <p class="plan-task-name">${set.domain ? domainDotHTML(domain) : ''}${esc(t.name)}${editing ? ' <span class="plan-edit-badge">editing</span>' : ''}</p>
       <span class="task-del" onclick="deleteTask('${t.id}')" title="Delete" aria-label="Delete">✕</span>
     </div>
     <p class="plan-decided">${open.length
@@ -171,8 +171,16 @@ export function singleCardHTML(t) {
       </div>
     </div>
 
-    <details class="plan-more plan-where" ${whereOpen ? 'open' : ''} ontoggle="planWhereToggle(this.open)">
-      <summary>Domain and project <span class="plan-more-set">${where.length ? esc(where.join(' · ')) : 'to decide'}</span></summary>
+    <div class="plan-row plan-row-full">
+      <label class="${cls('note')} plan-note-col">${label('Note')}
+        <textarea id="plan-note" rows="2" placeholder="Optional note" onchange="planPatch({note:this.value})">${esc(t.note || '')}</textarea>
+      </label>
+    </div>
+
+    ${subtasksHTML(t) ? `<div class="plan-row plan-row-full">${subtasksHTML(t)}</div>` : ''}
+
+    <details class="plan-more" ${state.planMoreOpen ? 'open' : ''} ontoggle="planMoreToggle(this.open)">
+      <summary>More${moreSet.length ? ` <span class="plan-more-set">${esc(moreSet.join(' · '))}</span>` : ''}</summary>
       <div class="plan-row plan-row-2">
         <div class="${cls('domain')}">${label('Domain')}
           ${comboHTML('domain', {
@@ -189,28 +197,16 @@ export function singleCardHTML(t) {
           })}
         </div>
       </div>
-    </details>
-
-    <div class="plan-row plan-row-full">
-      <label class="${cls('note')} plan-note-col">${label('Note')}
-        <textarea id="plan-note" rows="2" placeholder="Optional note" onchange="planPatch({note:this.value})">${esc(t.note || '')}</textarea>
-      </label>
-    </div>
-
-    ${subtasksHTML(t) ? `<div class="plan-row plan-row-full">${subtasksHTML(t)}</div>` : ''}
-
-    <div class="plan-row plan-row-full">
-      <div class="${cls('activity')}">${label('Activity')}
-        <div class="plan-choices compact">
-          ${['research', 'communicate', 'act', 'learn'].map(a =>
-            `<button type="button" class="btn ${t.activity === a ? 'primary' : ''}" onclick="planSetActivity('${a}')">${a[0].toUpperCase()}${a.slice(1)}</button>`
-          ).join('')}
+      <div class="plan-row plan-row-full">
+        <div class="${cls('activity')}">${label('Activity')}
+          <div class="plan-choices compact">
+            ${['research', 'communicate', 'act', 'learn'].map(a =>
+              `<button type="button" class="btn ${t.activity === a ? 'primary' : ''}" onclick="planSetActivity('${a}')">${a[0].toUpperCase()}${a.slice(1)}</button>`
+            ).join('')}
+          </div>
         </div>
       </div>
-    </div>
 
-    <details class="plan-more" ${state.planMoreOpen ? 'open' : ''} ontoggle="planMoreToggle(this.open)">
-      <summary>More${moreSet.length ? ` <span class="plan-more-set">${esc(moreSet.join(', '))}</span>` : ''}</summary>
       <div class="plan-row plan-row-full">
         <div class="${cls('parent')}">${label('Part of a bigger task')}
           ${comboHTML('parent', {

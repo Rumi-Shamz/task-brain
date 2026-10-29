@@ -7,7 +7,7 @@ import { state, esc } from './state.js';
 import { slippedTasks } from './blocks.js';
 import { somedayDue } from './someday.js';
 import { taskAgentStatus } from './agent-core.js';
-import { domainLabel } from './domains.js';
+import { domainLabel, domainDotHTML, normalizeDomainId } from './domains.js';
 
 /** The items, most urgent first: slipped (most misses first), then reviews, then assistant results. */
 export function needsYouItems() {
@@ -33,7 +33,7 @@ function itemHTML({ kind, t }) {
     const n = t.missed.length;
     return `<div class="needs-item"><div class="needs-text">
       <div class="needs-kind">${n === 1 ? 'Slipped once' : n === 2 ? 'Slipped twice' : `Slipped ${n} times`}, now on ${esc(t.date || 'no day')} · ${esc(where)}</div>
-      <div class="needs-name">${esc(t.name)}</div></div>
+      <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
       <div class="needs-actions">
         ${btn('Done', `toggleTaskDone('${id}', true)`)}
         ${btn('Pick a day', `openDeferMenu('${id}', event)`, true)}
@@ -45,7 +45,7 @@ function itemHTML({ kind, t }) {
   if (kind === 'review') {
     return `<div class="needs-item"><div class="needs-text">
       <div class="needs-kind">Backlog review${t.deleteCandidate ? ', pushed back 3 times' : ''} · ${esc(where)}</div>
-      <div class="needs-name">${esc(t.name)}</div></div>
+      <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
       <div class="needs-actions">
         ${btn('Done', `toggleTaskDone('${id}', true)`)}
         ${btn('Schedule', `openDeferMenu('${id}', event)`, true)}
@@ -57,7 +57,7 @@ function itemHTML({ kind, t }) {
   }
   return `<div class="needs-item"><div class="needs-text">
     <div class="needs-kind">${kind === 'result' ? 'Assistant finished' : 'Assistant run failed'}</div>
-    <div class="needs-name">${esc(t.name)}</div></div>
+    <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
     <div class="needs-actions">${btn(kind === 'result' ? 'See result' : 'See what happened', "openDelegatedPanel()", true)}</div>
   </div>`;
 }

@@ -8,7 +8,7 @@ import {
   mondayOnOrBefore, addDaysLocal,
 } from './state.js';
 import {
-  allDomains, normalizeDomainId, addCustomDomain, domainStyleVar,
+  allDomains, normalizeDomainId, addCustomDomain, domainStyleVar, domainDotHTML,
   toggleDomainCollapsed, setAllDomainsCollapsed,
 } from './domains.js';
 import { getProject, ACTIVITIES } from './projects.js';
@@ -34,15 +34,55 @@ const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'satur
 /** Importance (the old L / N / O field), as written on tags and in Organize. */
 export const IMPORTANCE_LABEL = { L: 'Leverage', N: 'Neutral', O: 'Optional' };
 
-export function minsToY(mins) { return ((mins - CAL_DAY_START) / 60) * HOUR_H; }
-export function durationToH(duration) { return Math.max((duration / 60) * HOUR_H, 28); }
-export function yToMins(y) { return CAL_DAY_START + (y / HOUR_H) * 60; }
+/*
+ * Hour rows of the day calendar. Night (23:00–06:00) can fold into thin rows; the waking hours then
+ * share the panel's height. A device preference, so it is kept in this browser only.
+ */
+const NIGHT_ROW_H = 6;
+const isNightHour = h => h < 6 || h >= 23;
+let hourH = Array(24).fill(HOUR_H);
+let hourTop = hourH.map((_, h) => h * HOUR_H).concat(24 * HOUR_H);
+
+export function foldNightOn() {
+  try { return localStorage.getItem('dayplanner_fold_night') === '1'; } catch (e) { return false; }
+}
+
+export function toggleFoldNight() {
+  try { localStorage.setItem('dayplanner_fold_night', foldNightOn() ? '0' : '1'); } catch (e) {}
+  state.dayCalScrolledOnce = false;
+  renderDayCalendar();
+}
+
+function layoutHours(root) {
+  if (!foldNightOn()) hourH = Array(24).fill(HOUR_H);
+  else {
+    const avail = root ? root.clientHeight : 0;
+    const day = Math.max(HOUR_H, Math.floor((avail - 7 * NIGHT_ROW_H - 2) / 17));
+    hourH = Array.from({ length: 24 }, (_, h) => (isNightHour(h) ? NIGHT_ROW_H : day));
+  }
+  hourTop = [0];
+  hourH.forEach((v, h) => hourTop.push(hourTop[h] + v));
+}
+
+export function minsToY(mins) {
+  const m = Math.max(CAL_DAY_START, Math.min(CAL_DAY_END, mins));
+  const h = Math.min(23, Math.floor(m / 60));
+  return hourTop[h] + ((m - h * 60) / 60) * hourH[h];
+}
+export function yToMins(y) {
+  const v = Math.max(0, Math.min(hourTop[24], y));
+  let h = 0;
+  while (h < 23 && hourTop[h + 1] <= v) h++;
+  return h * 60 + ((v - hourTop[h]) / hourH[h]) * 60;
+}
+/** Height of a block from start to start + duration (at least one readable line). */
+export function spanToH(start, duration) { return Math.max(minsToY(start + duration) - minsToY(start), 28); }
 export function applyCalBlockStyle(el, t) {
   const startMins = parseHHMM(t.start);
   if (startMins == null) return;
   const dur = t.duration || DEFAULT_DURATION;
   el.style.top = minsToY(startMins) + 'px';
-  el.style.height = durationToH(dur) + 'px';
+  el.style.height = spanToH(startMins, dur) + 'px';
   const timeEl = el.querySelector('.cal-block-time');
   if (timeEl) timeEl.textContent = t.start + '–' + formatHHMM(startMins + dur);
 }
@@ -77,7 +117,7 @@ export function boardRowHTML(t, { nested = false } = {}) {
       onclick="dashRowClick(event,'${t.id}')">
     <div class="board-row-main">
       <div class="board-row-text">
-        <span class="board-row-name">${esc(t.name)}</span>
+        <span class="board-row-name">${domainDotHTML(taskDomain(t))}${esc(t.name)}</span>
         <span class="board-row-tags">${tags}</span>
       </div>
     </div>
@@ -121,9 +161,17 @@ export function renderDayCalendar() {
     allDay.hidden = !items.length;
     allDay.innerHTML = items.map(b => `<span class="allday-chip" style="${domainStyleVar(b.domain)}">${esc(b.name)}</span>`).join('');
   }
+  const folded = foldNightOn();
+  root.classList.toggle('night-folded', folded);
+  const nightBtn = document.getElementById('night-toggle');
+  if (nightBtn) {
+    nightBtn.setAttribute('aria-pressed', String(folded));
+    nightBtn.innerHTML = `☾<span class="night-label"> ${ folded ? 'Show night' : 'Fold night' }</span>`;
+  }
+  layoutHours(root);
   const hours = [];
   for (let h = 0; h < 24; h++) {
-    hours.push(`<div class="day-hour" data-hour="${ h }">
+    hours.push(`<div class="day-hour ${ folded && isNightHour(h) ? 'night' : '' }" data-hour="${ h }" style="height:${ hourH[h] }px">
       <div class="day-hour-label">${ pad2(h) }:00</div>
       <div class="day-slot"
         ondragover="calSlotDragOver(event)"
@@ -139,7 +187,7 @@ export function renderDayCalendar() {
     const running = !!t.timerStartedAt;
     const endLabel = formatHHMM(startMins + dur);
     return `<div class="cal-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' } ${ running ? 'timer-running' : '' }" data-id="${ t.id }"
-        style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ minsToY(startMins) }px;height:${ durationToH(dur) }px;"
+        style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ minsToY(startMins) }px;height:${ spanToH(startMins, dur) }px;"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) }"
         onpointerdown="calBlockPointerDown(event)">
       <div class="cal-block-top">
@@ -153,15 +201,15 @@ export function renderDayCalendar() {
   }).join('');
   const bands = blocksOnDate(ymd).map(b => {
     const top = minsToY(b.startMin);
-    const height = durationToH(b.endMin - b.startMin);
+    const height = Math.max(0, minsToY(b.endMin) - top);
     return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="${domainStyleVar(b.domain)}top:${top}px;height:${height}px"
         title="${esc(b.name)} · ${esc(formatHHMM(b.startMin))}–${esc(formatHHMM(b.endMin))} · ${esc(seriesDetails(b))}">
       <span>${esc(b.name)}</span>
     </div>`;
   }).join('');
-  root.innerHTML = `<div class="day-hours">${ hours.join('') }</div><div class="cal-blocks">${ bands }${ blocks }</div>`;
+  root.innerHTML = `<div class="day-hours" style="height:${ hourTop[24] }px;min-height:0">${ hours.join('') }</div><div class="cal-blocks" style="height:${ hourTop[24] }px;min-height:0">${ bands }${ blocks }</div>`;
   if (state.dayCalScrolledOnce) root.scrollTop = prevScroll;
-  else { root.scrollTop = VIEW_SCROLL_TOP; state.dayCalScrolledOnce = true; }
+  else { root.scrollTop = folded ? 0 : VIEW_SCROLL_TOP; state.dayCalScrolledOnce = true; }
 }
 
 export function taskDomain(t) {
@@ -378,6 +426,18 @@ export function setDashMobileScreen(screen) {
   document.body.classList.toggle('dash-show-board', state.dashMobileScreen === 'board');
   document.body.classList.toggle('dash-show-day', state.dashMobileScreen !== 'board');
   renderNeedsYou();
+}
+
+if (typeof window !== 'undefined') {
+  // Folded rows are sized to the panel, so a new window size needs a new layout.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!foldNightOn()) return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (document.getElementById('phase-dashboard')?.classList.contains('active')) renderDayCalendar();
+    }, 150);
+  });
 }
 
 export function renderDashboard() {

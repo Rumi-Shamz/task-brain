@@ -20,6 +20,7 @@
       <button class="phase-tab" onclick="switchPhase('skills')"><span class="tab-icon" aria-hidden="true">△</span>Develop</button>
       <button class="phase-tab" onclick="switchPhase('year')"><span class="tab-icon" aria-hidden="true">▦</span>Plan</button>
     </nav>
+    <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
     <p class="header-info" id="header-info" aria-live="off"></p>
   </div>
 
@@ -87,7 +88,6 @@
 
   <!-- Act (phase id "dashboard") -->
   <div id="phase-dashboard" class="phase">
-    <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
     <div class="dash-mobile-tabs" role="tablist" aria-label="Dashboard screen">
       <button type="button" class="btn dash-m-tab active" id="dash-tab-day" onclick="setDashMobileScreen('day')">Day</button>
       <button type="button" class="btn dash-m-tab" id="dash-tab-domains" onclick="setDashMobileScreen('domains')">Domains</button>
@@ -101,6 +101,7 @@
             <h2 id="dash-day-title">Today</h2>
             <button type="button" class="btn" onclick="shiftDashDay(1)">→</button>
             <button type="button" class="btn" onclick="shiftDashDay(0)">Today</button>
+            <button type="button" class="btn night-toggle" id="night-toggle" onclick="toggleFoldNight()" aria-pressed="false" aria-label="Fold the night hours" title="Fold 23:00–06:00 into thin rows, so the rest of the day gets more room">☾<span class="night-label"> Fold night</span></button>
           </div>
           <span class="day-hint">Click a task to edit it, drag it to move, drag its bottom edge to change its length.</span>
           <div class="allday-row" id="dash-day-allday" hidden></div>

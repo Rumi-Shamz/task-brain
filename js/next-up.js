@@ -50,15 +50,11 @@ export function periodLine(now = new Date(), schedule = (state.yearRhythm && sta
   return { kind: p.kind, title: `${p.kind === 'work' ? 'Work week' : 'Rest'}, day ${day} of ${p.dates.length}`, switchText };
 }
 
-/**
- * The strip at the top of Act: what is on now (bold, highlighted), the next items, and where you are
- * in the work / rest rhythm. Only on today's view.
- */
+/** In the header, between the tabs and the date: what is on now (bold, highlighted) and what comes next. */
 export function renderNextUp() {
   const el = document.getElementById('dash-next-up');
   if (!el) return;
   const ymd = todayYmd();
-  if ((state.dashCalDate || ymd) !== ymd) { el.hidden = true; return; }
   const d = new Date();
   const nowMin = d.getHours() * 60 + d.getMinutes();
   const a = dayAgenda(ymd, nowMin);
@@ -93,13 +89,14 @@ let tick = null;
 export function startNextUpTicker() {
   if (tick) return;
   renderHeaderInfo();
+  renderNextUp();
   let lastMin = new Date().getMinutes();
   tick = setInterval(() => {
     const m = new Date().getMinutes();
     if (m === lastMin) return;
     lastMin = m;
     renderHeaderInfo();
-    if (document.getElementById('phase-dashboard')?.classList.contains('active')) renderNextUp();
+    renderNextUp();
   }, 5000);
 }
 
