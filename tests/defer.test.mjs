@@ -4,16 +4,10 @@ import { state, normalizeTask } from '../js/state.js';
 import { deferTargets, deferTask } from '../js/defer.js';
 import { weekReview } from '../scripts/lib/week.mjs';
 
-test('defer targets: next week work days, +1 week / month / 3 months on work days', () => {
-  state.yearRhythm = null; // every weekday is a work day
+test('next week / next month move by 7 / 28 days and keep the weekday', () => {
   const t = normalizeTask({ id: 'a', name: 'Call', date: '2026-10-29', start: '10:00' }); // Thursday
-  const to = deferTargets(t, '2026-10-29');
-  assert.deepEqual(to.nextWeek, ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']);
-  assert.equal(to.week, '2026-11-05');
-  assert.equal(to.month, '2026-11-30', '29 Nov is a Sunday → Monday 30');
-  assert.equal(to.quarter, '2027-01-29');
-  const end = deferTargets(normalizeTask({ id: 'b', name: 'B', date: '2027-01-29' }), '2027-01-29');
-  assert.equal(end.month, '2027-03-01', '28 Feb 2027 is a Sunday; never past the month end otherwise');
+  assert.deepEqual(deferTargets(t, '2026-10-29'), { week: '2026-11-05', month: '2026-11-26' });
+  assert.deepEqual(deferTargets(normalizeTask({ id: 'b', name: 'No day' }), '2026-10-29'), { week: '2026-11-05', month: '2026-11-26' });
 });
 
 test('deferring keeps the time, records the day it left, and the review lists it as deferred', () => {

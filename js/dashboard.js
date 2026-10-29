@@ -20,7 +20,7 @@ import { renderErrandsPanel } from './agent-ui.js';
 
 export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
-import { deferButtonHTML } from './defer.js';
+import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import { lockTagHTML, isLocked } from './outcome.js';
 
 export * from './dashboard-drag.js';
@@ -72,18 +72,13 @@ export function boardRowHTML(t, { nested = false } = {}) {
       ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)"
       onclick="dashRowClick(event,'${t.id}')">
     <div class="board-row-main">
-      <input type="checkbox" class="chip-done" ${t.done ? 'checked' : ''}
-        onpointerdown="event.stopPropagation()"
-        onclick="event.stopPropagation(); toggleTaskDone('${t.id}', this.checked)"
-        title="Mark done" aria-label="Mark done" />
-      ${deferButtonHTML(t)}
       <div class="board-row-text">
         <span class="board-row-name">${esc(t.name)}</span>
         <span class="board-row-tags">${tags}</span>
       </div>
     </div>
-    <div class="board-row-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-      ${chipControlsHTML(t)}
+    <div class="board-row-controls card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+      ${chipControlsHTML(t)}${doneBoxHTML(t)}${deferButtonHTML(t)}
     </div>
   </div>`;
 }
@@ -144,14 +139,10 @@ export function renderDayCalendar() {
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) }"
         onpointerdown="calBlockPointerDown(event)">
       <div class="cal-block-top">
-        <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
-          onpointerdown="event.stopPropagation()"
-          onclick="event.stopPropagation(); toggleTaskDone('${ t.id }', this.checked)" title="Mark done" aria-label="Mark done" />
-        ${ deferButtonHTML(t) }
         <div class="cal-block-name">${ esc(t.name) }</div>
-      </div>
-      <div class="cal-block-controls" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
-        ${ chipControlsHTML(t) }
+        <div class="card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+          ${ chipControlsHTML(t) }${ doneBoxHTML(t) }${ deferButtonHTML(t) }
+        </div>
       </div>
       <div class="cal-resize" data-resize="1"></div>
     </div>`;
@@ -161,7 +152,7 @@ export function renderDayCalendar() {
     const height = durationToH(b.endMin - b.startMin);
     return `<div class="cal-protocol ${b.rule === 'event' ? 'event' : 'open'}" style="${domainStyleVar(b.domain)}top:${top}px;height:${height}px"
         title="${esc(b.name)} · ${esc(formatHHMM(b.startMin))}–${esc(formatHHMM(b.endMin))} · ${esc(seriesDetails(b))}">
-      <span>${b.rule === 'event' ? `${esc(formatHHMM(b.startMin))} ` : ''}${esc(b.name)}</span>
+      <span>${esc(b.name)}</span>
     </div>`;
   }).join('');
   root.innerHTML = `<div class="day-hours">${ hours.join('') }</div><div class="cal-blocks">${ bands }${ blocks }</div>`;

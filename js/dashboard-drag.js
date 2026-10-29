@@ -6,13 +6,13 @@ import {
 } from './state.js';
 import { deps } from './deps.js';
 import { domainStyleVar } from './domains.js';
-import { deferButtonHTML } from './defer.js';
+import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import {
   taskDomain, applyCalBlockStyle, dropOnDomainLane, minsToY, yToMins, openDashEdit, renderDashboard,
 } from './dashboard.js';
 
 export function dashChipDragStart(e) {
-  if (e.target.closest('input, button, .chip-actions, .cal-block-controls, .board-row-controls')) { e.preventDefault();
+  if (e.target.closest('input, button, .chip-actions, .card-actions, .board-row-controls')) { e.preventDefault();
     return; }
   const id = e.currentTarget.dataset.id;
   state.dashDragId = id;
@@ -82,7 +82,7 @@ export function calSlotDrop(e, hour) {
 export function clearLanePointerOver() { document.querySelectorAll('.lane-block.pointer-over, .dash-inbox.pointer-over').forEach(el => el.classList.remove('pointer-over')); }
 export function calBlockPointerDown(e) {
   if (e.button !== 0) return;
-  if (e.target.closest('input, button, .chip-actions, .cal-block-controls')) return;
+  if (e.target.closest('input, button, .chip-actions, .card-actions')) return;
   const block = e.currentTarget;
   const id = block.dataset.id;
   const t = state.tasks.find(x => x.id === id);
@@ -229,11 +229,8 @@ export function weekTaskBlocksHTML(ymd, keep = () => true) {
         onpointerdown="weekTaskPointerDown(event)"
         ondblclick="event.stopPropagation();unscheduleTask(${ esc(JSON.stringify(t.id)) });renderYear();">
       <div class="yt-head">
-        <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
-          onpointerdown="event.stopPropagation()"
-          onclick="event.stopPropagation(); toggleTaskDone(${ esc(JSON.stringify(t.id)) }, this.checked)" title="Mark done" aria-label="Mark done" />
-        ${ deferButtonHTML(t) }
         <div class="yt-name">${ esc(t.name) }</div>
+        <div class="card-actions">${ doneBoxHTML(t) }${ deferButtonHTML(t) }</div>
       </div>
     </div>`;
   }).join('');
