@@ -555,6 +555,13 @@
     .year-week-protocol {
       position: absolute; inset: 0; opacity: 0.28; pointer-events: none; z-index: 0;
     }
+    /* Hours of a boundary day that belong to the other period (Monday morning in the work week, Friday morning on the weekend). */
+    .year-week-outside {
+      position: absolute; left: 0; right: 0; z-index: 2;
+      background: repeating-linear-gradient(135deg, rgba(0,0,0,0.06) 0 6px, transparent 6px 12px);
+      background-color: rgba(128,128,128,0.18);
+      pointer-events: none;
+    }
     .year-week-season {
       position: absolute; left: 0; right: 0; z-index: 1;
       background: rgba(128,128,128,0.28);

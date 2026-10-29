@@ -19,6 +19,8 @@ export const state = {
   yearCalendarView: 'year',
   yearWeekMonday: 0,
   yearFocusMonday: null,
+  /** Plan → Week: a day of the work or rest period on screen (js/year-period.js). */
+  yearFocusDate: null,
   activityRules: [],
   blockSkips: [],
   ruleOffer: null,

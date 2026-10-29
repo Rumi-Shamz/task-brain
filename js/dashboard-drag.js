@@ -212,8 +212,9 @@ export function weekTaskTrayHTML(weekDates) {
     <div class="year-task-tray" id="year-task-tray">${ chips }</div>`;
 }
 
-export function weekTaskBlocksHTML(ymd) {
-  return state.tasks.filter(t => t.date === ymd && t.start && !(state.hideDone && t.done)).map(t => {
+/** Timed tasks on ymd as week-view blocks; `keep` narrows them (Plan → Week leaves out the other period's hours). */
+export function weekTaskBlocksHTML(ymd, keep = () => true) {
+  return state.tasks.filter(t => t.date === ymd && t.start && !(state.hideDone && t.done) && keep(t)).map(t => {
     const startMins = parseHHMM(t.start);
     if (startMins == null) return '';
     const dur = t.duration || DEFAULT_DURATION;

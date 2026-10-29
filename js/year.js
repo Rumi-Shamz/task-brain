@@ -9,7 +9,8 @@ import { cycleDayIndex, mondayOfYmd, blocksOnDate } from './blocks.js';
 import { domainStyleVar } from './domains.js';
 import { renderYearHourEdit, yearHourDragEnd } from './year-hours.js';
 import { renderProtocolEditor, renderYearScheduleControls } from './year-settings.js';
-import { renderYearWeek } from './year-week.js';
+import { renderYearWeek, yearPeriod } from './year-week.js';
+import { stepPeriod } from './year-period.js';
 
 export {
   renderYearScheduleControls, resetWorkScheduleDefaults, renderProtocolEditor,
@@ -74,9 +75,7 @@ export function setYearCalendarView(view) {
 
 function snapYearToNow(view) {
   const now = new Date();
-  if (view === 'week' || view === 'year') {
-    state.yearFocusMonday = mondayOfYmd(formatYmd(now));
-  }
+  if (view === 'week' || view === 'year') focusYearDate(formatYmd(now));
   if (view === 'month' || view === 'year') {
     state.yearMonthCursor = { year: now.getFullYear(), month: now.getMonth() };
   }
@@ -103,15 +102,23 @@ export function openYearMonthView(year, month) {
   setYearCalendarView('month');
 }
 
-export function nudgeYearWeek(delta) {
-  const base = state.yearFocusMonday || formatYmd(new Date());
-  const mon = parseYmd(mondayOfYmd(base)) || new Date();
-  state.yearFocusMonday = formatYmd(addDaysLocal(mon, delta));
+/** Week view focus: any day of the work or rest period on screen. Keeps the Monday for the week number. */
+function focusYearDate(ymd) {
+  state.yearFocusDate = ymd;
+  state.yearFocusMonday = mondayOfYmd(ymd);
+}
+
+/** Week view Prev/Next: work → rest → work, two periods a week. */
+export function stepYearPeriod(dir) {
+  const next = stepPeriod(yearPeriod(), dir, state.yearRhythm && state.yearRhythm.workSchedule);
+  focusYearDate(next.start);
+  const d = parseYmd(next.start);
+  if (d) state.yearMonthCursor = { year: d.getFullYear(), month: d.getMonth() };
   deps.renderYear();
 }
 
 export function yearNav(dir) {
-  if (state.yearCalendarView === 'week') nudgeYearWeek(dir * 7);
+  if (state.yearCalendarView === 'week') stepYearPeriod(dir);
   else if (state.yearCalendarView === 'year') {
     const y = state.yearOverviewYear || new Date().getFullYear();
     state.yearOverviewYear = y + dir;
@@ -156,20 +163,23 @@ export function pickYearWeek(value) {
   const cycleStart = addDaysLocal(focusDate, -idx);
   const origin = firstWorkWeekMonday();
   const target = origin + (Math.max(1, n) - 1) * 7;
-  state.yearFocusMonday = formatYmd(addDaysLocal(cycleStart, target));
+  focusYearDate(formatYmd(addDaysLocal(cycleStart, target)));
   state.yearCalendarView = 'week';
   deps.renderYear();
 }
 
 export function markYearWeekDate(ymd) {
-  state.yearFocusMonday = mondayOfYmd(ymd);
+  focusYearDate(ymd);
   const d = parseYmd(ymd);
   if (d) state.yearMonthCursor = { year: d.getFullYear(), month: d.getMonth() };
   deps.renderYear();
 }
 
+/** Clicking a day in Year or Month opens the work or rest period that day belongs to. */
 export function selectYearWeekDate(ymd) {
-  state.yearFocusMonday = mondayOfYmd(ymd);
+  focusYearDate(ymd);
+  const d = parseYmd(ymd);
+  if (d) state.yearMonthCursor = { year: d.getFullYear(), month: d.getMonth() };
   state.yearCalendarView = 'week';
   deps.renderYear();
 }
@@ -273,6 +283,7 @@ export function renderYear() {
   if (monthNav) monthNav.style.display = 'none';
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const focusDates = yearPeriod().dates;
   const weekStart = mondayOfWeek(state.yearWeekMonday);
   const weekEnd = Math.min(YEAR_DAYS - 1, weekStart + 6);
   const weekA = dateForDay(state.yearRhythm.yearStartMonday, weekStart);
@@ -352,7 +363,7 @@ export function renderYear() {
       const cell = idx == null ? { kind: 'free', labels: [] } : cells[idx];
       const appts = blocksOnDate(ymd, { includeAllDay: true }).filter(b => b.rule === 'event');
       const apptText = appts.map(b => (b.allDay ? '' : formatHHMM(b.startMin) + ' ') + b.name).join(' · ');
-      const title = `${ ymd } · ${ (cell.labels || []).join(' · ') || cell.kind }${ apptText ? ' · ' + apptText : '' } · double-click → week`;
+      const title = `${ ymd } · ${ (cell.labels || []).join(' · ') || cell.kind }${ apptText ? ' · ' + apptText : '' } · click → its work or rest period`;
       // The 12-month overview dots only what is not a plain weekly habit (monthly, yearly, one-off, every N weeks).
       const dotted = large ? appts : appts.filter(b => b.repeat.freq !== 'weekly' || b.repeat.interval > 1);
       const dots = dotted.length
@@ -361,10 +372,9 @@ export function renderYear() {
         ? `<span class="ynames">${ appts.slice(0, 2).map(b => `<span style="${ domainStyleVar(b.domain) }">${ esc(b.name) }</span>`).join('') }</span>` : '';
       const todayY = formatYmd(new Date());
       const hi = ymd === todayY ? 'outline:2px solid var(--txt);' : '';
-      const focusMon = state.yearFocusMonday || '';
-      const inWeek = focusMon && ymd >= focusMon && ymd <= formatYmd(addDaysLocal(parseYmd(focusMon), 6)) ? ' in-week' : '';
+      const inWeek = focusDates.includes(ymd) ? ' in-week' : '';
       return `<button type="button" class="year-cell yc-${ cell.kind }${ inWeek }" title="${ esc(title) }" style="${ hi }height:${ cellH }px"
-        onclick="markYearWeekDate('${ ymd }')" ondblclick="selectYearWeekDate('${ ymd }')">${ slotCell.dom }${ dots }${ names }</button>`;
+        onclick="selectYearWeekDate('${ ymd }')">${ slotCell.dom }${ dots }${ names }</button>`;
     }).join('');
     const titleClick = large
       ? `${ MONTHS[slot.month] } ${ slot.year }`
@@ -406,7 +416,7 @@ export function renderYear() {
     return;
   }
 
-  if (sectionLabel) sectionLabel.textContent = 'Year · W1 after deep rest · click month title → month · double-click day → week';
+  if (sectionLabel) sectionLabel.textContent = 'Year · W1 after deep rest · click month title → month · click a day → its work or rest period';
   const yearGrid = document.getElementById('year-grid');
   if (!yearGrid) return;
   const slots = [];

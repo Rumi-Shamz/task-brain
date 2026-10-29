@@ -1,11 +1,15 @@
-/** Year → Week: hourly columns with seasons, protocol shading, recurring series, hour logs and tasks. */
+/**
+ * Plan → Week: one work or rest period (js/year-period.js) as hourly columns with seasons, protocol
+ * shading, recurring series, hour logs and tasks. Boundary days dim the hours of the other period and
+ * leave out what is scheduled there, so work stays in the work view.
+ */
 import {
-  DAY_END_MIN, DAY_START_MIN, HOUR_H, VIEW_SCROLL_TOP, WEEK_COL_H, WEEK_HOUR_END, WEEK_HOUR_START,
-  addDaysLocal, defaultWorkSchedule, esc, formatClock, formatHHMM, formatYmd, hoursBetween, pad2,
-  parseYmd, seasonSpec, seasonalWorkShadeRange, state, statsBuckets, workWindowFromMonth,
-  workWindowRuleText,
+  DAY_END_MIN, DAY_START_MIN, DEFAULT_DURATION, HOUR_H, VIEW_SCROLL_TOP, WEEK_COL_H, WEEK_HOUR_END, WEEK_HOUR_START,
+  defaultWorkSchedule, esc, formatClock, formatHHMM, formatYmd, hoursBetween, pad2, parseHHMM,
+  parseYmd, seasonalWorkShadeRange, state, statsBuckets, workWindowRuleText,
 } from './state.js';
-import { allDayOnDate, blocksOnDate, cycleDayIndex, mondayOfYmd, weekWorkDates } from './blocks.js';
+import { allDayOnDate, blocksOnDate, cycleDayIndex, mondayOfYmd } from './blocks.js';
+import { inPeriod, periodForDate, periodHours } from './year-period.js';
 import { seriesDetails } from './recurring.js';
 import { domainStyleVar } from './domains.js';
 import { renderYearHourEdit } from './year-hours.js';
@@ -13,19 +17,19 @@ import { weekTaskBlocksHTML } from './dashboard.js';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+/** The period Week view is on: the one holding the focus day (today until you pick one). */
+export function yearPeriod() {
+  const ymd = state.yearFocusDate || formatYmd(new Date());
+  return periodForDate(ymd, (state.yearRhythm && state.yearRhythm.workSchedule) || defaultWorkSchedule());
+}
+
 /** cells: paintYear() result; sectionLabel: the view caption element (may be null). */
 export function renderYearWeek(cells, sectionLabel) {
   if (sectionLabel) sectionLabel.textContent = '';
   if (!state.yearFocusMonday) state.yearFocusMonday = mondayOfYmd(formatYmd(new Date()));
-  const workSched = (state.yearRhythm && state.yearRhythm.workSchedule) || defaultWorkSchedule();
-  // Work days, plus any other day of this week with an appointment (e.g. a Saturday class).
-  const workDates = weekWorkDates(state.yearFocusMonday);
-  const weekDates = Array.from({ length: 7 }, (_, i) => formatYmd(addDaysLocal(parseYmd(state.yearFocusMonday), i)))
-    .filter(ymd => workDates.includes(ymd) || blocksOnDate(ymd, { includeAllDay: true }).length);
-  const midDate = parseYmd(weekDates[0] || state.yearFocusMonday);
-  const seasonWin = midDate ? workWindowFromMonth(midDate.getMonth(), workSched) : 'long';
-  const weekSpec = seasonSpec(workSched, seasonWin);
-  const weekLogs = state.yearHourLogs.filter(l => weekDates.includes(l.date));
+  const period = yearPeriod();
+  const weekDates = period.dates;
+  const weekLogs = state.yearHourLogs.filter(l => inPeriod(period, l.date, l.startMin, l.endMin));
   const weekTotal = weekLogs.reduce((s, l) => s + hoursBetween(l.startMin, l.endMin), 0);
   const weekKinds = weekDates.map(ymd => {
     const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
@@ -43,8 +47,8 @@ export function renderYearWeek(cells, sectionLabel) {
     const idx = cycleDayIndex(state.yearRhythm.yearStartMonday, ymd);
     const cell = idx == null ? { kind: 'free', labels: [] } : cells[idx];
     const wd = date ? (date.getDay() === 0 ? 6 : date.getDay() - 1) : 0;
-    const window = date ? workWindowFromMonth(date.getMonth(), workSched) : seasonWin;
-    const spec = seasonSpec(workSched, window);
+    // The period's season, not the day's: a week that starts in March keeps March's work window.
+    const spec = period.spec;
     const shade = seasonalWorkShadeRange(cell.kind, wd, spec);
     const lines = [];
     for (let h = WEEK_HOUR_START; h < WEEK_HOUR_END; h++) {
@@ -66,8 +70,16 @@ export function renderYearWeek(cells, sectionLabel) {
         ondblclick="event.stopPropagation();deleteYearHourLog('${ log.id }')"
         title="${ esc(formatClock(log.startMin) + '–' + formatClock(log.endMin) + (log.label ? ' · ' + log.label : '')) }">${ esc(formatClock(log.startMin)) } ${ esc(log.label || '') }</button>`;
     }).join('');
-    const taskBlocks = ymd ? weekTaskBlocksHTML(ymd) : '';
-    const series = blocksOnDate(ymd).map(b => `<div class="year-week-series ${ b.rule === 'event' ? 'event' : 'open' }"
+    const taskBlocks = ymd ? weekTaskBlocksHTML(ymd, t => {
+      const start = parseHHMM(t.start);
+      return start != null && inPeriod(period, ymd, start, start + (t.duration || DEFAULT_DURATION));
+    }) : '';
+    const own = periodHours(period, ymd);
+    const outside = [[DAY_START_MIN, own.startMin], [own.endMin, DAY_END_MIN]]
+      .filter(([a, b]) => b > a)
+      .map(([a, b]) => `<div class="year-week-outside" title="${ period.kind === 'work' ? 'Rest' : 'Work' } hours"
+        style="top:${ a / 60 * HOUR_H }px;height:${ (b - a) / 60 * HOUR_H }px"></div>`).join('');
+    const series = blocksOnDate(ymd).filter(b => inPeriod(period, ymd, b.startMin, b.endMin)).map(b => `<div class="year-week-series ${ b.rule === 'event' ? 'event' : 'open' }"
         style="${ domainStyleVar(b.domain) }top:${ b.startMin / 60 * HOUR_H }px;height:${ Math.max(14, (b.endMin - b.startMin) / 60 * HOUR_H) }px"
         title="${ esc(b.name) } · ${ esc(formatHHMM(b.startMin)) }–${ esc(formatHHMM(b.endMin)) } · ${ esc(seriesDetails(b)) }">
         <span>${ esc(b.name) }</span></div>`).join('');
@@ -75,7 +87,7 @@ export function renderYearWeek(cells, sectionLabel) {
     return `<div class="year-week-col${ todayMark }" data-ymd="${ esc(ymd) }"
       onmousedown="yearHourDragStart('${ ymd }', event)"
       onmousemove="yearHourDragMove('${ ymd }', event)"
-      style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ series }${ blocks }${ taskBlocks }</div>`;
+      style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ outside }${ series }${ blocks }${ taskBlocks }</div>`;
   }
 
   const grid = document.getElementById('year-grid');
@@ -100,7 +112,8 @@ export function renderYearWeek(cells, sectionLabel) {
   const prevScroll = document.getElementById('year-week-scroll')?.scrollTop;
   const prevScrollX = document.getElementById('year-week-scroll')?.scrollLeft;
   grid.innerHTML = `
-    <div class="year-week-frame">
+    <div class="year-week-frame period-${ period.kind }" data-period="${ period.kind }"
+      title="${ period.kind === 'work' ? 'Work week' : 'Rest' } · ${ esc(period.start) } – ${ esc(period.end) }">
       <div class="year-week-scroll" id="year-week-scroll">
         <div class="year-week-hourly year-week-heads" style="grid-template-columns: 48px repeat(${ colCount }, minmax(0, 1fr));">
           <div class="year-week-gutter-spacer"></div>${ heads }
