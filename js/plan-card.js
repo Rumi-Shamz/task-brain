@@ -18,18 +18,57 @@ function scheduleFieldsHTML(t) {
   const selected = dates.includes(t.date) ? t.date : '';
   const shownDay = selected || dates[0] || '';
   const cur = selected ? intervalForTask(t) : '';
-  return `<div class="plan-pair">
-    <label class="plan-field">Day
+  const cls = `plan-field ${decidedFields(t).schedule ? 'is-set' : ''}`;
+  return `<label class="${cls}"><span class="plan-label">Day</span>
       <select id="plan-ymd" onchange="planScheduleChanged('day')">
         ${dates.map(d => `<option value="${d}" ${d === shownDay ? 'selected' : ''}>${cap(weekdayNameFromYmd(d))} ${d.slice(5)}</option>`).join('') || '<option value="">No open work day</option>'}
       </select>
     </label>
-    <label class="plan-field">When
+    <label class="${cls}"><span class="plan-label">When</span>
       <select id="plan-interval" onchange="planScheduleChanged()">
         <option value="" ${!cur ? 'selected' : ''}>Leave open</option>
         ${DAY_INTERVALS.map(i => `<option value="${i.id}" title="${esc(i.focus)}" ${i.id === cur ? 'selected' : ''}>${esc(i.label)} · ${esc(i.focus)}</option>`).join('')}
       </select>
-    </label>
+    </label>`;
+}
+
+/** Everyone you delegated to before, for the name field's suggestions. */
+function delegateNamesHTML() {
+  const names = [...new Set(state.tasks.map(x => String(x.delegateTo || '').trim()).filter(Boolean))].sort();
+  return names.map(n => `<option value="${esc(n)}"></option>`).join('');
+}
+
+/** Who does it: three choices; Delegate and Assistant swap them for their own controls (× goes back). */
+function whoHTML(t) {
+  const back = `<button type="button" class="plan-x" onclick="planPatch({assignee:'me'})" title="Back to: I do it myself" aria-label="Do it myself">×</button>`;
+  if (t.assignee === 'person') {
+    return `<div class="plan-inline">
+      <input type="text" id="plan-delegate-to" list="plan-delegate-names" autocomplete="off" placeholder="Who"
+        value="${esc(t.delegateTo || '')}" onchange="planPatch({delegateTo:this.value})" />
+      <datalist id="plan-delegate-names">${delegateNamesHTML()}</datalist>
+      <select aria-label="How" onchange="planPatch({delegateVia:this.value || null})">
+        <option value="" ${!t.delegateVia ? 'selected' : ''}>How?</option>
+        ${[['call', 'Call'], ['message', 'Message'], ['email', 'Email']].map(([v, l]) =>
+          `<option value="${v}" ${t.delegateVia === v ? 'selected' : ''}>${l}</option>`).join('')}
+      </select>
+      ${back}
+    </div>`;
+  }
+  if (t.assignee === 'ai') {
+    return `<div class="plan-inline">
+      <div class="plan-choices compact">
+        ${WORKERS.map(w => `<button type="button" class="btn ${t.agentWorker === w.id ? 'primary' : ''}" title="${esc(w.hint)}"
+          onclick="planPatch({agentWorker:'${w.id}'})">${esc(w.label)}</button>`).join('')}
+      </div>
+      <label class="plan-check" title="The note is the brief. The runner on your desktop picks it up within a few minutes; the result shows in Act → Needs you.">
+        <input type="checkbox" ${t.agentWithPlan ? 'checked' : ''} onchange="planPatch({agentWithPlan:this.checked})" /> Share my plan</label>
+      ${back}
+    </div>`;
+  }
+  return `<div class="plan-choices compact">
+    ${[['me', 'Me'], ['person', 'Delegate'], ['ai', 'Assistant']].map(([v, l]) =>
+      `<button type="button" class="btn ${t.assignee === v ? 'primary' : ''}" onclick="planPatch({assignee:'${v}'})${v !== 'me' ? `; setTimeout(() => document.getElementById('plan-delegate-to')?.focus(), 0)` : ''}">${l}</button>`
+    ).join('')}
   </div>`;
 }
 
@@ -149,25 +188,10 @@ export function singleCardHTML(t) {
       </label>
     </div>
 
-    <div class="plan-row plan-row-2">
-      <div class="${cls('schedule')}">${label('Day and time')}
-        ${scheduleFieldsHTML(t)}
-      </div>
-      <div class="${cls('who')}">${label('Who does it')}
-        <div class="plan-choices compact">
-          ${[['me', 'Me'], ['person', 'Someone else'], ['ai', 'Assistant']].map(([v, l]) =>
-            `<button type="button" class="btn ${t.assignee === v ? 'primary' : ''}" onclick="planPatch({assignee:'${v}'})">${l}</button>`
-          ).join('')}
-        </div>
-        ${t.assignee === 'person' ? `<input type="text" placeholder="Their name" value="${esc(t.delegateTo || '')}"
-          onchange="planPatch({delegateTo:this.value})" />` : ''}
-        ${t.assignee === 'ai' ? `<div class="plan-choices compact">
-            ${WORKERS.map(w => `<button type="button" class="btn ${t.agentWorker === w.id ? 'primary' : ''}" title="${esc(w.hint)}"
-              onclick="planPatch({agentWorker:'${w.id}'})">${esc(w.label)}</button>`).join('')}
-            <label class="errand-day"><input type="checkbox" ${t.agentWithPlan ? 'checked' : ''}
-              onchange="planPatch({agentWithPlan:this.checked})" /> Share my open plan with it</label>
-          </div>
-          <span class="bulk-hint">The note is the brief. The runner on your desktop picks it up within a few minutes; the result shows in Act → Delegated.</span>` : ''}
+    <div class="plan-row plan-when-row">
+      ${scheduleFieldsHTML(t)}
+      <div class="${cls('who')} plan-who">${label(t.assignee === 'person' ? 'Delegate to' : t.assignee === 'ai' ? 'Assistant' : 'Who does it')}
+        ${whoHTML(t)}
       </div>
     </div>
 

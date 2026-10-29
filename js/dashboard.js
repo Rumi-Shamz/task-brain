@@ -21,7 +21,7 @@ import { renderErrandsPanel } from './agent-ui.js';
 export { takeBackTask } from './next-up.js';
 import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
 import { deferButtonHTML, doneBoxHTML } from './defer.js';
-import { lockTagHTML, isLocked } from './outcome.js';
+import { isLocked, blockersOf } from './outcome.js';
 import { renderNeedsYou } from './needs-you.js';
 
 export * from './dashboard-drag.js';
@@ -95,22 +95,40 @@ function activityLabel(act) {
   return (ACTIVITIES.find(a => a.id === id) || LANES.find(a => a.id === id))?.label || id;
 }
 
-export function boardRowHTML(t, { nested = false } = {}) {
+function weekdayShort(ymd) {
+  const d = parseYmd(ymd);
+  return d ? d.toLocaleDateString('en-GB', { weekday: 'short' }) : '';
+}
+
+/** One quiet line under the task name: project · importance · when · who · slipped · lock. */
+function metaLineHTML(t, { showActivity = false } = {}) {
+  const proj = getProject(t.projectId || t.project);
+  const parts = [];
+  if (showActivity) parts.push(esc(activityLabel(t.activity || t.lane || 'act')));
+  if (proj) parts.push(esc(proj.name));
+  if (t.lno) parts.push(esc(IMPORTANCE_LABEL[t.lno] || t.lno));
+  if (t.date) {
+    const wd = weekdayShort(t.date);
+    parts.push(esc(t.start ? `${wd} ${t.start}` : wd));
+  }
+  if (t.assignee === 'person') parts.push(`→ ${esc(t.delegateTo || 'someone')}`);
+  if (t.assignee === 'ai') parts.push('Assistant');
+  if (!t.done && t.missed && t.missed.length) {
+    parts.push(`<span class="meta-warn" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>`);
+  }
+  if (!t.done) {
+    const b = blockersOf(t);
+    if (b.length) {
+      parts.push(`<span class="meta-lock" title="Waits on: ${esc(b.map(x => x.name).join(', '))}">🔒 waits on ${esc(b[0].name)}${b.length > 1 ? ` +${b.length - 1}` : ''}</span>`);
+    }
+  }
+  return parts.join(' · ');
+}
+
+export function boardRowHTML(t, { nested = false, showActivity = false } = {}) {
   const scheduled = !!(t.start && t.date);
   const running = !!t.timerStartedAt;
-  const proj = getProject(t.projectId || t.project);
-  const act = t.activity || t.lane || 'act';
-  const tags = [
-    `<span class="tag">${esc(activityLabel(act))}</span>`,
-    proj ? `<span class="tag">${esc(proj.name)}</span>` : '',
-    t.lno ? `<span class="tag">${esc(IMPORTANCE_LABEL[t.lno] || t.lno)}</span>` : '',
-    t.assignee === 'person' ? `<span class="tag tag-assignee">→ ${esc(t.delegateTo || 'someone')}</span>` : '',
-    t.assignee === 'ai' ? '<span class="tag tag-assignee">Assistant</span>' : '',
-    scheduled ? `<span class="tag tag-sched">${esc(t.date.slice(5))} ${esc(t.start)}</span>` : '',
-    !t.done && t.missed && t.missed.length
-      ? `<span class="tag tag-missed" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>` : '',
-    t.done ? '' : lockTagHTML(t),
-  ].filter(Boolean).join('');
+  const meta = metaLineHTML(t, { showActivity });
   return `<div class="board-row ${nested ? 'board-row-child' : ''} ${scheduled ? 'scheduled' : ''} ${t.done ? 'done' : ''} ${!t.done && isLocked(t) ? 'locked' : ''} ${running ? 'timer-running' : ''}"
       draggable="true" data-id="${t.id}"
       ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)"
@@ -118,7 +136,7 @@ export function boardRowHTML(t, { nested = false } = {}) {
     <div class="board-row-main">
       <div class="board-row-text">
         <span class="board-row-name">${domainDotHTML(taskDomain(t))}${esc(t.name)}</span>
-        <span class="board-row-tags">${tags}</span>
+        ${meta ? `<span class="board-row-meta">${meta}</span>` : ''}
       </div>
     </div>
     <div class="board-row-controls card-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
@@ -228,8 +246,8 @@ function isCollapsed(domainId) {
   if (Array.isArray(state.collapsedDomains)) {
     return state.collapsedDomains.includes(domainId);
   }
-  // Default: collapse empty domains
-  return !domainHasTasks(domainId);
+  // Default: every domain shown; empty ones fold into the "Nothing this week" line.
+  return false;
 }
 
 function matchesActivityFilter(t) {
@@ -241,6 +259,33 @@ function matchesActivityFilter(t) {
   return act === f;
 }
 
+const IMP_RANK = { L: 0, N: 1, O: 2 };
+
+/** Today first, then date ascending, undated last; ties: Leverage, Neutral, Optional, none; then name. */
+function boardSort(a, b) {
+  const today = todayYmd();
+  const ta = a.date === today ? 0 : 1, tb = b.date === today ? 0 : 1;
+  if (ta !== tb) return ta - tb;
+  const da = a.date || '9999-99-99', db = b.date || '9999-99-99';
+  if (da !== db) return da < db ? -1 : 1;
+  if (a.date && b.date && (a.start || '') !== (b.start || '')) return (a.start || '99') < (b.start || '99') ? -1 : 1;
+  const ia = IMP_RANK[a.lno] ?? 3, ib = IMP_RANK[b.lno] ?? 3;
+  if (ia !== ib) return ia - ib;
+  return String(a.name || '').localeCompare(String(b.name || ''));
+}
+
+export function toggleAddDomain(open) {
+  const bar = document.querySelector('.board-toolbar');
+  const inp = document.getElementById('new-domain-input');
+  if (!bar) return;
+  const on = open === undefined ? !bar.classList.contains('adding') : !!open;
+  bar.classList.toggle('adding', on);
+  const btn = document.getElementById('add-domain-chip');
+  if (btn) btn.setAttribute('aria-expanded', String(on));
+  if (on && inp) inp.focus();
+  if (!on && inp) { inp.value = ''; inp.placeholder = 'New domain…'; }
+}
+
 export function renderProjectBoard() {
   const board = document.getElementById('project-board');
   if (!board) return;
@@ -250,71 +295,74 @@ export function renderProjectBoard() {
   const visible = (list) => list.filter(t => !later(t) && !(state.hideDone && t.done));
   const activities = ACTIVITIES.length ? ACTIVITIES : LANES;
   const domains = allDomains();
-  const collapsedDoms = domains.filter(d => isCollapsed(d.id));
-  const expandedDoms = domains.filter(d => !isCollapsed(d.id));
   const filter = state.dashActivityFilter || 'all';
+  const showActivity = filter === 'all';
 
+  const rootsOf = dom => visible(state.tasks.filter(t =>
+    t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id && matchesActivityFilter(t)
+  )).sort(boardSort);
+  const rowsFor = roots => roots.map(t => {
+    const kids = visible(childTasksOf(t.id).filter(matchesActivityFilter)).sort(boardSort);
+    return boardRowHTML(t, { showActivity }) + kids.map(c => boardRowHTML(c, { nested: true, showActivity })).join('');
+  }).join('');
+
+  // One control row: a chip per domain (click to show or hide it).
   const strip = document.getElementById('domain-chip-strip');
   if (strip) {
-    if (!collapsedDoms.length) {
-      strip.hidden = true;
-      strip.innerHTML = '';
-    } else {
-      strip.hidden = false;
-      strip.innerHTML = collapsedDoms.map(dom => {
-        const count = visible(state.tasks.filter(t => t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id)).length;
-        return `<button type="button" class="domain-chip" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
-            onclick="toggleDomainCol('${dom.id}')" title="Expand ${esc(dom.label)}">
-          <span class="project-dot"></span>
-          <span class="domain-chip-label">${esc(dom.label)}</span>
-          <span class="domain-count">${count}</span>
-          <span class="domain-chevron">▸</span>
-        </button>`;
-      }).join('');
-    }
+    strip.innerHTML = domains.map(dom => {
+      const hidden = isCollapsed(dom.id);
+      const count = rootsOf(dom).length;
+      return `<button type="button" class="domain-chip ${hidden ? 'is-hidden' : ''}" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
+          aria-pressed="${!hidden}" onclick="toggleDomainCol('${dom.id}')" title="${hidden ? 'Show' : 'Hide'} ${esc(dom.label)}">
+        <span class="project-dot"></span>
+        <span class="domain-chip-label">${esc(dom.label)}</span>
+        <span class="domain-count">${count}</span>
+      </button>`;
+    }).join('');
   }
 
   const filterChips = `<div class="board-activity-filters">
     <button type="button" class="btn ${filter === 'all' ? 'primary' : ''}" onclick="setDashActivityFilter('all')">All</button>
     ${activities.map(a =>
-      `<button type="button" class="btn ${filter === a.id ? 'primary' : ''}" onclick="setDashActivityFilter('${a.id}')">${esc(a.label.split(' ')[0])}</button>`
+      `<button type="button" class="btn ${filter === a.id ? 'primary' : ''}" onclick="setDashActivityFilter('${a.id}')">${esc(activityLabel(a.id))}</button>`
     ).join('')}
   </div>`;
 
-  const domainStacks = expandedDoms.map(dom => {
-    const roots = visible(state.tasks.filter(t =>
-      t.status !== 'someday' && isTopLevelTask(t) && taskDomain(t) === dom.id
-    ));
-    const count = roots.filter(matchesActivityFilter).length;
-    const sections = activities.map(a => {
-      const inSection = roots.filter(t => (t.activity || t.lane || 'act') === a.id && matchesActivityFilter(t));
-      const rows = inSection.map(t => {
-        const kids = visible(childTasksOf(t.id).filter(c => (c.activity || c.lane || 'act') === a.id && matchesActivityFilter(c)));
-        return boardRowHTML(t) + kids.map(c => boardRowHTML(c, { nested: true })).join('');
-      }).join('');
-      // Only activities that have tasks: empty "None" sections were noise.
-      return rows ? `<section class="domain-activity">
-        <div class="domain-activity-label">${esc(a.label)}</div>
-        <div class="domain-task-rows">${rows}</div>
-      </section>` : '';
-    }).join('') || '<div class="dash-inbox-empty domain-empty">Nothing this week.</div>';
-    const laterCount = state.tasks.filter(t => t.status !== 'someday' && !t.done && isTopLevelTask(t) && taskDomain(t) === dom.id && later(t)).length;
-    const laterNote = laterCount
-      ? `<div class="board-later" title="Dated after this week: they show up here in their week, and on Plan now">+ ${laterCount} later</div>` : '';
-    return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
-        ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
-        ondrop="dropOnDomainStack(event)">
-      <button type="button" class="project-col-header domain-toggle" onclick="toggleDomainCol('${dom.id}')">
-        <span class="project-dot"></span>
-        <span class="domain-toggle-label">${esc(dom.label)}</span>
-        <span class="domain-count">${count}</span>
-        <span class="domain-chevron">▾</span>
-      </button>
-      ${sections}${laterNote}
+  const shownDoms = domains.filter(d => !isCollapsed(d.id));
+  let body = '';
+  if (!shownDoms.length) {
+    body = '<div class="dash-inbox-empty">All domains hidden. Click a chip above to show one.</div>';
+  } else if (!showActivity) {
+    // Batch mode: one flat list across the shown domains.
+    const roots = shownDoms.flatMap(rootsOf).sort(boardSort);
+    const n = roots.length;
+    body = `<div class="project-col act-batch">
+      <div class="act-batch-head">${esc(activityLabel(filter))} · ${n} task${n === 1 ? '' : 's'} this week</div>
+      <div class="domain-task-rows">${rowsFor(roots) || '<div class="dash-inbox-empty domain-empty">Nothing this week.</div>'}</div>
     </div>`;
-  }).join('') || '<div class="dash-inbox-empty">All domains collapsed — click a chip above to expand one.</div>';
+  } else {
+    const empty = [];
+    const cards = shownDoms.map(dom => {
+      const roots = rootsOf(dom);
+      if (!roots.length) { empty.push(dom.label); return ''; }
+      const laterCount = state.tasks.filter(t => t.status !== 'someday' && !t.done && isTopLevelTask(t) && taskDomain(t) === dom.id && later(t)).length;
+      const laterNote = laterCount
+        ? `<div class="board-later" title="Dated after this week: they show up here in their week, and on Plan now">+ ${laterCount} later</div>` : '';
+      return `<div class="project-col domain-col domain-stack" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
+          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)"
+          ondrop="dropOnDomainStack(event)">
+        <div class="act-dom-head">
+          <span class="project-dot"></span>
+          <span class="domain-toggle-label">${esc(dom.label)}</span>
+          <span class="domain-count">${roots.length}</span>
+        </div>
+        <div class="domain-task-rows">${rowsFor(roots)}</div>${laterNote}
+      </div>`;
+    }).join('');
+    body = cards + (empty.length ? `<div class="act-nothing">Nothing this week: ${empty.map(esc).join(', ')}</div>` : '');
+  }
 
-  board.innerHTML = filterChips + domainStacks;
+  board.innerHTML = filterChips + body;
 
   const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday' && isTopLevelTask(t)));
   const inboxEl = document.getElementById('dash-inbox-chips');
@@ -343,7 +391,7 @@ export function dropOnDomainStack(e) {
 export function toggleDomainCol(domainId) {
   // Materialize default into array on first toggle
   if (!Array.isArray(state.collapsedDomains)) {
-    state.collapsedDomains = allDomains().filter(d => !domainHasTasks(d.id)).map(d => d.id);
+    state.collapsedDomains = [];
   }
   toggleDomainCollapsed(domainId);
   deps.save();
@@ -370,7 +418,7 @@ export function addDomainFromForm() {
     if (inp) { inp.focus(); inp.placeholder = res.error || 'Name required…'; }
     return;
   }
-  if (inp) { inp.value = ''; inp.placeholder = 'New domain…'; }
+  toggleAddDomain(false);
   // Expand newly added domain
   if (Array.isArray(state.collapsedDomains)) {
     state.collapsedDomains = state.collapsedDomains.filter(id => id !== res.id);

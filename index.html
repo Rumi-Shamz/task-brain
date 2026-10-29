@@ -112,21 +112,16 @@
         <div class="board-switch" id="board-switch" role="tablist" aria-label="Show"></div>
         <section class="needs-you" id="needs-you" aria-live="polite"></section>
         <div class="board-toolbar">
-          <div class="add-project">
-            <input type="text" id="new-domain-input" placeholder="New domain…"
-              onkeydown="if(event.key==='Enter')addDomainFromForm()" />
-            <button type="button" class="btn" onclick="addDomainFromForm()">Add domain</button>
-          </div>
-          <div class="board-domain-tools">
-            <button type="button" class="btn" onclick="expandAllDomains()">Expand all</button>
-            <button type="button" class="btn" onclick="collapseAllDomains()">Collapse all</button>
-          </div>
+          <div class="domain-chip-strip" id="domain-chip-strip" aria-label="Domains shown"></div>
+          <button type="button" class="domain-chip add-chip" id="add-domain-chip" aria-expanded="false"
+            title="Add a domain" onclick="toggleAddDomain()">+</button>
+          <input type="text" id="new-domain-input" class="add-domain-input" placeholder="New domain…"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addDomainFromForm()}else if(event.key==='Escape'){toggleAddDomain(false)}" />
           <label class="board-filter">
             <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
             Hide done
           </label>
         </div>
-        <div class="domain-chip-strip" id="domain-chip-strip" hidden></div>
         <div class="project-board" id="project-board"></div>
         <div class="dash-inbox" id="dash-inbox"
           ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnInbox(event)">

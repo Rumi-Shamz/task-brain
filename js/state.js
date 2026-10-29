@@ -472,6 +472,8 @@ export function normalizeTask(t) {
     // Who does it: me, a person (delegateTo), or the assistant. v10 → v11; absent = me.
     assignee: t.assignee === 'person' || t.assignee === 'ai' ? t.assignee : 'me',
     delegateTo: t.delegateTo != null ? String(t.delegateTo) : '',
+    // How a delegated task is handed over (optional, absent = not said).
+    delegateVia: ['call', 'message', 'email'].includes(t.delegateVia) ? t.delegateVia : null,
     // Assistant work (v11 → v12): which worker runs it, whether it sees the plan, re-run requests.
     ...normalizeAgentFields(t),
   };

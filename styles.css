@@ -2239,3 +2239,103 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
   .header .now-pill { width: 100%; }
 }
 @media (max-width: 900px) { .night-label { display: none; } .night-toggle { min-width: 42px; } }
+
+/* ---------- Organize card: one control height (round 4) ---------- */
+.plan-q { --ctl-h: 34px; }
+.plan-q .btn, .plan-q .plan-choices.compact .btn, .plan-q select, .plan-q .plan-x, .plan-q .subtask-input,
+.plan-q input:not([type="checkbox"]):not([type="hidden"]):not([type="date"]) {
+  height: var(--ctl-h); min-height: var(--ctl-h); box-sizing: border-box; font-size: 13px; line-height: 1;
+}
+.plan-q .btn, .plan-q .plan-choices.compact .btn { padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; }
+.plan-q select, .plan-q input:not([type="checkbox"]):not([type="hidden"]) { padding: 0 10px; }
+.plan-q .plan-x { width: var(--ctl-h); flex: none; font-size: 16px; }
+.plan-q .plan-label { min-height: 16px; display: block; }
+.plan-when-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px 14px; align-items: start; }
+.plan-inline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.plan-inline > input { flex: 1 1 auto; min-width: 0; }
+.plan-inline > select { flex: 0 0 auto; width: auto; }
+.plan-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--txt2); white-space: nowrap; height: var(--ctl-h); }
+@media (max-width: 900px) {
+  .plan-q { --ctl-h: 38px; }
+  .plan-when-row { grid-template-columns: 1fr 1fr; }
+  .plan-when-row > .plan-who { grid-column: 1 / -1; }
+}
+.plan-q .plan-subtasks-label { font-size: 12px; color: var(--txt3); }
+.plan-q .plan-subtasks .subtask-list { border-top: 0; }
+
+/* ---------- Act board: flat domain lists (round 4) ---------- */
+
+/* One control row: domain chips, +, Hide done. All the same height. */
+#dash-board-panel .board-toolbar {
+  display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 6px;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+#dash-board-panel .board-toolbar::-webkit-scrollbar { display: none; }
+#dash-board-panel .board-toolbar > * { flex: none; }
+#dash-board-panel #domain-chip-strip {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0; padding: 0;
+}
+#dash-board-panel .board-toolbar .domain-chip {
+  height: 36px; box-sizing: border-box; padding: 0 12px; gap: 7px;
+  font-size: 13px; font-weight: 500; letter-spacing: 0; white-space: nowrap;
+  background: var(--card); border: 1px solid var(--border-md); color: var(--txt);
+}
+#dash-board-panel .board-toolbar .domain-chip .project-dot { background: var(--dc, var(--txt3)); }
+#dash-board-panel .board-toolbar .domain-chip .domain-count { font-size: 12px; color: var(--txt3); }
+#dash-board-panel .board-toolbar .domain-chip.is-hidden { color: var(--txt3); background: transparent; border-style: dashed; }
+#dash-board-panel .board-toolbar .domain-chip.is-hidden .project-dot { opacity: 0.35; }
+#dash-board-panel .board-toolbar .domain-chip.add-chip { width: 36px; padding: 0; justify-content: center; font-size: 17px; color: var(--txt2); }
+#dash-board-panel .board-toolbar .add-domain-input {
+  display: none; height: 36px; box-sizing: border-box; padding: 0 12px; width: 150px;
+  border: 1px solid var(--border-md); border-radius: 999px; background: var(--card); color: var(--txt);
+  font: inherit; font-size: 13px;
+}
+#dash-board-panel .board-toolbar.adding .add-domain-input { display: block; }
+#dash-board-panel .board-toolbar .board-filter {
+  height: 36px; box-sizing: border-box; margin-left: auto; padding-left: 8px; font-size: 13px; white-space: nowrap;
+}
+
+/* Domain card: a flat list, thin dividers. */
+.act-dom-head {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px;
+  font-size: 13px; font-weight: 600; color: var(--txt);
+}
+.act-dom-head .project-dot { background: var(--dc, var(--txt3)); }
+.act-dom-head .domain-count { font-size: 12px; }
+.project-col.domain-stack .domain-task-rows, .act-batch .domain-task-rows { gap: 0; padding: 0 0 4px; }
+.act-batch-head { padding: 10px 12px 4px; font-size: 13px; font-weight: 600; color: var(--txt2); }
+.project-col.act-batch { overflow: visible; height: auto; flex-shrink: 0; }
+
+.domain-task-rows .board-row {
+  background: transparent; border: 0; border-radius: 0; border-top: 0.5px solid var(--border);
+  padding: 7px 12px; align-items: center; line-height: 1.3;
+}
+.domain-task-rows .board-row:first-child { border-top: 0; }
+.domain-task-rows .board-row:hover { background: var(--surface); }
+.domain-task-rows .board-row.scheduled, .domain-task-rows .board-row.timer-running { border-left: 0; box-shadow: none; }
+.domain-task-rows .board-row.timer-running { background: var(--surface); }
+.domain-task-rows .board-row-main { align-items: center; }
+.domain-task-rows .board-row-child { margin-left: 0; padding-left: 28px; }
+.board-row-meta {
+  display: block; margin-top: 1px; font-size: 12px; font-weight: 400; color: var(--txt3);
+  overflow-wrap: anywhere;
+}
+.board-row-meta .meta-warn { color: #b5473a; }
+.board-row-meta .meta-lock { color: var(--txt2); }
+.act-nothing { padding: 4px 12px 10px; font-size: 13px; color: var(--txt3); }
+
+@media (max-width: 900px) {
+  #dash-board-panel .board-toolbar { padding-bottom: 2px; }
+  #dash-board-panel .board-toolbar .domain-chip,
+  #dash-board-panel .board-toolbar .add-domain-input,
+  #dash-board-panel .board-toolbar .board-filter { height: 38px; }
+  #dash-board-panel .board-toolbar .domain-chip.add-chip { width: 38px; }
+  .domain-task-rows .board-row { padding: 9px 12px; font-size: 15px; }
+}
+/* Inside a domain card the header already carries the color; the dot stays in batch mode. */
+.domain-stack .board-row-name .dom-dot { display: none; }
+@media (max-width: 900px) {
+  .board-activity-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .board-activity-filters::-webkit-scrollbar { display: none; }
+  .board-activity-filters .btn { flex: none; white-space: nowrap; }
+}
