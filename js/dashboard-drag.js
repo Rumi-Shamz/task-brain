@@ -6,12 +6,14 @@ import {
 } from './state.js';
 import { deps } from './deps.js';
 import { domainStyleVar } from './domains.js';
+import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import {
   taskDomain, applyCalBlockStyle, dropOnDomainLane, minsToY, yToMins, openDashEdit, renderDashboard,
 } from './dashboard.js';
+import { actOn, stop } from './actions.js';
 
 export function dashChipDragStart(e) {
-  if (e.target.closest('input, button, .chip-actions, .cal-block-controls, .board-row-controls')) { e.preventDefault();
+  if (e.target.closest('input, button, .chip-actions, .card-actions, .board-row-controls')) { e.preventDefault();
     return; }
   const id = e.currentTarget.dataset.id;
   state.dashDragId = id;
@@ -81,7 +83,7 @@ export function calSlotDrop(e, hour) {
 export function clearLanePointerOver() { document.querySelectorAll('.lane-block.pointer-over, .dash-inbox.pointer-over').forEach(el => el.classList.remove('pointer-over')); }
 export function calBlockPointerDown(e) {
   if (e.button !== 0) return;
-  if (e.target.closest('input, button, .chip-actions, .cal-block-controls')) return;
+  if (e.target.closest('input, button, .chip-actions, .card-actions')) return;
   const block = e.currentTarget;
   const id = block.dataset.id;
   const t = state.tasks.find(x => x.id === id);
@@ -193,6 +195,8 @@ export function scheduleTaskOnDate(taskId, ymd, startMin) {
   t.start = formatHHMM(start);
   deps.save();
 }
+/** Double-click on a week-view block: back to the tray. */
+export function unscheduleWeekTask(taskId) { unscheduleTask(taskId); deps.renderYear(); }
 export function unscheduleTask(taskId) {
   const t = state.tasks.find(x => x.id === taskId);
   if (!t) return;
@@ -204,16 +208,17 @@ export function weekTaskTrayHTML(weekDates) {
   const unscheduled = state.tasks.filter(t => !(t.date && t.start));
   const chips = unscheduled.length
     ? unscheduled.map(t => `<div class="board-chip" draggable="true" data-id="${ esc(t.id) }"
-        ondragstart="dashChipDragStart(event)" ondragend="dashChipDragEnd(event)">
+        ${actOn('dragstart', 'dashChipDragStart', '$event')} ${actOn('dragend', 'dashChipDragEnd', '$event')}>
         <span class="board-chip-name">${ esc(t.name) }</span>
       </div>`).join('')
-    : '<span class="dash-inbox-empty">All tasks are on the calendar — drag from Dashboard inbox/lanes too.</span>';
+    : '<span class="dash-inbox-empty">Every task is on the calendar. You can also drag tasks here from Act.</span>';
   return `<div class="section-label" style="margin-bottom:6px;">Tasks — drag onto a day column to schedule</div>
     <div class="year-task-tray" id="year-task-tray">${ chips }</div>`;
 }
 
-export function weekTaskBlocksHTML(ymd) {
-  return state.tasks.filter(t => t.date === ymd && t.start && !(state.hideDone && t.done)).map(t => {
+/** Timed tasks on ymd as week-view blocks; `keep` narrows them (Plan → Week leaves out the other period's hours). */
+export function weekTaskBlocksHTML(ymd, keep = () => true) {
+  return state.tasks.filter(t => t.date === ymd && t.start && !(state.hideDone && t.done) && keep(t)).map(t => {
     const startMins = parseHHMM(t.start);
     if (startMins == null) return '';
     const dur = t.duration || DEFAULT_DURATION;
@@ -224,20 +229,18 @@ export function weekTaskBlocksHTML(ymd) {
     return `<div class="year-task-block ${ projectClass(t.project) } ${ t.done ? 'done' : '' }" data-task-id="${ esc(t.id) }" data-ymd="${ esc(ymd) }"
         style="${ projectCssVars(t.project) }${ domainStyleVar(taskDomain(t)) }top:${ top }px;height:${ Math.max(height, 28) }px"
         title="${ esc(t.name) } · ${ esc(t.start) }–${ esc(endLabel) } (${ dur }m) · double-click to unschedule"
-        onpointerdown="weekTaskPointerDown(event)"
-        ondblclick="event.stopPropagation();unscheduleTask(${ esc(JSON.stringify(t.id)) });renderYear();">
+        ${actOn('pointerdown', 'weekTaskPointerDown', '$event')}
+        ${actOn('dblclick', 'unscheduleWeekTask', t.id)}${stop('dblclick')}>
       <div class="yt-head">
-        <input type="checkbox" class="chip-done" ${ t.done ? 'checked' : '' }
-          onpointerdown="event.stopPropagation()"
-          onclick="event.stopPropagation(); toggleTaskDone(${ esc(JSON.stringify(t.id)) }, this.checked)" title="Mark done" aria-label="Mark done" />
         <div class="yt-name">${ esc(t.name) }</div>
+        <div class="card-actions">${ doneBoxHTML(t) }${ deferButtonHTML(t) }</div>
       </div>
     </div>`;
   }).join('');
 }
 
 export function yearWeekColDragAttrs(ymd) {
-  return `ondragover="yearWeekTaskDragOver(event)" ondragleave="yearWeekTaskDragLeave(event)" ondrop="yearWeekTaskDrop(event, '${ ymd }')"`;
+  return `${actOn('dragover', 'yearWeekTaskDragOver', '$event')} ${actOn('dragleave', 'yearWeekTaskDragLeave', '$event')} ${actOn('drop', 'yearWeekTaskDrop', '$event', ymd)}`;
 }
 export function yearWeekTaskDragOver(e) {
   e.preventDefault();

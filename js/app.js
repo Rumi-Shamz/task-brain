@@ -8,10 +8,11 @@ import * as year from './year.js';
 import * as dashboard from './dashboard.js';
 import { render, switchPhase, clearAll } from './ui.js';
 import { deps } from './deps.js';
+import { registerActions } from './actions.js';
 import { ensureProjectsMigrated, mergeProjects } from './projects.js';
 import { applyGroupSchedule, ensureGroups } from './groups.js';
 import {
-  ensureSkills, addSkillFromForm, renderSkillsPanel, onTaskDoneMaybeLearn,
+  ensureSkills, addSkillFromForm, addSkillFromFormSubmit, renderSkillsPanel, onTaskDoneMaybeLearn, removeSkill,
   ensureWeeklyLearnBlock,
 } from './skills.js';
 import {
@@ -24,6 +25,10 @@ import { markClean } from './merge.js';
 import { getPersistPayload } from './storage.js';
 import { startNextUpTicker } from './next-up.js';
 import * as agentUi from './agent-ui.js';
+import * as defer from './defer.js';
+import { planRecovery, skipRecovery } from './recovery.js';
+import * as outcome from './outcome.js';
+import { openDelegatedPanel, setBoardView } from './needs-you.js';
 
 deps.save = save;
 deps.render = render;
@@ -36,10 +41,17 @@ deps.renderProjectBoard = dashboard.renderProjectBoard;
 deps.ghConnected = ghConnected;
 deps.ghPush = ghPush;
 
+// Late-bound hooks that state.js, dashboard.js and dashboard-edit.js look up on window to avoid import
+// cycles. They are called from code, never from markup.
 window.deps = deps;
 window.deriveActivityRules = deriveActivityRules;
+window.onTaskDoneMaybeOutcome = t => { if (outcome.needsOutcome(t)) outcome.openOutcome(t.id); };
+window.onTaskDoneMaybeLearn = onTaskDoneMaybeLearn;
+window.renderSomedayPanel = renderSomedayPanel;
 
-Object.assign(window, plan, year, dashboard, agentUi, {
+// Everything markup can ask for (data-click="name" and friends, see actions.js).
+registerActions(plan, year, dashboard, agentUi, defer, outcome, {
+  openDelegatedPanel, setBoardView, planRecovery, skipRecovery,
   switchPhase,
   clearAll,
   render,
@@ -59,9 +71,9 @@ Object.assign(window, plan, year, dashboard, agentUi, {
   ghDisconnect,
   toggleSyncPanel,
   addSkillFromForm,
+  addSkillFromFormSubmit,
+  removeSkill,
   renderSkillsPanel,
-  onTaskDoneMaybeLearn,
-  renderSomedayPanel,
   somedayDelegate,
   somedayConvert,
   somedayDelete,

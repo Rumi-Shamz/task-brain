@@ -123,6 +123,25 @@ function stamp(item) {
   return (item && item.updatedAt) || '';
 }
 
+/** Fields that travel with the done flag: the copy that last switched done also keeps its day. */
+const DONE_FIELDS = ['done', 'status', 'doneAt', 'doneChangedAt', 'date', 'missed', 'trackedMs', 'timerStartedAt'];
+
+/**
+ * Done is merged on its own clock. A device that opens with old data rolls yesterday's open tasks
+ * forward and stamps them, which made its stale open copy beat a check-off made elsewhere.
+ * Ties (both unknown, older data) go to the done copy: checking off is deliberate, rolling is not.
+ */
+function resolveDone(pick, other) {
+  if (!other || !!pick.done === !!other.done) return pick;
+  const a = pick.doneChangedAt || '';
+  const b = other.doneChangedAt || '';
+  const winner = a > b ? pick : b > a ? other : (pick.done ? pick : other);
+  if (winner === pick) return pick;
+  const out = { ...pick };
+  DONE_FIELDS.forEach(f => { if (f in winner) out[f] = winner[f]; else delete out[f]; });
+  return out;
+}
+
 function mergeCollection(col, localList, remoteList, tombs) {
   const local = Array.isArray(localList) ? localList : [];
   const remote = Array.isArray(remoteList) ? remoteList : [];
@@ -140,7 +159,8 @@ function mergeCollection(col, localList, remoteList, tombs) {
     localKeys.add(k);
     const other = remoteByKey.get(k);
     // Ties go to the remote copy: it is the one other devices already have.
-    const pick = !other ? item : stamp(item) > stamp(other) ? item : other;
+    let pick = !other ? item : stamp(item) > stamp(other) ? item : other;
+    if (col.name === 'tasks' && other) pick = resolveDone(pick, pick === item ? other : item);
     if (!dead(k, pick)) out.push(pick);
   });
   remote.forEach(item => {

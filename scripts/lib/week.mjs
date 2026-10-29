@@ -71,13 +71,32 @@ export function extractionContext(data) {
 
 const minutesOf = t => Number(t.duration) || 30;
 
-/** Planned vs done for one ISO week, using task.date and task.missed (dates a task rolled away from). */
+/** Local day of an ISO timestamp, so a task finished at 23:30 counts on that day, not the UTC one. */
+function localYmd(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Planned vs done for one ISO week. Done means finished during the week (`doneAt`), or, for tasks
+ * finished before doneAt existed, done with a day in the week. Slipped means it rolled away from a day
+ * in the week (task.missed) and was not finished by the end of it.
+ */
 export function weekReview(data, label) {
-  const dates = new Set(weekDates(label));
+  const days = weekDates(label);
+  const dates = new Set(days);
+  const weekEnd = days[6];
   const tasks = (data && data.tasks) || [];
-  const planned = tasks.filter(t => (t.date && dates.has(t.date)) || (t.missed || []).some(d => dates.has(d)));
-  const done = planned.filter(t => (t.done || t.status === 'done') && t.date && dates.has(t.date));
-  const missed = planned.filter(t => (t.missed || []).some(d => dates.has(d)));
+  const isDone = t => t.done || t.status === 'done';
+  const doneDay = t => (t.doneAt ? localYmd(t.doneAt) : null);
+  const doneInWeek = t => isDone(t) && (doneDay(t) ? dates.has(doneDay(t)) : !!t.date && dates.has(t.date));
+  const doneByWeekEnd = t => isDone(t) && (doneDay(t) ? doneDay(t) <= weekEnd : !!t.date && t.date <= weekEnd);
+  const planned = tasks.filter(t => (t.date && dates.has(t.date)) || (t.missed || []).some(d => dates.has(d)) || doneInWeek(t));
+  const done = planned.filter(doneInWeek);
+  const missed = planned.filter(t => (t.missed || []).some(d => dates.has(d)) && !doneByWeekEnd(t));
+  // Moved on purpose (Defer) away from a day in the week, and not done in it.
+  const deferred = tasks.filter(t => (t.deferred || []).some(d => dates.has(d)) && !doneInWeek(t));
   const projects = projectNames(data || {});
   const byDomain = {};
   let doneMin = 0, lMin = 0;
@@ -90,7 +109,7 @@ export function weekReview(data, label) {
   });
   return {
     label,
-    planned, done, missed,
+    planned, done, missed, deferred,
     doneMinutes: doneMin,
     lPercent: doneMin ? Math.round((lMin / doneMin) * 100) : 0,
     byDomain,
@@ -111,6 +130,8 @@ function taskLine(t, projectName, { tracked = false, due = false } = {}) {
   return `- ${t.name} — ${bits.join(' · ')}${note ? ` — ${note.length > 160 ? note.slice(0, 157) + '…' : note}` : ''}`;
 }
 
+const OUTCOME_LABEL = { planned: 'done as planned', partial: 'partly', failed: "didn't work" };
+
 export function buildPrebrief(data, label) {
   const prev = previousWeek(label);
   const lines = [`# Prebrief ${label}`, ''];
@@ -130,14 +151,24 @@ export function buildPrebrief(data, label) {
     if (r.done.length) {
       lines.push('', '## Done last week');
       r.done
-        .slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
-        .forEach(t => lines.push(taskLine(t, r.projectName, { tracked: true })));
+        .slice().sort((a, b) => String(a.doneAt || a.date).localeCompare(String(b.doneAt || b.date)))
+        .forEach(t => {
+          lines.push(taskLine(t, r.projectName, { tracked: true }));
+          const o = t.outcome;
+          if (o && (o.result || o.note)) lines.push(`  - Outcome: ${[OUTCOME_LABEL[o.result], String(o.note || '').replace(/\s+/g, ' ').trim()].filter(Boolean).join(' — ')}`);
+          const opened = (data.tasks || []).filter(x => (x.blockedBy || []).includes(t.id)).map(x => x.name);
+          if (opened.length) lines.push(`  - Unlocks: ${opened.join(', ')}`);
+        });
     }
     if (r.missed.length) {
       lines.push('', '## Slipped (planned, not done)');
       r.missed
         .sort((a, b) => (b.missed || []).length - (a.missed || []).length)
         .forEach(t => lines.push(`- ${t.name}${(t.missed || []).length > 1 ? ` — slipped ${(t.missed || []).length}×` : ''}`));
+    }
+    if (r.deferred.length) {
+      lines.push('', '## Deferred (moved on purpose)');
+      r.deferred.forEach(t => lines.push(`- ${t.name} — ${t.status === 'someday' ? 'to the backlog' : `to ${t.date || '?'}`}`));
     }
     const open = (data.tasks || []).filter(t => !t.done && t.status !== 'done' && t.status !== 'someday' && !t.parentId);
     if (open.length) {

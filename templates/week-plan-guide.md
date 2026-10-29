@@ -21,7 +21,7 @@ One row per task. Leave a cell empty rather than guessing. Quote any cell that c
 | Length | yes | `15`, `30`, `60`, `180` (minutes) | Other numbers snap to the nearest. Longer work: split into several rows |
 | Size | yes | `simple`, `mid`, `complex` | Use this column, not `[middle]` tags in the description |
 | Activity | yes | `research`, `communicate`, `act`, `learn` | |
-| LNO | no | `L` (leverage), `N` (neutral), `O` (optional) | |
+| LNO | no | `L` (leverage), `N` (neutral), `O` (optional) | Shown in the app as **Importance** |
 | Who | no | `me`, `assistant`, `local`, or a person's name | Empty = me. See below |
 | Parent | no | the Key word of another row | Makes this row a subtask of that one. See below |
 | Description | no | free text | The note on the task. For assistant tasks this is the brief |
