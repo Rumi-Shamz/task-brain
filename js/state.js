@@ -443,6 +443,8 @@ export function normalizeTask(t) {
     date: t.date ?? null,
     subtasks: t.subtasks || [],
     draining: !!t.draining,
+    // Break after a long task (js/recovery.js): null = suggested, 'planned', or 'skip'. Absent = suggested.
+    recovery: t.recovery === 'planned' || t.recovery === 'skip' ? t.recovery : null,
     done: status === 'done' || done,
     status,
     // v12 → v13: when the task was finished, and when done was last switched either way (absent = unknown).

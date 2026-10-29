@@ -6,6 +6,7 @@ import { domainStyleVar } from './domains.js';
 import { deps } from './deps.js';
 import { agentTaskRowHTML, agentReadyCount, runnerStatusHTML } from './agent-ui.js';
 import { isLocked } from './outcome.js';
+import { recoveriesOnDate } from './recovery.js';
 
 function inHowLong(mins) {
   if (mins < 1) return 'now';
@@ -26,10 +27,13 @@ export function dayAgenda(ymd, nowMin) {
     if (start == null) return;
     items.push({ kind: 'task', name: t.name, start, end: start + (Number(t.duration) || DEFAULT_DURATION), domain: t.domain, id: t.id });
   });
+  recoveriesOnDate(ymd).forEach(({ t, r }) => items.push({
+    kind: 'recovery', name: `Break · ${r.label}`, start: r.start, end: r.end, domain: t.domain, id: t.id,
+  }));
   items.sort((a, b) => a.start - b.start || (a.kind === 'task') - (b.kind === 'task'));
   return {
     now: items.filter(i => i.start <= nowMin && i.end > nowMin),
-    next: items.filter(i => i.start > nowMin).slice(0, 3),
+    next: items.filter(i => i.start > nowMin && i.kind !== 'recovery').slice(0, 3),
     openToday: state.tasks.filter(t => t.date === ymd && !t.done && t.status !== 'someday').length,
   };
 }
@@ -59,7 +63,7 @@ export function renderNextUp() {
   const nowMin = d.getHours() * 60 + d.getMinutes();
   const a = dayAgenda(ymd, nowMin);
   // A task on now wins over the block it sits in.
-  const now = a.now.find(i => i.kind === 'task') || a.now[0];
+  const now = a.now.find(i => i.kind === 'task') || a.now.find(i => i.kind === 'recovery') || a.now[0];
   const nowHTML = now
     ? `<span class="now-pill" style="${domainStyleVar(now.domain)}"><span class="now-dot" aria-hidden="true"></span><span class="now-label">Now</span>
         <strong class="now-name">${esc(now.name)}</strong><span class="now-until">until ${formatHHMM(now.end)}</span></span>`

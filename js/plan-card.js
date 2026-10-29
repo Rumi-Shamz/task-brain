@@ -8,6 +8,7 @@ import { parentTaskLabel } from './plan.js';
 import { comboHTML } from './plan-combo.js';
 import { subtasksHTML, drainingHTML } from './plan-subtasks.js';
 import { WORKERS } from './agent-core.js';
+import { recoveryFor, recoveryText } from './recovery.js';
 
 const cap = w => (w ? w[0].toUpperCase() + w.slice(1) : '');
 
@@ -186,6 +187,7 @@ export function singleCardHTML(t) {
           ).join('')}
         </select>
       </label>
+      ${recoveryFor(t) ? `<span class="plan-recovery" title="Suggested on the day calendar right after the task">${esc(recoveryText(recoveryFor(t)))}</span>` : ''}
     </div>
 
     <div class="plan-row plan-when-row">

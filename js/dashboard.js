@@ -23,6 +23,7 @@ import { openDashEdit, renderDashEditSheet } from './dashboard-edit.js';
 import { deferButtonHTML, doneBoxHTML } from './defer.js';
 import { isLocked, blockersOf } from './outcome.js';
 import { renderNeedsYou } from './needs-you.js';
+import { recoveriesOnDate, recoveryLabelHTML } from './recovery.js';
 
 export * from './dashboard-drag.js';
 export * from './dashboard-edit.js';
@@ -109,9 +110,9 @@ function metaLineHTML(t, { showActivity = false } = {}) {
   if (t.lno) parts.push(esc(IMPORTANCE_LABEL[t.lno] || t.lno));
   if (t.date) {
     const wd = weekdayShort(t.date);
-    parts.push(esc(t.start ? `${wd} ${t.start}` : wd));
+    parts.push(t.start ? `${esc(wd)} <span class="num">${esc(t.start)}</span>` : esc(wd));
   }
-  if (t.assignee === 'person') parts.push(`→ ${esc(t.delegateTo || 'someone')}`);
+  if (t.assignee === 'person') parts.push(`→ ${esc(t.delegateTo || 'someone')}${t.delegateVia ? ` (${esc(t.delegateVia)})` : ''}`);
   if (t.assignee === 'ai') parts.push('Assistant');
   if (!t.done && t.missed && t.missed.length) {
     parts.push(`<span class="meta-warn" title="Missed on ${esc(t.missed.join(', '))}">slipped ×${t.missed.length}</span>`);
@@ -225,7 +226,19 @@ export function renderDayCalendar() {
       <span>${esc(b.name)}</span>
     </div>`;
   }).join('');
-  root.innerHTML = `<div class="day-hours" style="height:${ hourTop[24] }px;min-height:0">${ hours.join('') }</div><div class="cal-blocks" style="height:${ hourTop[24] }px;min-height:0">${ bands }${ blocks }</div>`;
+  // A break after each long task, where the time after it is free.
+  const breaks = recoveriesOnDate(ymd).filter(({ t }) => !(state.hideDone && t.done)).map(({ t, r }) => {
+    const top = minsToY(r.start);
+    return `<div class="cal-recovery ${ r.planned ? 'planned' : '' } kind-${ r.kind }" style="top:${ top }px;height:${ Math.max(14, minsToY(r.end) - top) }px"
+        title="${ esc(r.planned ? 'Break after ' : 'Suggested break after ') }${ esc(t.name) }">
+      <span class="cal-recovery-label">${ recoveryLabelHTML(r) }</span>
+      <span class="cal-recovery-actions">
+        <button type="button" class="cal-recovery-btn" onclick="planRecovery('${ t.id }')" title="${ r.planned ? 'Back to a suggestion' : 'Take this break' }" aria-label="${ r.planned ? 'Unplan break' : 'Take this break' }">${ r.planned ? '↺' : '✓' }</button>
+        <button type="button" class="cal-recovery-btn" onclick="skipRecovery('${ t.id }')" title="No break after this task" aria-label="Skip break">×</button>
+      </span>
+    </div>`;
+  }).join('');
+  root.innerHTML = `<div class="day-hours" style="height:${ hourTop[24] }px;min-height:0">${ hours.join('') }</div><div class="cal-blocks" style="height:${ hourTop[24] }px;min-height:0">${ bands }${ breaks }${ blocks }</div>`;
   if (state.dayCalScrolledOnce) root.scrollTop = prevScroll;
   else { root.scrollTop = folded ? 0 : VIEW_SCROLL_TOP; state.dayCalScrolledOnce = true; }
 }
@@ -313,7 +326,7 @@ export function renderProjectBoard() {
       const hidden = isCollapsed(dom.id);
       const count = rootsOf(dom).length;
       return `<button type="button" class="domain-chip ${hidden ? 'is-hidden' : ''}" data-domain="${dom.id}" style="${domainStyleVar(dom.id)}"
-          aria-pressed="${!hidden}" onclick="toggleDomainCol('${dom.id}')" title="${hidden ? 'Show' : 'Hide'} ${esc(dom.label)}">
+          aria-pressed="${!hidden}" onclick="toggleAddDomain(false); toggleDomainCol('${dom.id}')" title="${hidden ? 'Show' : 'Hide'} ${esc(dom.label)}">
         <span class="project-dot"></span>
         <span class="domain-chip-label">${esc(dom.label)}</span>
         <span class="domain-count">${count}</span>
@@ -321,12 +334,15 @@ export function renderProjectBoard() {
     }).join('');
   }
 
-  const filterChips = `<div class="board-activity-filters">
-    <button type="button" class="btn ${filter === 'all' ? 'primary' : ''}" onclick="setDashActivityFilter('all')">All</button>
-    ${activities.map(a =>
-      `<button type="button" class="btn ${filter === a.id ? 'primary' : ''}" onclick="setDashActivityFilter('${a.id}')">${esc(activityLabel(a.id))}</button>`
-    ).join('')}
-  </div>`;
+  // Activity buttons sit next to Domains / Needs you. One picked = that kind of work across all
+  // domains (batch mode); clicking it again goes back to the domain cards.
+  const filterEl = document.getElementById('activity-filter');
+  if (filterEl) {
+    filterEl.innerHTML = activities.map(a =>
+      `<button type="button" class="seg-tab ${filter === a.id ? 'active' : ''}" aria-pressed="${filter === a.id}"
+        onclick="setDashActivityFilter('${filter === a.id ? 'all' : a.id}')">${esc(activityLabel(a.id))}</button>`
+    ).join('');
+  }
 
   const shownDoms = domains.filter(d => !isCollapsed(d.id));
   let body = '';
@@ -362,7 +378,7 @@ export function renderProjectBoard() {
     body = cards + (empty.length ? `<div class="act-nothing">Nothing this week: ${empty.map(esc).join(', ')}</div>` : '');
   }
 
-  board.innerHTML = filterChips + body;
+  board.innerHTML = body;
 
   const inbox = visible(state.tasks.filter(t => !taskDomain(t) && t.status !== 'someday' && isTopLevelTask(t)));
   const inboxEl = document.getElementById('dash-inbox-chips');

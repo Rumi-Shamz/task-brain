@@ -32,7 +32,7 @@ function itemHTML({ kind, t }) {
   if (kind === 'slipped') {
     const n = t.missed.length;
     return `<div class="needs-item"><div class="needs-text">
-      <div class="needs-kind">${n === 1 ? 'Slipped once' : n === 2 ? 'Slipped twice' : `Slipped ${n} times`}, now on ${esc(t.date || 'no day')} · ${esc(where)}</div>
+      <div class="needs-kind">${n === 1 ? 'Slipped once' : n === 2 ? 'Slipped twice' : `Slipped ${n} times`}, now on <span class="num">${esc(t.date || 'no day')}</span> · ${esc(where)}</div>
       <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
       <div class="needs-actions">
         ${btn('Done', `toggleTaskDone('${id}', true)`)}
