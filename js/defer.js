@@ -5,6 +5,7 @@
  */
 import { state, esc, formatYmd, parseYmd, addDaysLocal } from './state.js';
 import { deps } from './deps.js';
+import { act, actOn, registerActions, stop, stopOn } from './actions.js';
 import { weekdayIndex } from './blocks.js';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -68,17 +69,16 @@ export function openDeferMenu(id, ev) {
   menu.className = 'defer-menu';
   menu.setAttribute('role', 'dialog');
   menu.setAttribute('aria-label', 'Defer task');
-  menu.onpointerdown = e => e.stopPropagation();
-  menu.onclick = e => e.stopPropagation();
+  stopOn(menu, 'pointerdown', 'click');
   menu.innerHTML = `
     <div class="defer-title">${backlog ? 'Schedule' : 'Defer'} “${esc(t.name)}”</div>
     <div class="defer-row">
       <label class="defer-pill defer-date" title="Pick a date (keeps ${esc(t.start || 'the time')})">Pick date
-        <input type="date" aria-label="Pick a date" onclick="try { this.showPicker(); } catch (e) {}" min="${formatYmd(addDaysLocal(new Date(), 1))}" onchange="if (this.value) deferTask('${esc(t.id)}', this.value)" />
+        <input type="date" aria-label="Pick a date" ${act('showPicker', '$el')} min="${formatYmd(addDaysLocal(new Date(), 1))}"${actOn('change', 'deferToValue', t.id, '$value')} />
       </label>
-      ${backlog ? '' : `<button type="button" class="defer-pill" onclick="deferTask('${esc(t.id)}', null)" title="Off the calendar, into the backlog (review in 14 days)">Backlog</button>`}
+      ${backlog ? '' : `<button type="button" class="defer-pill" ${act('deferTask', t.id, null)} title="Off the calendar, into the backlog (review in 14 days)">Backlog</button>`}
     </div>
-    <select class="defer-select" aria-label="Move by" onchange="if (this.value) deferTask('${esc(t.id)}', this.value)">
+    <select class="defer-select" aria-label="Move by" ${actOn('change', 'deferToValue', t.id, '$value')}>
       <option value="">Move by…</option>
       <option value="${to.week}">Next week · ${esc(shortDate(to.week))}${t.start ? ` ${esc(t.start)}` : ''}</option>
       <option value="${to.month}">Next month · ${esc(shortDate(to.month))}${t.start ? ` ${esc(t.start)}` : ''}</option>
@@ -95,16 +95,25 @@ export function openDeferMenu(id, ev) {
 /** Done box on a task card; same size and style as the Defer button beside it. */
 export function doneBoxHTML(t) {
   return `<input type="checkbox" class="chip-done card-btn" ${t.done ? 'checked' : ''}
-    onpointerdown="event.stopPropagation()"
-    onclick="event.stopPropagation(); toggleTaskDone('${esc(t.id)}', this.checked)" title="Mark done" aria-label="Mark done" />`;
+    ${stop('pointerdown', 'click')}${act('toggleTaskDone', t.id, '$checked')} title="Mark done" aria-label="Mark done" />`;
 }
 
-/** Defer button beside the done box. Only for open tasks that sit on a day. */
+/** Defer button beside the done box, on every open task (one without a day gets a day or the backlog). */
 export function deferButtonHTML(t) {
-  if (!t || t.done || !t.date) return '';
+  if (!t || t.done) return '';
   return `<button type="button" class="chip-defer card-btn" title="Defer: pick a date, backlog, next week or month" aria-label="Defer"
-    onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); openDeferMenu('${esc(t.id)}', event)">⇥</button>`;
+    ${stop('pointerdown', 'click')}${act('openDeferMenu', t.id, '$event')}>⇥</button>`;
 }
+
+/** Menu inputs: ignore an emptied value, like the placeholder option "Move by…". */
+export function deferToValue(id, value) { if (value) deferTask(id, value); }
+
+registerActions({
+  deferToValue,
+  deferTask,
+  openDeferMenu,
+  showPicker: el => { try { el.showPicker(); } catch (e) { /* not supported or not allowed */ } },
+});
 
 if (typeof document !== 'undefined') {
   document.addEventListener('pointerdown', e => {

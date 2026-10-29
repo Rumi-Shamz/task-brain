@@ -166,6 +166,11 @@ export function normalizeDomainColors(raw) {
 }
 
 /** style="--dc:…" fragment for anything tinted by its domain. */
+/** A small dot in the domain's color, placed before a task name. Empty without a domain. */
+export function domainDotHTML(domainId) {
+  return domainId ? `<span class="dom-dot" style="--dc:${domainColor(domainId)}" aria-hidden="true"></span>` : '';
+}
+
 export function domainStyleVar(domainId) {
   return domainId ? `--dc:${domainColor(domainId)};` : '';
 }

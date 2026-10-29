@@ -1,5 +1,6 @@
 import { state, esc, chipControlsHTML, uid } from './state.js';
 import { deps } from './deps.js';
+import { actOn } from './actions.js';
 
 export function renderOrganize() {
   const el = document.getElementById('organized-list');
@@ -13,8 +14,8 @@ export function renderOrganize() {
   el.innerHTML = sorted.map((t, i) => {
     const sizeColor = t.size === 'complex' ? 'color:#E24B4A' : t.size === 'mid' ? 'color:#EF9F27' : t.size === 'simple' ? 'color:#1D9E75' : '';
     const stHTML = t.subtasks && t.subtasks.filter(s => s.text).length ? `<div class="subtask-list">${t.subtasks.filter(s => s.text).map(s => `<div class="subtask-row"><div class="subtask-dot"></div><span class="subtask-text">${ esc(s.text) }</span></div>`).join('')}</div>` : '';
-    return `<div class="org-item" draggable="true" data-id="${ t.id }" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
-      <input type="checkbox" class="select-checkbox group-cb" data-id="${ t.id }" onchange="updateSelCount()" />
+    return `<div class="org-item" draggable="true" data-id="${ t.id }" ${actOn('dragstart', 'dragStart', '$event')} ${actOn('dragover', 'dragOver', '$event')} ${actOn('dragleave', 'dragLeave', '$event')} ${actOn('drop', 'drop', '$event')}>
+      <input type="checkbox" class="select-checkbox group-cb" data-id="${ t.id }" ${actOn('change', 'updateSelCount')} />
       <span class="org-num">${ String(i + 1).padStart(2, '0') }</span>
       <div class="org-body">
         <div class="org-name">${ esc(t.name) }</div>

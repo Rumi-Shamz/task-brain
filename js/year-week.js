@@ -14,6 +14,7 @@ import { seriesDetails } from './recurring.js';
 import { domainStyleVar } from './domains.js';
 import { renderYearHourEdit } from './year-hours.js';
 import { weekTaskBlocksHTML } from './dashboard.js';
+import { act, actOn, stop } from './actions.js';
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -66,8 +67,7 @@ export function renderYearWeek(cells, sectionLabel) {
       const active = log.id === state.yearSelectedLogId ? ' active' : '';
       return `<button type="button" class="year-hour-block${ active }" data-hour-log="1"
         style="top:${ top }px;height:${ Math.max(height, 18) }px"
-        onclick="event.stopPropagation();selectYearHourLog('${ log.id }')"
-        ondblclick="event.stopPropagation();deleteYearHourLog('${ log.id }')"
+        ${act('selectYearHourLog', log.id)}${actOn('dblclick', 'deleteYearHourLog', log.id)}${stop('click', 'dblclick')}
         title="${ esc(formatClock(log.startMin) + '–' + formatClock(log.endMin) + (log.label ? ' · ' + log.label : '')) }">${ esc(formatClock(log.startMin)) } ${ esc(log.label || '') }</button>`;
     }).join('');
     const taskBlocks = ymd ? weekTaskBlocksHTML(ymd, t => {
@@ -85,8 +85,8 @@ export function renderYearWeek(cells, sectionLabel) {
         <span>${ esc(b.name) }</span></div>`).join('');
     const todayMark = ymd === formatYmd(new Date()) ? ' is-today' : '';
     return `<div class="year-week-col${ todayMark }" data-ymd="${ esc(ymd) }"
-      onmousedown="yearHourDragStart('${ ymd }', event)"
-      onmousemove="yearHourDragMove('${ ymd }', event)"
+      ${actOn('mousedown', 'yearHourDragStart', ymd, '$event')}
+      ${actOn('mousemove', 'yearHourDragMove', ymd, '$event')}
       style="height:${ WEEK_COL_H }px;min-height:${ WEEK_COL_H }px">${ lines.join('') }${ protocol }${ season }${ outside }${ series }${ blocks }${ taskBlocks }</div>`;
   }
 
@@ -101,7 +101,7 @@ export function renderYearWeek(cells, sectionLabel) {
     const wd = date ? (date.getDay() === 0 ? 6 : date.getDay() - 1) : 0;
     const allDay = allDayOnDate(ymd).map(b =>
       `<span class="allday-chip" style="${ domainStyleVar(b.domain) }" title="${ esc(b.name) }">${ esc(b.name) }</span>`).join('');
-    return `<button type="button" class="year-week-head yc-${ cell.kind }" onclick="markYearWeekDate('${ ymd }')">
+    return `<button type="button" class="year-week-head yc-${ cell.kind }" ${act('markYearWeekDate', ymd)}>
       <span class="wd">${ WEEKDAYS[wd] }</span>
       <span class="dd">${ date ? date.getDate() : '' }</span>
       ${ allDay ? `<span class="allday-row">${ allDay }</span>` : '' }

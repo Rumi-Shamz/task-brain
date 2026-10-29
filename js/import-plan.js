@@ -12,6 +12,7 @@ import { deps } from './deps.js';
 import { findSimilar } from './similar.js';
 import { getPersistPayload } from './storage.js';
 import { isoWeek, previousWeek, buildPrebrief } from '../scripts/lib/week.mjs';
+import { act } from './actions.js';
 
 export const DOMAINS = DOMAIN_LIST.map(d => d.id);
 export const LENGTHS = [15, 30, 60, 180];
@@ -227,7 +228,7 @@ export function validateAndBuildItems(items, opts = {}) {
     let reviewAt = item.reviewAt || null;
     if (status === 'someday' && !reviewAt) {
       reviewAt = formatYmd(addDaysLocal(mon, 7));
-      reports.push({ row, level: 'info', message: `someday review set to ${reviewAt} ("${name}")` });
+      reports.push({ row, level: 'info', message: `backlog review set to ${reviewAt} ("${name}")` });
     }
 
     // Size column wins; without one, size follows priority.
@@ -245,7 +246,7 @@ export function validateAndBuildItems(items, opts = {}) {
     if (activityRaw && activity !== activityRaw) warnings.push(`activity "${item.activity}" is not research|communicate|act|learn → act`);
     const lnoRaw = String(item.lno || '').trim().toLowerCase();
     const lno = LNO_WORDS[lnoRaw] || null;
-    if (lnoRaw && !lno) warnings.push(`LNO "${item.lno}" is not L|N|O → unset`);
+    if (lnoRaw && !lno) warnings.push(`importance "${item.lno}" is not L, N or O (Leverage, Neutral, Optional), left empty`);
     const who = item.who != null && item.who !== ''
       ? parseWho(item.who)
       : { assignee: item.assignee, delegateTo: String(item.delegateTo || '').trim() };
@@ -406,9 +407,9 @@ function duplicatesHTML(dups) {
     <ul class="import-report">${dups.map(d => `<li class="import-dup" id="dup-${escapeHtml(d.taskId)}">
       <span><strong>${escapeHtml(d.name)}</strong> ~ ${escapeHtml(d.matchName)}${d.inFile ? ' (also in this file)' : ''} · <em>${escapeHtml(d.why)}</em></span>
       <span class="import-dup-actions">
-        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'keep')">Keep both</button>
-        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'sub')">Make subtask</button>
-        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'skip')">Remove new</button>
+        <button type="button" class="btn" ${act('importDuplicateAction', d.taskId, d.matchId, 'keep')}>Keep both</button>
+        <button type="button" class="btn" ${act('importDuplicateAction', d.taskId, d.matchId, 'sub')}>Make subtask</button>
+        <button type="button" class="btn" ${act('importDuplicateAction', d.taskId, d.matchId, 'skip')}>Remove new</button>
       </span></li>`).join('')}</ul></div>`;
 }
 

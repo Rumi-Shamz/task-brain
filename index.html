@@ -2,25 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#EEF0EE" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#16181B" media="(prefers-color-scheme: dark)" />
+  <link rel="preload" href="fonts/ah-400-latin.woff2" as="font" type="font/woff2" crossorigin />
   <title>Day Planner</title>
-  <link rel="stylesheet" href="styles.css?v=20261004f" />
+  <link rel="stylesheet" href="styles.css?v=20261029a" />
 </head>
 <body class="plan-active">
 <div id="app">
   <div class="header">
     <button type="button" id="app-logo" class="app-logo" title="Sync settings">Day Planner</button>
-    <div class="phase-tabs">
-      <button class="phase-tab active" onclick="switchPhase('plan')">01 Organize</button>
-      <button class="phase-tab" onclick="switchPhase('dashboard')">02 Act</button>
-      <button class="phase-tab" onclick="switchPhase('skills')">03 Develop</button>
-      <button class="phase-tab" onclick="switchPhase('year')">04 Plan</button>
-    </div>
-    <span id="sync-status" class="sync-status" aria-live="polite"></span>
+    <!-- On phones this bar sits at the bottom of the screen, like an app's tab bar. -->
+    <nav class="phase-tabs" aria-label="Sections">
+      <button class="phase-tab active" data-click="switchPhase" data-args='["plan"]'><span class="tab-icon" aria-hidden="true">☰</span>Organize</button>
+      <button class="phase-tab" data-click="switchPhase" data-args='["dashboard"]'><span class="tab-icon" aria-hidden="true">◉</span>Act</button>
+      <button class="phase-tab" data-click="switchPhase" data-args='["skills"]'><span class="tab-icon" aria-hidden="true">△</span>Develop</button>
+      <button class="phase-tab" data-click="switchPhase" data-args='["year"]'><span class="tab-icon" aria-hidden="true">▦</span>Plan</button>
+    </nav>
+    <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
+    <p class="header-info" id="header-info" aria-live="off"></p>
   </div>
 
   <div id="sync-panel" class="sync-panel" style="display:none;">
-    <h3>Cross-device sync (private data.json)</h3>
+    <h3>Sync between devices</h3>
     <p class="sync-hint">PAT stays on this device — connect the <strong>same</strong> private repo on phone and desktop: <code>task-brain-data</code> on the published site, <code>task-brain-data-staging</code> on staging and every other address (Contents: Read and write). On open, the app pulls before it can push, so one device cannot overwrite the other with stale local data. Tap the title to open or close this panel. A token saved on another address (the published site, or a different port) is not on this page.</p>
     <div class="sync-grid">
       <label>GitHub token<input type="password" id="su-token" placeholder="fine-grained PAT" autocomplete="off" /></label>
@@ -28,38 +33,42 @@
       <label>Repo<input type="text" id="su-repo" placeholder="task-brain-data" /></label>
     </div>
     <div class="sync-actions">
-      <button type="button" class="btn primary" onclick="ghConnect()">Connect &amp; pull</button>
-      <button type="button" class="btn" onclick="ghPull()">Pull</button>
-      <button type="button" class="btn" onclick="ghPush()">Push save</button>
-      <button type="button" class="btn" onclick="ghDisconnect()">Disconnect</button>
-      <button type="button" class="btn" onclick="toggleSyncPanel(false)">Close</button>
+      <button type="button" class="btn primary" data-click="ghConnect">Connect &amp; pull</button>
+      <button type="button" class="btn" data-click="ghPull">Pull</button>
+      <button type="button" class="btn" data-click="ghPush">Push save</button>
+      <button type="button" class="btn" data-click="ghDisconnect">Disconnect</button>
+      <button type="button" class="btn" data-click="toggleSyncPanel" data-args='[false]'>Close</button>
     </div>
     <p id="sync-msg" class="sync-msg"></p>
     <p class="sync-hint">Reconnect: Owner <code>Rumi-Shamz</code>, Repo <code>task-brain-data</code> (published site) or <code>task-brain-data-staging</code> (anywhere else), then Connect &amp; pull. BACKLOG: Supabase auth later.</p>
   </div>
 
-  <!-- 01 PLAN -->
+  <!-- Organize (phase id "plan" is the old name, kept for links and saved state) -->
   <div id="phase-plan" class="phase active">
     <div class="input-area">
-      <div class="input-row">
-        <input type="text" id="single-input" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addSingle()" />
-        <button class="btn primary" onclick="addSingle()">Add</button>
-        <button class="btn" onclick="toggleBulk()">Bulk</button>
+      <div class="organize-toolbar">
         <label class="week-of" title="Week the imported plan is for (a weekOf inside a .json file wins)">Week of
-          <input type="date" id="week-plan-week" onchange="renderImportWeekHint()" />
+          <input type="date" id="week-plan-week" data-change="renderImportWeekHint" />
         </label>
-        <label class="btn" style="cursor:pointer;display:inline-flex;align-items:center;">
-          Import week plan
-          <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden onchange="importWeeklyPlanFile(this)" />
-        </label>
-        <button class="btn" onclick="exportWeekReview()" title="Markdown review of the week before Week of: done, slipped, still open. Add it to the planning conversation.">Export review</button>
+        <div class="organize-actions">
+          <button class="btn" data-click="toggleBulk">Bulk add</button>
+          <label class="btn file-btn">
+            Import plan
+            <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden data-change="importWeeklyPlanFile" data-change-args='["$el"]' />
+          </label>
+          <button class="btn" data-click="exportWeekReview" title="Markdown review of the week before Week of: done, slipped, still open. Add it to the planning conversation.">Export review</button>
+        </div>
+      </div>
+      <div class="input-row add-row">
+        <input type="text" id="single-input" placeholder="Add a task" aria-label="New task" data-keydown="addSingleOnEnter" data-keydown-args='["$event"]' />
+        <button class="btn primary" data-click="addSingle">Add</button>
       </div>
       <div id="bulk-area" style="display:none;">
         <p class="bulk-hint">One task per line.</p>
         <textarea id="bulk-input" placeholder="Fix login bug&#10;Update README&#10;Write tests for auth module"></textarea>
         <div style="margin-top:6px;display:flex;gap:6px;">
-          <button class="btn primary" onclick="importBulk()">Import</button>
-          <button class="btn" onclick="toggleBulk()">Cancel</button>
+          <button class="btn primary" data-click="importBulk">Add tasks</button>
+          <button class="btn" data-click="toggleBulk">Cancel</button>
         </div>
       </div>
       <p class="bulk-hint" id="week-plan-msg"></p>
@@ -73,53 +82,53 @@
       <div id="merge-projects-panel"></div>
     </details>
     <div class="bottom-actions">
-      <button class="btn primary" onclick="switchPhase('dashboard')">Act ›</button>
-      <button class="btn danger-outline" onclick="clearAll()">Clear all</button>
+      <button class="btn danger-outline" data-click="clearAll">Clear all tasks</button>
     </div>
   </div>
 
-  <!-- 02 DASHBOARD -->
+  <!-- Act (phase id "dashboard") -->
   <div id="phase-dashboard" class="phase">
     <div class="dash-mobile-tabs" role="tablist" aria-label="Dashboard screen">
-      <button type="button" class="btn dash-m-tab active" id="dash-tab-day" onclick="setDashMobileScreen('day')">Day</button>
-      <button type="button" class="btn dash-m-tab" id="dash-tab-board" onclick="setDashMobileScreen('board')">Domains</button>
+      <button type="button" class="btn dash-m-tab active" id="dash-tab-day" data-click="setDashMobileScreen" data-args='["day"]'>Day</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-domains" data-click="setDashMobileScreen" data-args='["domains"]'>Domains</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-needs" data-click="setDashMobileScreen" data-args='["needs"]'>Needs you</button>
     </div>
     <div class="dash-layout">
       <aside class="day-panel" id="dash-day-panel">
         <div class="day-panel-header">
           <div class="day-nav">
-            <button type="button" class="btn" onclick="shiftDashDay(-1)">←</button>
+            <button type="button" class="btn" data-click="shiftDashDay" data-args='[-1]'>←</button>
             <h2 id="dash-day-title">Today</h2>
-            <button type="button" class="btn" onclick="shiftDashDay(1)">→</button>
-            <button type="button" class="btn" onclick="shiftDashDay(0)">Today</button>
+            <button type="button" class="btn" data-click="shiftDashDay" data-args='[1]'>→</button>
+            <button type="button" class="btn" data-click="shiftDashDay" data-args='[0]'>Today</button>
+            <button type="button" class="btn night-toggle" id="night-toggle" data-click="toggleFoldNight" aria-pressed="false" aria-label="Fold the night hours" title="Fold 23:00–06:00 into thin rows, so the rest of the day gets more room">☾<span class="night-label"> Fold night</span></button>
           </div>
-          <span class="day-hint">click a block to edit · drag body to move · bottom edge to resize</span>
+          <span class="day-hint">Click a task to edit it, drag it to move, drag its bottom edge to change its length.</span>
           <div class="allday-row" id="dash-day-allday" hidden></div>
-          <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
         </div>
         <div class="day-calendar" id="day-calendar"></div>
       </aside>
       <section class="board-panel" id="dash-board-panel">
-        <div class="board-toolbar">
-          <div class="add-project">
-            <input type="text" id="new-domain-input" placeholder="New domain…"
-              onkeydown="if(event.key==='Enter')addDomainFromForm()" />
-            <button type="button" class="btn" onclick="addDomainFromForm()">Add domain</button>
-          </div>
-          <div class="board-domain-tools">
-            <button type="button" class="btn" onclick="expandAllDomains()">Expand all</button>
-            <button type="button" class="btn" onclick="collapseAllDomains()">Collapse all</button>
-          </div>
+        <div class="board-head">
+          <div class="board-switch" id="board-switch" role="tablist" aria-label="Show"></div>
+          <div class="activity-filter" id="activity-filter" role="group" aria-label="Activity: show one kind of work across all domains"></div>
           <label class="board-filter">
-            <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
+            <input type="checkbox" id="hide-done-toggle" data-change="setHideDone" data-change-args='["$checked"]' />
             Hide done
           </label>
         </div>
-        <div class="domain-chip-strip" id="domain-chip-strip" hidden></div>
+        <section class="needs-you" id="needs-you" aria-live="polite"></section>
+        <div class="board-toolbar">
+          <button type="button" class="domain-chip add-chip" id="add-domain-chip" aria-expanded="false"
+            title="Add a domain" data-click="toggleAddDomain">+</button>
+          <input type="text" id="new-domain-input" class="add-domain-input" placeholder="New domain…"
+            data-keydown="newDomainKey" data-keydown-args='["$event"]' />
+          <div class="domain-chip-strip" id="domain-chip-strip" aria-label="Domains shown"></div>
+        </div>
         <div class="project-board" id="project-board"></div>
         <div class="dash-inbox" id="dash-inbox"
-          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnInbox(event)">
-          <div class="section-label" style="margin-bottom:0;">Inbox — no domain</div>
+          data-dragover="boardDragOver" data-dragover-args='["$event"]' data-dragleave="boardDragLeave" data-dragleave-args='["$event"]' data-drop="dropOnInbox" data-drop-args='["$event"]'>
+          <div class="section-label" style="margin-bottom:0;">Inbox: tasks without a domain</div>
           <div class="dash-inbox-chips" id="dash-inbox-chips"></div>
         </div>
         <details class="dash-extras">
@@ -131,42 +140,32 @@
           <div id="errands-panel" class="someday-panel"></div>
         </details>
         <details class="dash-extras">
-          <summary id="slipped-summary">Slipped</summary>
-          <div id="slipped-panel" class="someday-panel"></div>
-        </details>
-        <details class="dash-extras">
           <summary id="someday-summary">Backlog</summary>
           <div id="someday-panel" class="someday-panel"></div>
         </details>
       </section>
     </div>
-    <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('plan')">‹ Organize</button>
-      <button class="btn" onclick="switchPhase('skills')">Develop ›</button>
-    </div>
   </div>
 
-  <!-- 03 SKILLS -->
+  <!-- Develop (phase id "skills") -->
   <div id="phase-skills" class="phase">
-    <p id="lno-week-stat" class="lno-week-stat" aria-live="polite"></p>
-    <div id="skills-panel" class="skills-panel"></div>
-    <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('dashboard')">‹ Act</button>
-      <button class="btn" onclick="switchPhase('year')">Plan ›</button>
+    <div class="develop-layout">
+      <section id="skills-panel" class="skills-panel" aria-label="Skills"></section>
+      <aside id="develop-side" class="develop-side" aria-label="This week's learning"></aside>
     </div>
   </div>
 
-  <!-- 04 YEAR -->
+  <!-- Plan (phase id "year") -->
   <div id="phase-year" class="phase">
     <div class="year-view-toggle year-nav-row">
-      <button class="btn" type="button" onclick="yearNav(-1)">← Prev</button>
-      <button class="btn year-view-desktop-only" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
-      <button class="btn" id="year-view-month" onclick="openCurrentMonth()">Month</button>
-      <button class="btn" id="year-view-week" onclick="openCurrentWeek()">Week</button>
+      <button class="btn" type="button" data-click="yearNav" data-args='[-1]'>← Prev</button>
+      <button class="btn year-view-desktop-only" id="year-view-year" data-click="setYearCalendarView" data-args='["year"]'>Year</button>
+      <button class="btn" id="year-view-month" data-click="openCurrentMonth">Month</button>
+      <button class="btn" id="year-view-week" data-click="openCurrentWeek">Week</button>
       <label class="year-week-num" id="year-week-nav">
-        <input type="number" id="year-week-picker" min="1" max="52" aria-label="Week number" onchange="pickYearWeek(this.value)" />
+        <input type="number" id="year-week-picker" min="1" max="52" aria-label="Week number" data-change="pickYearWeek" data-change-args='["$value"]' />
       </label>
-      <button class="btn" type="button" onclick="yearNav(1)">Next →</button>
+      <button class="btn" type="button" data-click="yearNav" data-args='[1]'>Next →</button>
       <span class="year-week-label" id="year-month-label" hidden></span>
       <span class="year-week-label" id="year-week-label" hidden></span>
     </div>
@@ -177,61 +176,61 @@
     <div id="year-hour-edit" class="year-hour-edit" style="display:none;"></div>
 
     <details class="year-config" id="year-recurring-wrap">
-      <summary>Recurring · external events and containers by domain · .ics</summary>
+      <summary>Recurring events and containers</summary>
       <div id="year-recurring" class="year-protocol"></div>
     </details>
 
     <details class="year-config" id="year-config">
-      <summary>Year setup · stats · seasons · import</summary>
+      <summary>Year setup: rhythm, seasons, import</summary>
       <div class="year-controls">
         <label>
           Year start Monday
-          <input type="date" id="year-anchor" onchange="setYearAnchor(this.value)" />
+          <input type="date" id="year-anchor" data-change="setYearAnchor" data-change-args='["$value"]' />
         </label>
-        <button class="btn" onclick="resetYearSeed()">Reset seed</button>
+        <button class="btn" data-click="resetYearSeed">Reset seed</button>
       </div>
       <div class="year-callout" id="year-this-week"></div>
       <div class="year-stats" id="year-stats"></div>
       <div class="year-substats" id="year-substats"></div>
       <div class="year-rule" id="year-rule">
-        <strong>Painting vs stats</strong><br>
-        Protocol days win: sprint and vacation are protocol blocks, not seasonal overlays.
-        Seasonal work/off only paint unmarked days.
-        Stats: <strong>Work</strong> = seasonal work + sprint · <strong>Free</strong> = seasonal off + vacation · <strong>Reset</strong> = fast + restore + deep rest.
-        Week numbers: <strong>W1</strong> is the first week after the 28-day deep rest.
-        <span id="year-schedule-rule">Configure working schedule below.</span>
+        <strong>How the year is colored</strong><br>
+        Protocol days (sprint, vacation, fast, restore, deep rest) always win. Other days follow the season: a work day or a day off.
+        <strong>Work</strong> counts work days and sprints, <strong>Free</strong> counts days off and vacations, <strong>Reset</strong> counts fast, restore and deep rest days.
+        Week 1 is the first week after the 28-day deep rest.
+        <span id="year-schedule-rule"></span>
       </div>
       <div id="year-protocol-editor" class="year-protocol"></div>
       <div class="year-controls" id="year-schedule-controls" style="margin-top:0.75rem;"></div>
       <div class="year-legend">
-        <span><i class="year-swatch yc-sprint"></i>Sprint (protocol · Work)</span>
-        <span><i class="year-swatch yc-work"></i>Seasonal work (≠ sprint)</span>
-        <span><i class="year-swatch yc-vacation"></i>Vacation (protocol · Free)</span>
-        <span><i class="year-swatch yc-free"></i>Seasonal off (≠ vacation)</span>
-        <span><i class="year-swatch yc-fast"></i>Fast (Reset)</span>
-        <span><i class="year-swatch yc-restore"></i>Restore (Reset)</span>
-        <span><i class="year-swatch yc-deepRest"></i>Deep rest (Reset)</span>
+        <span><i class="year-swatch yc-sprint"></i>Sprint (work)</span>
+        <span><i class="year-swatch yc-work"></i>Work day</span>
+        <span><i class="year-swatch yc-vacation"></i>Vacation (free)</span>
+        <span><i class="year-swatch yc-free"></i>Day off</span>
+        <span><i class="year-swatch yc-fast"></i>Fast (reset)</span>
+        <span><i class="year-swatch yc-restore"></i>Restore (reset)</span>
+        <span><i class="year-swatch yc-deepRest"></i>Deep rest (reset)</span>
         <span><i class="year-swatch yc-conflict"></i>Conflict</span>
       </div>
       <div class="year-import">
-        <div class="section-label">Import rhythm JSON (from Year Rhythm Lab canvas)</div>
+        <div class="section-label">Import or copy the rhythm as JSON</div>
         <textarea id="year-json-input" placeholder='{"version":1,"yearStartMonday":"...","cycles":[...],...}'></textarea>
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn primary" onclick="importYearJson()">Import</button>
-          <button class="btn" onclick="exportYearJson()">Copy JSON</button>
+          <button class="btn primary" data-click="importYearJson">Import</button>
+          <button class="btn" data-click="exportYearJson">Copy JSON</button>
         </div>
         <div class="year-import-msg" id="year-import-msg"></div>
       </div>
     </details>
 
-    <div class="bottom-actions">
-      <button class="btn" onclick="switchPhase('skills')">‹ Develop</button>
-      <button class="btn" onclick="switchPhase('plan')">Organize ›</button>
-    </div>
+    <p class="mobile-only-note">Recurring events and the year setup are edited on a computer.</p>
   </div>
+
+  <footer class="app-footer">
+    <span id="sync-status" class="sync-status" aria-live="polite"></span>
+  </footer>
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script type="module" src="js/app.js?v=20261004f"></script>
+<script type="module" src="js/app.js?v=20261029a"></script>
 </body>
 </html>

@@ -11,9 +11,10 @@ import { renderYearHourEdit, yearHourDragEnd } from './year-hours.js';
 import { renderProtocolEditor, renderYearScheduleControls } from './year-settings.js';
 import { renderYearWeek, yearPeriod } from './year-week.js';
 import { stepPeriod } from './year-period.js';
+import { act } from './actions.js';
 
 export {
-  renderYearScheduleControls, resetWorkScheduleDefaults, renderProtocolEditor,
+  renderYearScheduleControls, resetWorkScheduleDefaults, toggleSeasonMonth, renderProtocolEditor,
   setProtocolCycle, setProtocolVacation, setProtocolDeepRest, removeActivityRule,
 } from './year-settings.js';
 export {
@@ -238,7 +239,7 @@ export function renderYear() {
   const substatsEl = document.getElementById('year-substats');
   if (substatsEl) {
     substatsEl.textContent =
-      `Sub: seasonal work ${ counts.work } · sprint ${ counts.sprint } · seasonal off ${ counts.free } · vacation ${ counts.vacation } · fast ${ counts.fast } · restore ${ counts.restore } · deep rest ${ counts.deepRest } · protocol ${ protocol } (${ pct }%)`;
+      `Work is ${ counts.work } regular work days and ${ counts.sprint } sprint days. Free is ${ counts.free } days off and ${ counts.vacation } vacation days. Reset is ${ counts.fast } fast, ${ counts.restore } restore and ${ counts.deepRest } deep rest days. Protocol days: ${ protocol } (${ pct }% of the year).`;
   }
 
   const todayIdx = dayIndexToday(state.yearRhythm);
@@ -246,7 +247,7 @@ export function renderYear() {
   if (!callout) { /* skip callout */ }
   else if (todayIdx == null) {
     callout.innerHTML = `<h3>Outside this personal year</h3>
-      <p>Today is outside the 364-day window starting ${ esc(state.yearRhythm.yearStartMonday) }. Adjust the year start Monday, or roll into the next revolving year.</p>`;
+      <p>Your year runs 364 days from ${ esc(state.yearRhythm.yearStartMonday) } and today is past it. Set a new year start Monday to begin the next one.</p>`;
   } else {
     const week = formatRhythmWeek(todayIdx);
     const cell = cells[todayIdx];
@@ -255,17 +256,19 @@ export function renderYear() {
     const window = date ? workWindowFromMonth(date.getMonth(), workSched) : 'long';
     const spec = seasonSpec(workSched, window);
     const dateStr = date ? formatYmd(date) : `day ${ todayIdx }`;
-    let detail = '';
-    if (cell.kind === 'fast') detail = 'Fast day (Reset).';
-    else if (cell.kind === 'restore') detail = 'Restoration day (Reset).';
-    else if (cell.kind === 'sprint') detail = 'Sprint protocol day — counts as Work (≠ seasonal overlay).';
-    else if (cell.kind === 'deepRest') detail = 'Deep rest (Reset) — no inputs, no work.';
-    else if (cell.kind === 'vacation') detail = 'Vacation protocol — counts as Free (≠ seasonal off).';
-    else if (cell.kind === 'conflict') detail = 'Conflict — overlapping protocols on this day.';
-    else if (cell.kind === 'work') detail = `Seasonal work overlay · ${ workWindowRuleText(spec) }.`;
-    else detail = `Seasonal off · ${ workWindowRuleText(spec) }.`;
-    callout.innerHTML = `<h3>Today · ${ esc(dateStr) } · ${ week }</h3>
-      <p><strong>${ esc(cell.labels.join(' · ') || cell.kind) }</strong> — ${ esc(detail) }</p>`;
+    const DETAIL = {
+      fast: 'A fast day. It counts as reset.',
+      restore: 'A restore day. It counts as reset.',
+      sprint: 'A sprint day. It counts as work.',
+      deepRest: 'Deep rest: no inputs, no work.',
+      vacation: 'A vacation day. It counts as free.',
+      conflict: 'Two protocols overlap on this day. Move one of them.',
+      work: `A regular work day (${ workWindowRuleText(spec) }).`,
+    };
+    const detail = DETAIL[cell.kind] || `A day off (${ workWindowRuleText(spec) }).`;
+    const n = week.replace(/^W/, '');
+    callout.innerHTML = `<h3>Today, ${ esc(dateStr) }${ n === '–' ? '' : `, week ${ esc(n) }` }</h3>
+      <p>${ cell.labels.length ? `<strong>${ esc(cell.labels.join(', ')) }.</strong> ` : '' }${ esc(detail) }</p>`;
   }
 
   const yearBtn = document.getElementById('year-view-year');
@@ -374,11 +377,11 @@ export function renderYear() {
       const hi = ymd === todayY ? 'outline:2px solid var(--txt);' : '';
       const inWeek = focusDates.includes(ymd) ? ' in-week' : '';
       return `<button type="button" class="year-cell yc-${ cell.kind }${ inWeek }" title="${ esc(title) }" style="${ hi }height:${ cellH }px"
-        onclick="selectYearWeekDate('${ ymd }')">${ slotCell.dom }${ dots }${ names }</button>`;
+        ${act('selectYearWeekDate', ymd)}>${ slotCell.dom }${ dots }${ names }</button>`;
     }).join('');
     const titleClick = large
       ? `${ MONTHS[slot.month] } ${ slot.year }`
-      : `<button type="button" class="btn" style="padding:0;border:none;background:none;font:inherit;font-weight:600;cursor:pointer;color:var(--txt)" onclick="openYearMonthView(${ slot.year },${ slot.month })">${ MONTHS[slot.month] } ${ slot.year }</button>`;
+      : `<button type="button" class="btn" style="padding:0;border:none;background:none;font:inherit;font-weight:600;cursor:pointer;color:var(--txt)" ${act('openYearMonthView', slot.year,slot.month)}>${ MONTHS[slot.month] } ${ slot.year }</button>`;
     return `<div class="year-month-card${ large ? ' large' : '' }"><h4>${ titleClick }</h4><div class="year-month-hint">${ seasonHint }</div><div class="year-month-grid">${ head }${ body }</div></div>`;
   }
 
@@ -416,7 +419,7 @@ export function renderYear() {
     return;
   }
 
-  if (sectionLabel) sectionLabel.textContent = 'Year · W1 after deep rest · click month title → month · click a day → its work or rest period';
+  if (sectionLabel) sectionLabel.textContent = 'Click a month name to open it, or a day to open its work or rest period. Week 1 is the first week after deep rest.';
   const yearGrid = document.getElementById('year-grid');
   if (!yearGrid) return;
   const slots = [];

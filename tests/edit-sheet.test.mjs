@@ -28,8 +28,8 @@ test('task ids are escaped in the Year week markup', () => {
   const html = weekTaskBlocksHTML('2026-10-07');
   assert.ok(html.includes('data-task-id="a&quot; onmouseover=&quot;alert(1)"'), 'attribute value stays one value');
   assert.equal(/" onmouseover="/.test(html), false, 'no attribute injection');
-  // JSON.stringify gives "a\" onmouseover=\"alert(1)"; esc() turns the quotes into &quot; so the attribute holds.
-  assert.ok(html.includes('unscheduleTask(&quot;a\\&quot; onmouseover=\\&quot;alert(1)&quot;)'), 'handler argument is an escaped JSON string');
+  // The action argument is JSON ["a\" onmouseover=\"alert(1)"] with the quotes entity-escaped, inside a single-quoted attribute.
+  assert.ok(html.includes(`data-dblclick="unscheduleWeekTask" data-dblclick-args='[&quot;a\\&quot; onmouseover=\\&quot;alert(1)&quot;]'`), 'action argument is an escaped JSON string');
 });
 
 test('a cancelled drag puts the task back and saves nothing', async () => {

@@ -2,6 +2,7 @@
 import { state, esc } from './state.js';
 import { allDomains, domainLabel, normalizeDomainId } from './domains.js';
 import { projectsInDomain } from './projects.js';
+import { actOn } from './actions.js';
 import { currentPlanTask, parentTaskLabel, wouldCreateParentCycle, planDomainChanged, planProjectCommit } from './plan.js';
 
 let comboHighlight = { domain: -1, project: -1, parent: -1 };
@@ -12,10 +13,10 @@ export function comboHTML(kind, { valueId, valueLabel, placeholder }) {
       aria-autocomplete="list" aria-expanded="false" aria-controls="plan-${kind}-list"
       autocomplete="off" placeholder="${esc(placeholder)}"
       value="${esc(valueLabel || '')}"
-      onfocus="planComboOpen('${kind}')"
-      oninput="planComboFilter('${kind}')"
-      onkeydown="planComboKey(event,'${kind}')"
-      onblur="planComboBlur('${kind}')" />
+      ${actOn('focusin', 'planComboOpen', kind)}
+      ${actOn('input', 'planComboFilter', kind)}
+      ${actOn('keydown', 'planComboKey', '$event', kind)}
+      ${actOn('focusout', 'planComboBlur', kind)} />
     <input type="hidden" id="plan-${kind}" value="${esc(valueId || '')}" />
     <ul class="plan-combo-list" id="plan-${kind}-list" role="listbox" hidden></ul>
   </div>`;
@@ -61,7 +62,7 @@ function renderComboList(kind, queryOverride) {
   list.innerHTML = opts.length
     ? opts.map((o, i) => `<li role="option" class="plan-combo-opt ${o.create ? 'create' : ''} ${i === comboHighlight[kind] ? 'active' : ''}"
         data-id="${esc(o.id)}" data-name="${esc(o.create ? o.name : o.label)}" data-create="${o.create ? '1' : '0'}"
-        onmousedown="event.preventDefault();planComboPickFromEl('${kind}',this)">${esc(o.label)}</li>`).join('')
+        ${actOn('mousedown', 'planComboPickDown', '$event', kind, '$el')}>${esc(o.label)}</li>`).join('')
     : `<li class="plan-combo-empty">No matches</li>`;
   list.hidden = false;
   qEl.setAttribute('aria-expanded', 'true');
@@ -161,6 +162,12 @@ function resolveProjectInput() {
     planProjectCommit(null, q);
     hidden.value = currentPlanTask()?.projectId || '__create__';
   }
+}
+
+/** mousedown on an option: keep the input focused (no blur), then pick. */
+export function planComboPickDown(e, kind, el) {
+  e.preventDefault();
+  planComboPickFromEl(kind, el);
 }
 
 export function planComboPickFromEl(kind, el) {

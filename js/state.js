@@ -1,5 +1,6 @@
 import { deps } from './deps.js';
 import { normalizeAgentFields } from './agent-core.js';
+import { act, stop } from './actions.js';
 
 // Shared mutable app state
 export const state = {
@@ -443,6 +444,8 @@ export function normalizeTask(t) {
     date: t.date ?? null,
     subtasks: t.subtasks || [],
     draining: !!t.draining,
+    // Break after a long task (js/recovery.js): null = suggested, 'planned', or 'skip'. Absent = suggested.
+    recovery: t.recovery === 'planned' || t.recovery === 'skip' ? t.recovery : null,
     done: status === 'done' || done,
     status,
     // v12 → v13: when the task was finished, and when done was last switched either way (absent = unknown).
@@ -472,6 +475,8 @@ export function normalizeTask(t) {
     // Who does it: me, a person (delegateTo), or the assistant. v10 → v11; absent = me.
     assignee: t.assignee === 'person' || t.assignee === 'ai' ? t.assignee : 'me',
     delegateTo: t.delegateTo != null ? String(t.delegateTo) : '',
+    // How a delegated task is handed over (optional, absent = not said).
+    delegateVia: ['call', 'message', 'email'].includes(t.delegateVia) ? t.delegateVia : null,
     // Assistant work (v11 → v12): which worker runs it, whether it sees the plan, re-run requests.
     ...normalizeAgentFields(t),
   };
@@ -591,11 +596,11 @@ export function stopTaskTimer(id) {
 export function chipControlsHTML(t) {
   const running = !!t.timerStartedAt;
   const ms = taskElapsedMs(t);
-  return `<div class="chip-actions" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()">
+  return `<div class="chip-actions"${stop('pointerdown', 'click')}>
     <span class="chip-timer-time ${ running ? 'running' : '' } ${ ms ? '' : 'zero' }" data-timer-display="${ t.id }">${ formatTracked(ms) }</span>
     ${ running
-      ? `<button type="button" class="chip-timer-btn card-btn active" onclick="stopTaskTimer('${ t.id }')" title="Stop the timer (time is kept)" aria-label="Stop timer">■</button>`
-      : `<button type="button" class="chip-timer-btn card-btn" onclick="startTaskTimer('${ t.id }')" ${ t.done ? 'disabled' : '' } title="Start the timer" aria-label="Start timer">▶</button>` }
+      ? `<button type="button" class="chip-timer-btn card-btn active" ${act('stopTaskTimer', t.id)} title="Stop the timer (time is kept)" aria-label="Stop timer">■</button>`
+      : `<button type="button" class="chip-timer-btn card-btn" ${act('startTaskTimer', t.id)} ${ t.done ? 'disabled' : '' } title="Start the timer" aria-label="Start timer">▶</button>` }
   </div>`;
 }
 export function parseHHMM(str) {

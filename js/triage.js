@@ -2,6 +2,7 @@ import {
   state, esc, chipControlsHTML, projectClass, newTask, uid,
 } from './state.js';
 import { deps } from './deps.js';
+import { act, actOn } from './actions.js';
 
 // Week-plan import (schema-validated) — see js/import-plan.js + schema/plan.schema.json
 export {
@@ -104,36 +105,36 @@ export function renderTriage() {
         ${t.subtasks.map(s => `
           <div class="subtask-row">
             <div class="subtask-dot"></div>
-            <input class="subtask-input" value="${esc(s.text)}" placeholder="subtask..." oninput="updateSubtask('${t.id}','${s.id}',this.value)" />
-            <span class="task-del" onclick="removeSubtask('${t.id}','${s.id}')">✕</span>
+            <input class="subtask-input" value="${esc(s.text)}" placeholder="subtask..." ${actOn('input', 'updateSubtask', t.id,s.id,'$value')} />
+            <span class="task-del" ${act('removeSubtask', t.id,s.id)}>✕</span>
           </div>`).join('')}
-        ${t.subtasks.length < 9 ? `<span class="toggle-triage" onclick="addSubtask('${t.id}')">+ subtask</span>` : ''}
+        ${t.subtasks.length < 9 ? `<span class="toggle-triage" ${act('addSubtask', t.id)}>+ subtask</span>` : ''}
       </div>` : '';
     return `<div class="task-card ${sizeClass}">
       <div class="task-top">
         <span class="task-name">${esc(t.name)}</span>
-        <span class="task-del" onclick="deleteTask('${t.id}')">✕</span>
+        <span class="task-del" ${act('deleteTask', t.id)}>✕</span>
       </div>
-      <span class="toggle-triage" id="arr-${t.id}" onclick="toggleTriageForm('${t.id}')">▸ triage</span>
+      <span class="toggle-triage" id="arr-${t.id}" ${act('toggleTriageForm', t.id)}>▸ triage</span>
       <div class="triage-form" id="tf-${t.id}" style="display:none;">
         <div class="triage-grid">
           <div class="triage-field">
             <span class="triage-label">Who is affected</span>
-            <input type="text" value="${esc(t.who)}" placeholder="person / org" oninput="updateWho('${t.id}',this.value)" />
+            <input type="text" value="${esc(t.who)}" placeholder="person / org" ${actOn('input', 'updateWho', t.id,'$value')} />
           </div>
           <div class="triage-field">
             <span class="triage-label">Blocking</span>
             <div class="blocking-toggle">
-              <span class="pill ${t.blocking === true ? 'active-yn' : ''}" onclick="setBlocking('${t.id}',true)">Yes</span>
-              <span class="pill ${t.blocking === false ? 'active-yn' : ''}" onclick="setBlocking('${t.id}',false)">No</span>
+              <span class="pill ${t.blocking === true ? 'active-yn' : ''}" ${act('setBlocking', t.id,true)}>Yes</span>
+              <span class="pill ${t.blocking === false ? 'active-yn' : ''}" ${act('setBlocking', t.id,false)}>No</span>
             </div>
           </div>
           <div class="triage-field">
             <span class="triage-label">LNO</span>
             <div class="lno-toggle">
-              <span class="pill ${t.lno === 'L' ? 'active-yn' : ''}" title="10x return, give it your best energy" onclick="setLNO('${t.id}','L')">L</span>
-              <span class="pill ${t.lno === 'N' ? 'active-yn' : ''}" title="do it well enough" onclick="setLNO('${t.id}','N')">N</span>
-              <span class="pill ${t.lno === 'O' ? 'active-yn' : ''}" title="minimize, batch, delegate first" onclick="setLNO('${t.id}','O')">O</span>
+              <span class="pill ${t.lno === 'L' ? 'active-yn' : ''}" title="10x return, give it your best energy" ${act('setLNO', t.id,'L')}>L</span>
+              <span class="pill ${t.lno === 'N' ? 'active-yn' : ''}" title="do it well enough" ${act('setLNO', t.id,'N')}>N</span>
+              <span class="pill ${t.lno === 'O' ? 'active-yn' : ''}" title="minimize, batch, delegate first" ${act('setLNO', t.id,'O')}>O</span>
             </div>
             <span class="triage-label" style="margin-top:4px;font-weight:400;text-transform:none;letter-spacing:0;">${
               t.lno === 'L' ? '10x return — best energy' : t.lno === 'N' ? 'Do it well enough' : t.lno === 'O' ? 'Minimize / batch / delegate' : 'Pick leverage'
@@ -142,9 +143,9 @@ export function renderTriage() {
           <div class="triage-field">
             <span class="triage-label">Size</span>
             <div class="size-pills">
-              <span class="pill ${t.size === 'complex' ? 'active-complex' : ''}" onclick="setSize('${t.id}','complex')">Complex</span>
-              <span class="pill ${t.size === 'mid' ? 'active-mid' : ''}" onclick="setSize('${t.id}','mid')">Mid</span>
-              <span class="pill ${t.size === 'simple' ? 'active-simple' : ''}" onclick="setSize('${t.id}','simple')">Simple</span>
+              <span class="pill ${t.size === 'complex' ? 'active-complex' : ''}" ${act('setSize', t.id,'complex')}>Complex</span>
+              <span class="pill ${t.size === 'mid' ? 'active-mid' : ''}" ${act('setSize', t.id,'mid')}>Mid</span>
+              <span class="pill ${t.size === 'simple' ? 'active-simple' : ''}" ${act('setSize', t.id,'simple')}>Simple</span>
             </div>
           </div>
         </div>
