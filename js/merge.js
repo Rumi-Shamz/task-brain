@@ -124,7 +124,7 @@ function stamp(item) {
 }
 
 /** Fields that travel with the done flag: the copy that last switched done also keeps its day. */
-const DONE_FIELDS = ['done', 'status', 'doneAt', 'doneChangedAt', 'date', 'missed', 'trackedMs', 'timerStartedAt'];
+const DONE_FIELDS = ['done', 'status', 'doneAt', 'doneChangedAt', 'date', 'missed', 'slipHandled', 'trackedMs', 'timerStartedAt'];
 
 /**
  * Done is merged on its own clock. A device that opens with old data rolls yesterday's open tasks

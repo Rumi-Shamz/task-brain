@@ -114,7 +114,10 @@ export function renderSkillsPanel(el) {
   };
   el.innerHTML = `
     <form class="skills-add" ${actOn('submit', 'addSkillFromFormSubmit', '$event')}>
-      <input type="text" id="skill-name" placeholder="A skill to learn" aria-label="Skill to learn" />
+      <div class="skills-add-row">
+        <input type="text" id="skill-name" placeholder="A skill to learn" aria-label="Skill to learn" />
+        <button type="submit" class="btn primary add-icon-btn" aria-label="Add skill" title="Add skill">+</button>
+      </div>
       <fieldset class="seg" aria-label="How useful">
         <label><input type="radio" name="skill-util" value="high" checked /><span>Very useful</span></label>
         <label><input type="radio" name="skill-util" value="low" /><span>Nice to have</span></label>
@@ -123,7 +126,6 @@ export function renderSkillsPanel(el) {
         <label><input type="radio" name="skill-time" value="low" checked /><span>Quick</span></label>
         <label><input type="radio" name="skill-time" value="high" /><span>Takes time</span></label>
       </fieldset>
-      <button type="submit" class="btn primary">Add skill</button>
     </form>
     <div class="skill-matrix">
       <span class="axis axis-y" aria-hidden="true">More useful ↑</span>

@@ -455,6 +455,8 @@ export function normalizeTask(t) {
     missed: Array.isArray(t.missed) ? [...new Set(t.missed.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
     // v13 → v14: days the task was deferred away from (js/defer.js; absent = never).
     deferred: Array.isArray(t.deferred) ? [...new Set(t.deferred.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
+    // v15 → v16: the last missed day the owner already decided on (js/defer.js; absent = none).
+    slipHandled: /^\d{4}-\d{2}-\d{2}$/.test(String(t.slipHandled || '')) ? String(t.slipHandled) : null,
     // v14 → v15: tasks it waits on, and what came out of it (js/outcome.js; absent = none).
     blockedBy: Array.isArray(t.blockedBy) ? [...new Set(t.blockedBy.map(String).filter(id => id && id !== String(t.id)))] : [],
     outcome: t.outcome && typeof t.outcome === 'object'

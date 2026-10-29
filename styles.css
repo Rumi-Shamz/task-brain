@@ -339,6 +339,8 @@ textarea:focus { outline: none; border-color: var(--txt3); }
 .defer-pill:hover { border-color: var(--txt); }
 /* The date input covers the pill, so a click anywhere on it opens the picker. */
 .defer-date input[type=date] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.defer-confirm { background: var(--txt); color: var(--bg); border-color: var(--txt); font-weight: 700; }
+.defer-confirm[hidden] { display: none; }
 .defer-select {
   width: 100%; padding: 6px 8px; font-size: 13px;
   border: 1px solid var(--border-md); border-radius: var(--radius); background: var(--card); color: var(--txt);
@@ -1222,7 +1224,9 @@ body.dashboard-active .header { margin-bottom: 0.75rem; padding-bottom: 0.65rem;
   font-size: 13px; padding: 6px 8px; border: 0.5px solid var(--border-md);
   border-radius: var(--radius); background: var(--bg); color: var(--txt); font-family: var(--sans);
 }
-.skills-add input[type=text] { flex: 1 1 220px; font-size: 15px; padding: 8px 10px; }
+.skills-add-row { display: flex; gap: 8px; flex: 1 1 100%; }
+.skills-add input[type=text] { flex: 1 1 auto; min-width: 0; font-size: 15px; padding: 8px 10px; }
+.skills-add .add-icon-btn { flex: none; width: 40px; padding: 0; font-size: 20px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .skill-matrix {
   display: grid; grid-template-columns: 20px 1fr 1fr; grid-template-rows: auto auto 20px;
   grid-template-areas: "y now schedule" "y opp decide" ". x x"; gap: 8px;
@@ -1340,10 +1344,12 @@ body.dashboard-active .header { margin-bottom: 0.75rem; padding-bottom: 0.65rem;
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   margin-bottom: 8px;
 }
+.year-week-num { display: inline-flex; align-self: stretch; }
 .year-week-num input {
-  width: 64px; padding: 4px 6px;
+  width: 64px; padding: 0 6px; text-align: center;
+  font-size: 13px; font-weight: 500;
   border: 0.5px solid var(--border-md); border-radius: var(--radius);
-  background: var(--card); color: var(--txt);
+  background: transparent; color: var(--txt);
 }
 .proto-grid { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 10px; }
 .proto-grid label { font-size: 12px; color: var(--txt2); display: flex; gap: 6px; align-items: center; }
@@ -1589,6 +1595,10 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
   .header .phase-tab.active .tab-icon { background: var(--txt); color: var(--bg); }
   .tab-icon { display: grid; place-items: center; width: 40px; height: 26px; border-radius: 999px; font-size: 15px; }
   .app-footer { padding: 10px 0 4px; }
+  /* Like an app: the page only scrolls up and down. Strips that scroll sideways allow it themselves. */
+  html, body { touch-action: pan-y; }
+  #dash-board-panel .board-toolbar, .activity-filter { touch-action: pan-x pan-y; overscroll-behavior-x: contain; }
+  .year-grid-wrap { overflow-x: hidden; }
   /* Bigger targets for a finger. */
   .btn { min-height: 38px; }
   .card-actions .card-btn, .chip-actions .card-btn { width: 34px; height: 34px; }
@@ -1621,7 +1631,7 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
   .day-panel { border-radius: var(--radius); }
   .day-hint { display: none; }
   .day-calendar { min-height: 0; }
-  .board-panel { overflow: auto; }
+  .board-panel { overflow-x: hidden; overflow-y: auto; }
   .board-switch { display: none; }
   .next-list { max-width: 100%; }
   .board-head { position: static; }
@@ -1629,7 +1639,7 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
   .activity-filter::-webkit-scrollbar { display: none; }
   .activity-filter .seg-tab { flex: 1; justify-content: center; }
   .board-filter { height: 38px; }
-  .needs-actions { flex-wrap: wrap; margin-left: 0; }
+  .needs-actions { flex: 1 1 100%; flex-wrap: wrap; margin-left: 0; }
   #dash-board-panel .board-toolbar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
   #dash-board-panel #domain-chip-strip { flex-wrap: nowrap; }
   #dash-board-panel .board-toolbar .domain-chip,
@@ -1656,11 +1666,24 @@ body.dashboard-active .app-footer { padding: 6px 0 0; }
     flex: 1; display: flex; flex-direction: column;
     width: 100%;
   }
-  .year-month-mobile-wrap .year-month-grid { gap: 4px; flex: none; align-content: start; }
+  .year-month-mobile-wrap .year-month-grid { gap: 4px; align-content: stretch; }
   .year-month-card.large .year-cell { min-height: 54px; height: 54px; font-size: 15px; border-radius: 8px; }
   .year-mobile-stats { display: flex; gap: 1rem; margin-bottom: 10px; }
   .year-mobile-stats-compact { gap: 0.85rem; margin-bottom: 8px; font-size: 12px; color: var(--txt3); }
   .year-week-scroll { height: calc(100dvh - 220px); max-height: none; overflow-x: hidden; }
+  /* Week: columns are narrow, so a card is its name only (Done and Defer live on Act). */
+  #year-grid .year-task-block { left: 2px; right: 2px; padding: 2px 3px 4px; }
+  #year-grid .year-task-block .card-actions { display: none; }
+  #year-grid .year-task-block .yt-name { font-size: 11px; line-height: 1.2; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+  .year-week-num input { width: 52px; font-size: 14px; }
+  /* Month: the grid takes the rest of the screen. */
+  html body.year-active { display: flex; flex-direction: column; min-height: 100dvh; }
+  body.year-active #app, body.year-active #phase-year.active,
+  body.year-active .year-grid-wrap, body.year-active #year-grid { flex: 1 0 auto; display: flex; flex-direction: column; }
+  body.year-active .year-grid-wrap { margin-bottom: 0.5rem; }
+  .year-month-mobile-wrap { flex: 1 0 auto; }
+  .year-month-mobile-wrap .year-month-grid { flex: 1 0 auto; grid-template-rows: auto; grid-auto-rows: minmax(54px, 1fr); }
+  .year-month-mobile-wrap .year-month-card.large .year-cell { height: auto; }
   .year-config { margin-top: 0.75rem; }
 }
 

@@ -354,7 +354,9 @@ export function renderProjectBoard() {
     ).join('');
   }
 
-  const shownDoms = domains.filter(d => !isCollapsed(d.id));
+  const pickedDoms = domains.filter(d => !isCollapsed(d.id));
+  // An activity with no domain picked means that activity everywhere, not an empty board.
+  const shownDoms = !showActivity && !pickedDoms.length ? domains : pickedDoms;
   let body = '';
   if (!shownDoms.length) {
     body = '<div class="dash-inbox-empty">All domains hidden. Click a chip above to show one.</div>';

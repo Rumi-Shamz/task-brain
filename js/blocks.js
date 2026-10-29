@@ -441,10 +441,11 @@ export function rollOpenTasksForward(fromDate = new Date()) {
   });
 }
 
-/** Open tasks that rolled forward at least once, most-slipped first. */
+/** Open tasks that rolled forward at least once and still wait on a decision, most-slipped first. */
 export function slippedTasks() {
   return state.tasks
-    .filter(t => t && !t.done && t.status !== 'someday' && Array.isArray(t.missed) && t.missed.length)
+    .filter(t => t && !t.done && t.status !== 'someday' && Array.isArray(t.missed)
+      && t.missed.some(d => !t.slipHandled || d > t.slipHandled))
     .sort((a, b) => b.missed.length - a.missed.length);
 }
 

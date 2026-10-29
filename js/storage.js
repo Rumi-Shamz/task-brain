@@ -29,7 +29,7 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 15,
+    version: 16,
     updatedAt: new Date().toISOString(),
     settingsUpdatedAt: state.settingsUpdatedAt || null,
     tombstones: state.tombstones || [],
@@ -76,6 +76,7 @@ export function applyPersistPayload(d) {
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   state.imports = Array.isArray(d.imports) ? d.imports : [];
+  // v15 → v16: tasks gain `slipHandled`, the last missed day already decided on (absent = none).
   // v14 → v15: tasks gain `blockedBy` (ids it waits on) and `outcome` ({ result, note }); absent = none.
   // v13 → v14: tasks gain `deferred`, the days they were deferred away from (absent = none).
   // v12 → v13: tasks gain doneAt / doneChangedAt (normalizeTask: absent = unknown; merge treats a

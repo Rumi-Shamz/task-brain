@@ -24,6 +24,8 @@ export function deferTask(id, ymd) {
   const t = state.tasks.find(x => x.id === id);
   if (!t || t.done) return;
   const from = t.date;
+  // A slipped task gets a decision here: it leaves Needs you until it slips again.
+  if (Array.isArray(t.missed) && t.missed.length) t.slipHandled = [...t.missed].sort().pop();
   if (from && from !== ymd) {
     if (!Array.isArray(t.deferred)) t.deferred = [];
     if (!t.deferred.includes(from)) t.deferred.push(from);
@@ -64,6 +66,9 @@ export function openDeferMenu(id, ev) {
   if (!t) return;
   const to = deferTargets(t);
   const backlog = t.status === 'someday';
+  // Phones fire change while the date wheel or calendar is still open, so a tap there only picks
+  // the date and Move applies it. A mouse picks in one go.
+  const confirmPick = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
   const menu = document.createElement('div');
   menu.id = 'defer-menu';
   menu.className = 'defer-menu';
@@ -74,8 +79,9 @@ export function openDeferMenu(id, ev) {
     <div class="defer-title">${backlog ? 'Schedule' : 'Defer'} “${esc(t.name)}”</div>
     <div class="defer-row">
       <label class="defer-pill defer-date" title="Pick a date (keeps ${esc(t.start || 'the time')})">Pick date
-        <input type="date" aria-label="Pick a date" ${act('showPicker', '$el')} min="${formatYmd(addDaysLocal(new Date(), 1))}"${actOn('change', 'deferToValue', t.id, '$value')} />
+        <input type="date" aria-label="Pick a date" ${act('showPicker', '$el')} min="${formatYmd(addDaysLocal(new Date(), 1))}"${actOn('change', confirmPick ? 'deferPickDate' : 'deferToValue', t.id, '$value')} />
       </label>
+      ${confirmPick ? `<button type="button" class="defer-pill defer-confirm" id="defer-confirm" hidden ${act('deferConfirm', t.id)}>Move</button>` : ''}
       ${backlog ? '' : `<button type="button" class="defer-pill" ${act('deferTask', t.id, null)} title="Off the calendar, into the backlog (review in 14 days)">Backlog</button>`}
     </div>
     <select class="defer-select" aria-label="Move by" ${actOn('change', 'deferToValue', t.id, '$value')}>
@@ -108,8 +114,24 @@ export function deferButtonHTML(t) {
 /** Menu inputs: ignore an emptied value, like the placeholder option "Move by…". */
 export function deferToValue(id, value) { if (value) deferTask(id, value); }
 
+/** Phone: a picked date shows on the Move button; nothing moves yet. */
+export function deferPickDate(id, value) {
+  const b = document.getElementById('defer-confirm');
+  if (!b) return;
+  b.hidden = !value;
+  if (value) b.textContent = `Move to ${shortDate(value)}`;
+}
+
+/** Phone: Move applies the picked date. */
+export function deferConfirm(id) {
+  const input = document.querySelector('#defer-menu input[type="date"]');
+  deferToValue(id, input && input.value);
+}
+
 registerActions({
   deferToValue,
+  deferPickDate,
+  deferConfirm,
   deferTask,
   openDeferMenu,
   showPicker: el => { try { el.showPicker(); } catch (e) { /* not supported or not allowed */ } },
