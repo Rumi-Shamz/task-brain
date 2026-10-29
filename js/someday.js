@@ -3,6 +3,7 @@ import { state, newTask, formatYmd, addDaysLocal, mondayOnOrBefore, esc } from '
 import { deps } from './deps.js';
 import { slippedTasks } from './blocks.js';
 import { allDomains, domainStyleVar } from './domains.js';
+import { act } from './actions.js';
 
 /** Open tasks missed this many times are flagged like a thrice-skipped someday item. */
 export const SLIP_FLAG = 3;
@@ -95,8 +96,8 @@ export function renderSomedayPanel(el) {
       ${byDomain.get(id).map(t => `<div class="backlog-row">
         <span class="backlog-name">${esc(t.name)}</span>
         <span class="someday-meta">${dueIds.has(t.id) ? 'review now' : `review ${esc(t.reviewAt || '—')}`}</span>
-        <button type="button" class="btn" onclick="openDeferMenu('${t.id}', event)">Schedule</button>
-        <button type="button" class="btn" onclick="somedayDelete('${t.id}')" title="Delete" aria-label="Delete">✕</button>
+        <button type="button" class="btn" ${act('openDeferMenu', t.id, '$event')}>Schedule</button>
+        <button type="button" class="btn" ${act('somedayDelete', t.id)} title="Delete" aria-label="Delete">✕</button>
       </div>`).join('')}
     </div>`).join('');
   const summary = document.getElementById('someday-summary');
@@ -131,8 +132,8 @@ export function renderSlippedPanel(el) {
         <div class="someday-name">${esc(t.name)}${t.missed.length >= SLIP_FLAG ? ` <em>(slipped ${t.missed.length}× — still worth doing?)</em>` : ''}</div>
         <div class="someday-meta">missed ${esc(t.missed.join(', '))} · now ${esc(t.date || '—')}</div>
         <div class="someday-actions">
-          <button type="button" class="btn" onclick="slippedToSomeday('${t.id}')">Move to backlog</button>
-          <button type="button" class="btn" onclick="somedayDelete('${t.id}')">Delete</button>
+          <button type="button" class="btn" ${act('slippedToSomeday', t.id)}>Move to backlog</button>
+          <button type="button" class="btn" ${act('somedayDelete', t.id)}>Delete</button>
         </div>
       </div>`).join('') : '<p class="dash-inbox-empty">Nothing slipped.</p>'}`;
 }

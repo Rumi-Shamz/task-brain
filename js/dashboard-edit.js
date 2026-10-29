@@ -6,6 +6,7 @@ import { deps } from './deps.js';
 import { DAY_INTERVALS, KEEP_TIME, intervalForTask, placeInInterval, placementUnchanged, isTaskDay } from './blocks.js';
 import { renderDashboard } from './dashboard.js';
 import { blockerCandidates } from './outcome.js';
+import { act } from './actions.js';
 
 export function openDashEdit(id) {
   state.dashEditId = id;
@@ -32,9 +33,9 @@ export function saveDashEdit() {
     t.project = pid;
     t.projectId = pid;
   }
-  const act = document.getElementById('de-activity')?.value || 'act';
-  t.activity = act;
-  t.lane = act === 'research' ? 'research' : act;
+  const activity = document.getElementById('de-activity')?.value || 'act';
+  t.activity = activity;
+  t.lane = activity === 'research' ? 'research' : activity;
   t.note = (document.getElementById('de-note')?.value || '').trim();
   const waits = document.getElementById('de-waits');
   if (waits) t.blockedBy = waits.value ? [waits.value] : [];
@@ -66,7 +67,7 @@ export function renderDashEditSheet() {
   const domain = normalizeDomainId(t.domain) || 'Personal';
   const projects = projectsInDomain(domain);
   const pid = t.projectId || t.project || '';
-  const act = t.activity || t.lane || 'act';
+  const activity = t.activity || t.lane || 'act';
   const scheduled = !!(t.date && t.start);
   const schedMode = scheduled ? 'exact' : 'none';
   if (!el) {
@@ -76,11 +77,11 @@ export function renderDashEditSheet() {
   }
   el.className = 'dash-edit-sheet';
   el.innerHTML = `
-    <div class="dash-edit-backdrop" onclick="closeDashEdit()"></div>
+    <div class="dash-edit-backdrop" ${act('closeDashEdit')}></div>
     <div class="dash-edit-panel" role="dialog" aria-label="Edit task">
       <div class="dash-edit-head">
         <strong>Edit task</strong>
-        <button type="button" class="btn" onclick="closeDashEdit()">Close</button>
+        <button type="button" class="btn" ${act('closeDashEdit')}>Close</button>
       </div>
       <label class="plan-field">Name
         <input type="text" id="de-name" value="${esc(t.name)}" />
@@ -100,7 +101,7 @@ export function renderDashEditSheet() {
       </div>
       <label class="plan-field">Activity
         <select id="de-activity">${ACTIVITIES.map(a =>
-          `<option value="${a.id}" ${a.id === act ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
+          `<option value="${a.id}" ${a.id === activity ? 'selected' : ''}>${esc(a.label)}</option>`).join('')}
         </select>
       </label>
       <div class="plan-field">Schedule
@@ -112,8 +113,8 @@ export function renderDashEditSheet() {
       </label>
       <label class="dash-edit-done"><input type="checkbox" id="de-done" ${t.done ? 'checked' : ''} /> Done</label>
       <div class="plan-step-actions">
-        <button type="button" class="btn primary" onclick="saveDashEdit()">Save</button>
-        <button type="button" class="btn" onclick="closeDashEdit()">Cancel</button>
+        <button type="button" class="btn primary" ${act('saveDashEdit')}>Save</button>
+        <button type="button" class="btn" ${act('closeDashEdit')}>Cancel</button>
       </div>
     </div>`;
 }

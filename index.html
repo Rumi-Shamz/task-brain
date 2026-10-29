@@ -15,10 +15,10 @@
     <button type="button" id="app-logo" class="app-logo" title="Sync settings">Day Planner</button>
     <!-- On phones this bar sits at the bottom of the screen, like an app's tab bar. -->
     <nav class="phase-tabs" aria-label="Sections">
-      <button class="phase-tab active" onclick="switchPhase('plan')"><span class="tab-icon" aria-hidden="true">☰</span>Organize</button>
-      <button class="phase-tab" onclick="switchPhase('dashboard')"><span class="tab-icon" aria-hidden="true">◉</span>Act</button>
-      <button class="phase-tab" onclick="switchPhase('skills')"><span class="tab-icon" aria-hidden="true">△</span>Develop</button>
-      <button class="phase-tab" onclick="switchPhase('year')"><span class="tab-icon" aria-hidden="true">▦</span>Plan</button>
+      <button class="phase-tab active" data-click="switchPhase" data-args='["plan"]'><span class="tab-icon" aria-hidden="true">☰</span>Organize</button>
+      <button class="phase-tab" data-click="switchPhase" data-args='["dashboard"]'><span class="tab-icon" aria-hidden="true">◉</span>Act</button>
+      <button class="phase-tab" data-click="switchPhase" data-args='["skills"]'><span class="tab-icon" aria-hidden="true">△</span>Develop</button>
+      <button class="phase-tab" data-click="switchPhase" data-args='["year"]'><span class="tab-icon" aria-hidden="true">▦</span>Plan</button>
     </nav>
     <div class="next-up" id="dash-next-up" hidden aria-live="polite"></div>
     <p class="header-info" id="header-info" aria-live="off"></p>
@@ -33,11 +33,11 @@
       <label>Repo<input type="text" id="su-repo" placeholder="task-brain-data" /></label>
     </div>
     <div class="sync-actions">
-      <button type="button" class="btn primary" onclick="ghConnect()">Connect &amp; pull</button>
-      <button type="button" class="btn" onclick="ghPull()">Pull</button>
-      <button type="button" class="btn" onclick="ghPush()">Push save</button>
-      <button type="button" class="btn" onclick="ghDisconnect()">Disconnect</button>
-      <button type="button" class="btn" onclick="toggleSyncPanel(false)">Close</button>
+      <button type="button" class="btn primary" data-click="ghConnect">Connect &amp; pull</button>
+      <button type="button" class="btn" data-click="ghPull">Pull</button>
+      <button type="button" class="btn" data-click="ghPush">Push save</button>
+      <button type="button" class="btn" data-click="ghDisconnect">Disconnect</button>
+      <button type="button" class="btn" data-click="toggleSyncPanel" data-args='[false]'>Close</button>
     </div>
     <p id="sync-msg" class="sync-msg"></p>
     <p class="sync-hint">Reconnect: Owner <code>Rumi-Shamz</code>, Repo <code>task-brain-data</code> (published site) or <code>task-brain-data-staging</code> (anywhere else), then Connect &amp; pull. BACKLOG: Supabase auth later.</p>
@@ -48,27 +48,27 @@
     <div class="input-area">
       <div class="organize-toolbar">
         <label class="week-of" title="Week the imported plan is for (a weekOf inside a .json file wins)">Week of
-          <input type="date" id="week-plan-week" onchange="renderImportWeekHint()" />
+          <input type="date" id="week-plan-week" data-change="renderImportWeekHint" />
         </label>
         <div class="organize-actions">
-          <button class="btn" onclick="toggleBulk()">Bulk add</button>
+          <button class="btn" data-click="toggleBulk">Bulk add</button>
           <label class="btn file-btn">
             Import plan
-            <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden onchange="importWeeklyPlanFile(this)" />
+            <input type="file" id="week-plan-file" accept=".json,.csv,.xlsx,.xls" hidden data-change="importWeeklyPlanFile" data-change-args='["$el"]' />
           </label>
-          <button class="btn" onclick="exportWeekReview()" title="Markdown review of the week before Week of: done, slipped, still open. Add it to the planning conversation.">Export review</button>
+          <button class="btn" data-click="exportWeekReview" title="Markdown review of the week before Week of: done, slipped, still open. Add it to the planning conversation.">Export review</button>
         </div>
       </div>
       <div class="input-row add-row">
-        <input type="text" id="single-input" placeholder="Add a task" aria-label="New task" onkeydown="if(event.key==='Enter')addSingle()" />
-        <button class="btn primary" onclick="addSingle()">Add</button>
+        <input type="text" id="single-input" placeholder="Add a task" aria-label="New task" data-keydown="addSingleOnEnter" data-keydown-args='["$event"]' />
+        <button class="btn primary" data-click="addSingle">Add</button>
       </div>
       <div id="bulk-area" style="display:none;">
         <p class="bulk-hint">One task per line.</p>
         <textarea id="bulk-input" placeholder="Fix login bug&#10;Update README&#10;Write tests for auth module"></textarea>
         <div style="margin-top:6px;display:flex;gap:6px;">
-          <button class="btn primary" onclick="importBulk()">Add tasks</button>
-          <button class="btn" onclick="toggleBulk()">Cancel</button>
+          <button class="btn primary" data-click="importBulk">Add tasks</button>
+          <button class="btn" data-click="toggleBulk">Cancel</button>
         </div>
       </div>
       <p class="bulk-hint" id="week-plan-msg"></p>
@@ -82,26 +82,26 @@
       <div id="merge-projects-panel"></div>
     </details>
     <div class="bottom-actions">
-      <button class="btn danger-outline" onclick="clearAll()">Clear all tasks</button>
+      <button class="btn danger-outline" data-click="clearAll">Clear all tasks</button>
     </div>
   </div>
 
   <!-- Act (phase id "dashboard") -->
   <div id="phase-dashboard" class="phase">
     <div class="dash-mobile-tabs" role="tablist" aria-label="Dashboard screen">
-      <button type="button" class="btn dash-m-tab active" id="dash-tab-day" onclick="setDashMobileScreen('day')">Day</button>
-      <button type="button" class="btn dash-m-tab" id="dash-tab-domains" onclick="setDashMobileScreen('domains')">Domains</button>
-      <button type="button" class="btn dash-m-tab" id="dash-tab-needs" onclick="setDashMobileScreen('needs')">Needs you</button>
+      <button type="button" class="btn dash-m-tab active" id="dash-tab-day" data-click="setDashMobileScreen" data-args='["day"]'>Day</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-domains" data-click="setDashMobileScreen" data-args='["domains"]'>Domains</button>
+      <button type="button" class="btn dash-m-tab" id="dash-tab-needs" data-click="setDashMobileScreen" data-args='["needs"]'>Needs you</button>
     </div>
     <div class="dash-layout">
       <aside class="day-panel" id="dash-day-panel">
         <div class="day-panel-header">
           <div class="day-nav">
-            <button type="button" class="btn" onclick="shiftDashDay(-1)">←</button>
+            <button type="button" class="btn" data-click="shiftDashDay" data-args='[-1]'>←</button>
             <h2 id="dash-day-title">Today</h2>
-            <button type="button" class="btn" onclick="shiftDashDay(1)">→</button>
-            <button type="button" class="btn" onclick="shiftDashDay(0)">Today</button>
-            <button type="button" class="btn night-toggle" id="night-toggle" onclick="toggleFoldNight()" aria-pressed="false" aria-label="Fold the night hours" title="Fold 23:00–06:00 into thin rows, so the rest of the day gets more room">☾<span class="night-label"> Fold night</span></button>
+            <button type="button" class="btn" data-click="shiftDashDay" data-args='[1]'>→</button>
+            <button type="button" class="btn" data-click="shiftDashDay" data-args='[0]'>Today</button>
+            <button type="button" class="btn night-toggle" id="night-toggle" data-click="toggleFoldNight" aria-pressed="false" aria-label="Fold the night hours" title="Fold 23:00–06:00 into thin rows, so the rest of the day gets more room">☾<span class="night-label"> Fold night</span></button>
           </div>
           <span class="day-hint">Click a task to edit it, drag it to move, drag its bottom edge to change its length.</span>
           <div class="allday-row" id="dash-day-allday" hidden></div>
@@ -113,21 +113,21 @@
           <div class="board-switch" id="board-switch" role="tablist" aria-label="Show"></div>
           <div class="activity-filter" id="activity-filter" role="group" aria-label="Activity: show one kind of work across all domains"></div>
           <label class="board-filter">
-            <input type="checkbox" id="hide-done-toggle" onchange="setHideDone(this.checked)" />
+            <input type="checkbox" id="hide-done-toggle" data-change="setHideDone" data-change-args='["$checked"]' />
             Hide done
           </label>
         </div>
         <section class="needs-you" id="needs-you" aria-live="polite"></section>
         <div class="board-toolbar">
           <button type="button" class="domain-chip add-chip" id="add-domain-chip" aria-expanded="false"
-            title="Add a domain" onclick="toggleAddDomain()">+</button>
+            title="Add a domain" data-click="toggleAddDomain">+</button>
           <input type="text" id="new-domain-input" class="add-domain-input" placeholder="New domain…"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addDomainFromForm()}else if(event.key==='Escape'){toggleAddDomain(false)}" />
+            data-keydown="newDomainKey" data-keydown-args='["$event"]' />
           <div class="domain-chip-strip" id="domain-chip-strip" aria-label="Domains shown"></div>
         </div>
         <div class="project-board" id="project-board"></div>
         <div class="dash-inbox" id="dash-inbox"
-          ondragover="boardDragOver(event)" ondragleave="boardDragLeave(event)" ondrop="dropOnInbox(event)">
+          data-dragover="boardDragOver" data-dragover-args='["$event"]' data-dragleave="boardDragLeave" data-dragleave-args='["$event"]' data-drop="dropOnInbox" data-drop-args='["$event"]'>
           <div class="section-label" style="margin-bottom:0;">Inbox: tasks without a domain</div>
           <div class="dash-inbox-chips" id="dash-inbox-chips"></div>
         </div>
@@ -158,14 +158,14 @@
   <!-- Plan (phase id "year") -->
   <div id="phase-year" class="phase">
     <div class="year-view-toggle year-nav-row">
-      <button class="btn" type="button" onclick="yearNav(-1)">← Prev</button>
-      <button class="btn year-view-desktop-only" id="year-view-year" onclick="setYearCalendarView('year')">Year</button>
-      <button class="btn" id="year-view-month" onclick="openCurrentMonth()">Month</button>
-      <button class="btn" id="year-view-week" onclick="openCurrentWeek()">Week</button>
+      <button class="btn" type="button" data-click="yearNav" data-args='[-1]'>← Prev</button>
+      <button class="btn year-view-desktop-only" id="year-view-year" data-click="setYearCalendarView" data-args='["year"]'>Year</button>
+      <button class="btn" id="year-view-month" data-click="openCurrentMonth">Month</button>
+      <button class="btn" id="year-view-week" data-click="openCurrentWeek">Week</button>
       <label class="year-week-num" id="year-week-nav">
-        <input type="number" id="year-week-picker" min="1" max="52" aria-label="Week number" onchange="pickYearWeek(this.value)" />
+        <input type="number" id="year-week-picker" min="1" max="52" aria-label="Week number" data-change="pickYearWeek" data-change-args='["$value"]' />
       </label>
-      <button class="btn" type="button" onclick="yearNav(1)">Next →</button>
+      <button class="btn" type="button" data-click="yearNav" data-args='[1]'>Next →</button>
       <span class="year-week-label" id="year-month-label" hidden></span>
       <span class="year-week-label" id="year-week-label" hidden></span>
     </div>
@@ -185,9 +185,9 @@
       <div class="year-controls">
         <label>
           Year start Monday
-          <input type="date" id="year-anchor" onchange="setYearAnchor(this.value)" />
+          <input type="date" id="year-anchor" data-change="setYearAnchor" data-change-args='["$value"]' />
         </label>
-        <button class="btn" onclick="resetYearSeed()">Reset seed</button>
+        <button class="btn" data-click="resetYearSeed">Reset seed</button>
       </div>
       <div class="year-callout" id="year-this-week"></div>
       <div class="year-stats" id="year-stats"></div>
@@ -215,8 +215,8 @@
         <div class="section-label">Import or copy the rhythm as JSON</div>
         <textarea id="year-json-input" placeholder='{"version":1,"yearStartMonday":"...","cycles":[...],...}'></textarea>
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn primary" onclick="importYearJson()">Import</button>
-          <button class="btn" onclick="exportYearJson()">Copy JSON</button>
+          <button class="btn primary" data-click="importYearJson">Import</button>
+          <button class="btn" data-click="exportYearJson">Copy JSON</button>
         </div>
         <div class="year-import-msg" id="year-import-msg"></div>
       </div>
@@ -231,6 +231,6 @@
 </div>
 
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script type="module" src="js/app.js?v=20261004f"></script>
+<script type="module" src="js/app.js?v=20261004g"></script>
 </body>
 </html>

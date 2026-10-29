@@ -11,6 +11,7 @@ import { renderYearHourEdit, yearHourDragEnd } from './year-hours.js';
 import { renderProtocolEditor, renderYearScheduleControls } from './year-settings.js';
 import { renderYearWeek, yearPeriod } from './year-week.js';
 import { stepPeriod } from './year-period.js';
+import { act } from './actions.js';
 
 export {
   renderYearScheduleControls, resetWorkScheduleDefaults, toggleSeasonMonth, renderProtocolEditor,
@@ -376,11 +377,11 @@ export function renderYear() {
       const hi = ymd === todayY ? 'outline:2px solid var(--txt);' : '';
       const inWeek = focusDates.includes(ymd) ? ' in-week' : '';
       return `<button type="button" class="year-cell yc-${ cell.kind }${ inWeek }" title="${ esc(title) }" style="${ hi }height:${ cellH }px"
-        onclick="selectYearWeekDate('${ ymd }')">${ slotCell.dom }${ dots }${ names }</button>`;
+        ${act('selectYearWeekDate', ymd)}>${ slotCell.dom }${ dots }${ names }</button>`;
     }).join('');
     const titleClick = large
       ? `${ MONTHS[slot.month] } ${ slot.year }`
-      : `<button type="button" class="btn" style="padding:0;border:none;background:none;font:inherit;font-weight:600;cursor:pointer;color:var(--txt)" onclick="openYearMonthView(${ slot.year },${ slot.month })">${ MONTHS[slot.month] } ${ slot.year }</button>`;
+      : `<button type="button" class="btn" style="padding:0;border:none;background:none;font:inherit;font-weight:600;cursor:pointer;color:var(--txt)" ${act('openYearMonthView', slot.year,slot.month)}>${ MONTHS[slot.month] } ${ slot.year }</button>`;
     return `<div class="year-month-card${ large ? ' large' : '' }"><h4>${ titleClick }</h4><div class="year-month-hint">${ seasonHint }</div><div class="year-month-grid">${ head }${ body }</div></div>`;
   }
 

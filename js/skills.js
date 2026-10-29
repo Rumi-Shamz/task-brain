@@ -2,6 +2,7 @@
 import { state, newTask, formatYmd, addDaysLocal } from './state.js';
 import { nextOpenWeekday } from './blocks.js';
 import { deps } from './deps.js';
+import { act, actOn } from './actions.js';
 
 export function skillQuadrant(utility, timeToLearn) {
   const u = utility === 'high' ? 'high' : 'low';
@@ -107,12 +108,12 @@ export function renderSkillsPanel(el) {
       <h3>${QUADRANTS[q].title}</h3>
       <p class="skill-hint">${QUADRANTS[q].hint}</p>
       <div class="skill-chips">${items.length
-        ? items.map(s => `<span class="skill-chip">${esc(s.name)}<button type="button" onclick="removeSkill('${esc(s.id)}')" aria-label="Remove ${esc(s.name)}">✕</button></span>`).join('')
+        ? items.map(s => `<span class="skill-chip">${esc(s.name)}<button type="button" ${act('removeSkill', s.id)} aria-label="Remove ${esc(s.name)}">✕</button></span>`).join('')
         : '<span class="skill-empty">Nothing here yet</span>'}</div>
     </div>`;
   };
   el.innerHTML = `
-    <form class="skills-add" onsubmit="event.preventDefault(); addSkillFromForm()">
+    <form class="skills-add" ${actOn('submit', 'addSkillFromFormSubmit', '$event')}>
       <input type="text" id="skill-name" placeholder="A skill to learn" aria-label="Skill to learn" />
       <fieldset class="seg" aria-label="How useful">
         <label><input type="radio" name="skill-util" value="high" checked /><span>Very useful</span></label>
@@ -140,7 +141,7 @@ export function renderDevelopSide(el, lno, today = formatYmd(new Date())) {
   const reviews = state.tasks.filter(t => String(t.name).startsWith('Review:') && !t.done && t.date && t.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6);
   const hours = m => (m / 60).toFixed(m % 60 ? 1 : 0);
-  const row = t => `<li class="${t.done ? 'done' : ''}"><label><input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTaskDone('${esc(t.id)}', this.checked)" />
+  const row = t => `<li class="${t.done ? 'done' : ''}"><label><input type="checkbox" ${t.done ? 'checked' : ''} ${actOn('change', 'toggleTaskDone', t.id, '$checked')} />
       <span>${esc(t.name.replace(/^Learn:\s*/, ''))}</span></label><span class="develop-date">${esc(t.date.slice(5))}</span></li>`;
   el.innerHTML = `
     <section class="develop-card">
@@ -167,6 +168,8 @@ export function removeSkill(id) {
   deps.save();
   renderSkillsPanel(document.getElementById('skills-panel'));
 }
+
+export function addSkillFromFormSubmit(e) { e.preventDefault(); addSkillFromForm(); }
 
 export function addSkillFromForm() {
   const name = (document.getElementById('skill-name') || {}).value || '';

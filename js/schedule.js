@@ -1,6 +1,7 @@
 import { state, BUFFERS, esc, uid } from './state.js';
 import { buildScheduleItems } from './organize.js';
 import { deps } from './deps.js';
+import { act } from './actions.js';
 
 export function renderSchedule() {
   const el = document.getElementById('schedule-list');
@@ -19,12 +20,12 @@ export function renderSchedule() {
       return `<div class="buffer-row">
         <span style="font-size:14px;">${ item.icon }</span>
         <span class="buffer-label">${ esc(item.label) }</span>
-        <span class="task-del" onclick="removeBuffer(${ i })">✕</span>
+        <span class="task-del" ${act('removeBuffer', i)}>✕</span>
       </div>`;
     }
     const t = item.task;
     const stHTML = t.subtasks && t.subtasks.filter(s => s.text).length ? `<div class="subtask-list" style="margin-top:6px;">${t.subtasks.filter(s => s.text).map(s => `<div class="subtask-row"><div class="subtask-dot"></div><span class="subtask-text">${ esc(s.text) }</span></div>`).join('')}</div>` : '';
-    const bufferPicker = t.draining ? `<div style="margin-top:8px;"><span class="triage-label" style="display:block;margin-bottom:5px;">Add recovery after this:</span><div class="buffer-picker">${BUFFERS.filter(b => b.energy !== 'down').map(b => `<button class="bpick" onclick="insertBuffer(${ i },'${ b.icon }','${ esc(b.label) }')">${ b.icon } ${ b.label }</button>`).join('')}</div></div>` : '';
+    const bufferPicker = t.draining ? `<div style="margin-top:8px;"><span class="triage-label" style="display:block;margin-bottom:5px;">Add recovery after this:</span><div class="buffer-picker">${BUFFERS.filter(b => b.energy !== 'down').map(b => `<button class="bpick" ${act('insertBuffer', i,b.icon,b.label)}>${ b.icon } ${ b.label }</button>`).join('')}</div></div>` : '';
     return `<div class="org-item" style="flex-direction:column;gap:4px;">
       <div style="display:flex;gap:10px;align-items:flex-start;width:100%;">
         <span class="org-num">${ String(i + 1).padStart(2, '0') }</span>
@@ -36,7 +37,7 @@ export function renderSchedule() {
             ${t.size ? `<span class="meta-tag">${ t.size }</span>` : ''}
           </div>
           ${ stHTML }
-          <span class="draining-flag ${ t.draining ? 'flagged' : '' }" onclick="toggleDraining('${ t.id }')">${ t.draining ? '⚡ draining — add recovery below' : '+ mark as draining' }</span>
+          <span class="draining-flag ${ t.draining ? 'flagged' : '' }" ${act('toggleDraining', t.id)}>${ t.draining ? '⚡ draining — add recovery below' : '+ mark as draining' }</span>
           ${ bufferPicker }
         </div>
       </div>

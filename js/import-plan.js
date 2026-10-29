@@ -12,6 +12,7 @@ import { deps } from './deps.js';
 import { findSimilar } from './similar.js';
 import { getPersistPayload } from './storage.js';
 import { isoWeek, previousWeek, buildPrebrief } from '../scripts/lib/week.mjs';
+import { act } from './actions.js';
 
 export const DOMAINS = DOMAIN_LIST.map(d => d.id);
 export const LENGTHS = [15, 30, 60, 180];
@@ -406,9 +407,9 @@ function duplicatesHTML(dups) {
     <ul class="import-report">${dups.map(d => `<li class="import-dup" id="dup-${escapeHtml(d.taskId)}">
       <span><strong>${escapeHtml(d.name)}</strong> ~ ${escapeHtml(d.matchName)}${d.inFile ? ' (also in this file)' : ''} · <em>${escapeHtml(d.why)}</em></span>
       <span class="import-dup-actions">
-        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'keep')">Keep both</button>
-        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'sub')">Make subtask</button>
-        <button type="button" class="btn" onclick="importDuplicateAction(${q(d.taskId)}, ${q(d.matchId)}, 'skip')">Remove new</button>
+        <button type="button" class="btn" ${act('importDuplicateAction', d.taskId, d.matchId, 'keep')}>Keep both</button>
+        <button type="button" class="btn" ${act('importDuplicateAction', d.taskId, d.matchId, 'sub')}>Make subtask</button>
+        <button type="button" class="btn" ${act('importDuplicateAction', d.taskId, d.matchId, 'skip')}>Remove new</button>
       </span></li>`).join('')}</ul></div>`;
 }
 

@@ -8,6 +8,7 @@ import { slippedTasks } from './blocks.js';
 import { somedayDue } from './someday.js';
 import { taskAgentStatus } from './agent-core.js';
 import { domainLabel, domainDotHTML, normalizeDomainId } from './domains.js';
+import { act } from './actions.js';
 
 /** The items, most urgent first: slipped (most misses first), then reviews, then assistant results. */
 export function needsYouItems() {
@@ -23,11 +24,10 @@ export function needsYouItems() {
   return items;
 }
 
-const btn = (label, onclick, main = false) =>
-  `<button type="button" class="pill ${main ? 'pill-main' : ''}" onclick="${onclick}">${esc(label)}</button>`;
+const btn = (label, attrs, main = false) =>
+  `<button type="button" class="pill ${main ? 'pill-main' : ''}"${attrs}>${esc(label)}</button>`;
 
 function itemHTML({ kind, t }) {
-  const id = esc(t.id);
   const where = t.domain ? domainLabel(t.domain) : 'No domain';
   if (kind === 'slipped') {
     const n = t.missed.length;
@@ -35,10 +35,10 @@ function itemHTML({ kind, t }) {
       <div class="needs-kind">${n === 1 ? 'Slipped once' : n === 2 ? 'Slipped twice' : `Slipped ${n} times`}, now on <span class="num">${esc(t.date || 'no day')}</span> · ${esc(where)}</div>
       <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
       <div class="needs-actions">
-        ${btn('Done', `toggleTaskDone('${id}', true)`)}
-        ${btn('Pick a day', `openDeferMenu('${id}', event)`, true)}
-        ${btn('Backlog', `slippedToSomeday('${id}')`)}
-        ${btn('Delete', `somedayDelete('${id}')`)}
+        ${btn('Done', act('toggleTaskDone', t.id, true))}
+        ${btn('Pick a day', act('openDeferMenu', t.id, '$event'), true)}
+        ${btn('Backlog', act('slippedToSomeday', t.id))}
+        ${btn('Delete', act('somedayDelete', t.id))}
       </div>
     </div>`;
   }
@@ -47,18 +47,18 @@ function itemHTML({ kind, t }) {
       <div class="needs-kind">Backlog review${t.deleteCandidate ? ', pushed back 3 times' : ''} · ${esc(where)}</div>
       <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
       <div class="needs-actions">
-        ${btn('Done', `toggleTaskDone('${id}', true)`)}
-        ${btn('Schedule', `openDeferMenu('${id}', event)`, true)}
-        ${btn('Delegate', `somedayDelegate('${id}')`)}
-        ${btn('Ask again in 2 weeks', `somedayDefer('${id}')`)}
-        ${btn('Delete', `somedayDelete('${id}')`)}
+        ${btn('Done', act('toggleTaskDone', t.id, true))}
+        ${btn('Schedule', act('openDeferMenu', t.id, '$event'), true)}
+        ${btn('Delegate', act('somedayDelegate', t.id))}
+        ${btn('Ask again in 2 weeks', act('somedayDefer', t.id))}
+        ${btn('Delete', act('somedayDelete', t.id))}
       </div>
     </div>`;
   }
   return `<div class="needs-item"><div class="needs-text">
     <div class="needs-kind">${kind === 'result' ? 'Assistant finished' : 'Assistant run failed'}</div>
     <div class="needs-name">${domainDotHTML(normalizeDomainId(t.domain))}${esc(t.name)}</div></div>
-    <div class="needs-actions">${btn(kind === 'result' ? 'See result' : 'See what happened', "openDelegatedPanel()", true)}</div>
+    <div class="needs-actions">${btn(kind === 'result' ? 'See result' : 'See what happened', act('openDelegatedPanel'), true)}</div>
   </div>`;
 }
 
@@ -78,7 +78,7 @@ export function renderNeedsYou() {
   const sw = document.getElementById('board-switch');
   if (sw) {
     sw.innerHTML = [['domains', 'Domains', ''], ['needs', 'Needs you', items.length ? `<span class="panel-count attention">${items.length}</span>` : '']]
-      .map(([v, l, extra]) => `<button type="button" role="tab" aria-selected="${v === view}" class="seg-tab ${v === view ? 'active' : ''}" onclick="setBoardView('${v}')">${l}${extra}</button>`)
+      .map(([v, l, extra]) => `<button type="button" role="tab" aria-selected="${v === view}" class="seg-tab ${v === view ? 'active' : ''}" ${act('setBoardView', v)}>${l}${extra}</button>`)
       .join('');
   }
   const onBoard = state.dashMobileScreen === 'board';

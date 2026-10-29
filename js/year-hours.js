@@ -5,6 +5,7 @@ import {
 } from './state.js';
 import { deps } from './deps.js';
 import { renderYear } from './year.js';
+import { act, actOn } from './actions.js';
 
 export function upsertYearHourLog(log) { state.yearHourLogs = state.yearHourLogs.filter(l => l.id !== log.id).concat([log])
     .sort((a, b) => a.date === b.date ? a.startMin - b.startMin : a.date.localeCompare(b.date));
@@ -86,12 +87,12 @@ export function renderYearHourEdit() {
     <strong>${ esc(log.date) }</strong>
     <span>${ formatClock(log.startMin) }–${ formatClock(log.endMin) } (${ hoursBetween(log.startMin, log.endMin).toFixed(1) }h)</span>
     <input type="text" value="${ esc(log.label || '') }" placeholder="Label"
-      onchange="updateYearHourLabel('${ log.id }', this.value)" />
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','start',-${ SLOT_MINUTES })">Start −30m</button>
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','start',${ SLOT_MINUTES })">Start +30m</button>
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','end',-${ SLOT_MINUTES })">End −30m</button>
-    <button class="btn" onclick="nudgeYearHourEdge('${ log.id }','end',${ SLOT_MINUTES })">End +30m</button>
-    <button class="btn danger-outline" onclick="deleteYearHourLog('${ log.id }')">Delete</button>
+      ${actOn('change', 'updateYearHourLabel', log.id, '$value')} />
+    <button class="btn" ${act('nudgeYearHourEdge', log.id,'start',-SLOT_MINUTES)}>Start −30m</button>
+    <button class="btn" ${act('nudgeYearHourEdge', log.id,'start',SLOT_MINUTES)}>Start +30m</button>
+    <button class="btn" ${act('nudgeYearHourEdge', log.id,'end',-SLOT_MINUTES)}>End −30m</button>
+    <button class="btn" ${act('nudgeYearHourEdge', log.id,'end',SLOT_MINUTES)}>End +30m</button>
+    <button class="btn danger-outline" ${act('deleteYearHourLog', log.id)}>Delete</button>
   `;
 }
 

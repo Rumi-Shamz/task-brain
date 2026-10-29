@@ -2,6 +2,7 @@
 import { state, esc, uid, BUFFERS } from './state.js';
 import { deps } from './deps.js';
 import { currentPlanTask, renderPlanWizard } from './plan.js';
+import { act, actOn } from './actions.js';
 
 let focusSubtaskId = null;
 
@@ -32,10 +33,10 @@ export function subtasksHTML(t) {
         <div class="subtask-row">
           <div class="subtask-dot"></div>
           <input class="subtask-input" data-sid="${s.id}" value="${esc(s.text)}" placeholder="subtask…"
-            oninput="planUpdateSubtask('${t.id}','${s.id}',this.value)"
-            onkeydown="planSubtaskKey(event,'${t.id}','${s.id}')" />
+            ${actOn('input', 'planUpdateSubtask', t.id,s.id,'$value')}
+            ${actOn('keydown', 'planSubtaskKey', '$event',t.id,s.id)} />
           ${String(s.text || '').trim() || i < t.subtasks.length - 1
-            ? `<span class="task-del" onclick="planRemoveSubtask('${t.id}','${s.id}')">✕</span>`
+            ? `<span class="task-del" ${act('planRemoveSubtask', t.id,s.id)}>✕</span>`
             : '<span class="task-del" style="visibility:hidden">✕</span>'}
         </div>`).join('')}
     </div>
@@ -50,7 +51,7 @@ export function drainingHTML(t) {
   const bufs = buffersForTask(t.id);
   return `<div class="plan-field">Energy
     <div class="plan-choices" style="margin-bottom:6px;">
-      <button type="button" class="btn ${t.draining ? 'primary' : ''}" onclick="planToggleDraining()">
+      <button type="button" class="btn ${t.draining ? 'primary' : ''}" ${act('planToggleDraining')}>
         ${t.draining ? 'Draining — on' : 'Mark as draining'}
       </button>
     </div>
@@ -58,12 +59,12 @@ export function drainingHTML(t) {
       <span class="triage-label" style="display:block;margin-bottom:5px;">Add recovery after this</span>
       <div class="buffer-picker">
         ${BUFFERS.filter(b => b.energy !== 'down').map(b =>
-          `<button type="button" class="bpick" onclick="planAddBuffer('${esc(b.icon)}','${esc(b.label)}')">${b.icon} ${esc(b.label)}</button>`
+          `<button type="button" class="bpick" ${act('planAddBuffer', b.icon,b.label)}>${b.icon} ${esc(b.label)}</button>`
         ).join('')}
       </div>
       ${bufs.length ? `<ul class="plan-batch-list">${bufs.map(b =>
         `<li>${b.icon} ${esc(b.label)}
-          <button type="button" class="btn" onclick="planRemoveBuffer('${b.id}')">Remove</button></li>`
+          <button type="button" class="btn" ${act('planRemoveBuffer', b.id)}>Remove</button></li>`
       ).join('')}</ul>` : ''}
     ` : ''}
   </div>`;
