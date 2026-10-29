@@ -130,3 +130,14 @@ test('only the production site may use the real data repo', async () => {
   assert.equal(S.allowedRepo('task-brain', 'rumi-shamz.github.io'), 'task-brain-data');
   assert.equal(S.allowedRepo('my-other-repo', 'localhost'), 'my-other-repo');
 });
+
+test('checking a task off records when, and un-checking records that too', async () => {
+  const { setTaskDone } = await import('../js/state.js');
+  const t = normalizeTask({ id: 'x', name: 'X' });
+  assert.equal(t.doneAt, null);
+  assert.equal(setTaskDone(t, true, '2026-10-29T10:00:00Z'), true);
+  assert.deepEqual([t.done, t.status, t.doneAt, t.doneChangedAt], [true, 'done', '2026-10-29T10:00:00Z', '2026-10-29T10:00:00Z']);
+  assert.equal(setTaskDone(t, true, '2026-10-29T11:00:00Z'), false, 'no change, no new stamp');
+  setTaskDone(t, false, '2026-10-29T12:00:00Z');
+  assert.deepEqual([t.done, t.status, t.doneAt, t.doneChangedAt], [false, 'todo', null, '2026-10-29T12:00:00Z']);
+});

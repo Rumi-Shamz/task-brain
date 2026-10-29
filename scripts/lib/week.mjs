@@ -71,13 +71,30 @@ export function extractionContext(data) {
 
 const minutesOf = t => Number(t.duration) || 30;
 
-/** Planned vs done for one ISO week, using task.date and task.missed (dates a task rolled away from). */
+/** Local day of an ISO timestamp, so a task finished at 23:30 counts on that day, not the UTC one. */
+function localYmd(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/**
+ * Planned vs done for one ISO week. Done means finished during the week (`doneAt`), or, for tasks
+ * finished before doneAt existed, done with a day in the week. Slipped means it rolled away from a day
+ * in the week (task.missed) and was not finished by the end of it.
+ */
 export function weekReview(data, label) {
-  const dates = new Set(weekDates(label));
+  const days = weekDates(label);
+  const dates = new Set(days);
+  const weekEnd = days[6];
   const tasks = (data && data.tasks) || [];
-  const planned = tasks.filter(t => (t.date && dates.has(t.date)) || (t.missed || []).some(d => dates.has(d)));
-  const done = planned.filter(t => (t.done || t.status === 'done') && t.date && dates.has(t.date));
-  const missed = planned.filter(t => (t.missed || []).some(d => dates.has(d)));
+  const isDone = t => t.done || t.status === 'done';
+  const doneDay = t => (t.doneAt ? localYmd(t.doneAt) : null);
+  const doneInWeek = t => isDone(t) && (doneDay(t) ? dates.has(doneDay(t)) : !!t.date && dates.has(t.date));
+  const doneByWeekEnd = t => isDone(t) && (doneDay(t) ? doneDay(t) <= weekEnd : !!t.date && t.date <= weekEnd);
+  const planned = tasks.filter(t => (t.date && dates.has(t.date)) || (t.missed || []).some(d => dates.has(d)) || doneInWeek(t));
+  const done = planned.filter(doneInWeek);
+  const missed = planned.filter(t => (t.missed || []).some(d => dates.has(d)) && !doneByWeekEnd(t));
   const projects = projectNames(data || {});
   const byDomain = {};
   let doneMin = 0, lMin = 0;
@@ -130,7 +147,7 @@ export function buildPrebrief(data, label) {
     if (r.done.length) {
       lines.push('', '## Done last week');
       r.done
-        .slice().sort((a, b) => String(a.date).localeCompare(String(b.date)))
+        .slice().sort((a, b) => String(a.doneAt || a.date).localeCompare(String(b.doneAt || b.date)))
         .forEach(t => lines.push(taskLine(t, r.projectName, { tracked: true })));
     }
     if (r.missed.length) {

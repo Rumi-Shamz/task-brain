@@ -109,3 +109,17 @@ test('extract_week stops on a --data file that does not exist, and on a flag wit
   assert.match(noValue.stderr, /--week needs a value/);
   assert.equal(run([]).status, 0, 'no --data is still fine');
 });
+
+test('weekReview counts a slipped task finished later that week as done, not slipped', () => {
+  const d = { tasks: [
+    // Missed Monday, rolled to Tuesday, finished Wednesday evening.
+    { id: 's', name: 'Sales plan', date: '2026-10-06', missed: ['2026-10-05'], done: true, doneAt: new Date(2026, 9, 7, 21, 0).toISOString() },
+    // Finished during the week without a day.
+    { id: 'u', name: 'Call bank', date: null, done: true, doneAt: new Date(2026, 9, 9, 10, 0).toISOString() },
+    // Missed this week, finished only the week after: still slipped this week.
+    { id: 'l', name: 'Lawyer', date: '2026-10-13', missed: ['2026-10-08'], done: true, doneAt: new Date(2026, 9, 14, 9, 0).toISOString() },
+  ] };
+  const r = weekReview(d, '2026-W41');
+  assert.deepEqual(r.done.map(t => t.id).sort(), ['s', 'u']);
+  assert.deepEqual(r.missed.map(t => t.id), ['l']);
+});

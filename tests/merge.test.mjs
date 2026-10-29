@@ -104,3 +104,29 @@ test('legacy object-shaped groups survive a merge without duplicates', () => {
   assert.deepEqual(m.groups[0].taskIds, ['a', 'b']);
   assert.equal(mergePayloads(payload(), remote).groups.length, 1, 'remote legacy groups are kept');
 });
+
+test('a stale device rolling a task forward cannot undo a check-off made elsewhere', () => {
+  // Phone checked the task off Monday evening. The laptop opened Wednesday with Monday's data:
+  // roll-forward moved the still-open copy and stamped it later than the check-off.
+  const phone = payload({ tasks: [{ id: 'a', name: 'Install draft system', date: '2026-10-19', done: true, status: 'done',
+    doneAt: '2026-10-19T18:00:00Z', doneChangedAt: '2026-10-19T18:00:00Z', updatedAt: '2026-10-19T18:00:00Z' }] });
+  const laptop = payload({ tasks: [{ id: 'a', name: 'Install draft system', date: '2026-10-26', missed: ['2026-10-19'],
+    done: false, status: 'todo', note: 'edited on laptop', updatedAt: '2026-10-21T08:00:00Z' }] });
+  for (const m of [mergePayloads(laptop, phone), mergePayloads(phone, laptop)]) {
+    const t = m.tasks[0];
+    assert.equal(t.done, true);
+    assert.equal(t.status, 'done');
+    assert.equal(t.date, '2026-10-19', 'keeps the day it was done on');
+    assert.equal(t.missed, undefined);
+    assert.equal(t.note, 'edited on laptop', 'other edits from the newer copy survive');
+  }
+});
+
+test('un-checking after the check-off wins, and old data without stamps prefers done', () => {
+  const doneCopy = { id: 'a', name: 'A', done: true, status: 'done', doneChangedAt: '2026-10-20T10:00:00Z', updatedAt: '2026-10-20T10:00:00Z' };
+  const undone = { id: 'a', name: 'A', done: false, status: 'todo', doneChangedAt: '2026-10-20T11:00:00Z', updatedAt: '2026-10-20T09:00:00Z' };
+  assert.equal(mergePayloads(payload({ tasks: [undone] }), payload({ tasks: [doneCopy] })).tasks[0].done, false);
+  const legacyDone = { id: 'b', name: 'B', done: true, status: 'done', updatedAt: '2026-10-01T00:00:00Z' };
+  const legacyOpen = { id: 'b', name: 'B', done: false, status: 'todo', updatedAt: '2026-10-02T00:00:00Z' };
+  assert.equal(mergePayloads(payload({ tasks: [legacyOpen] }), payload({ tasks: [legacyDone] })).tasks[0].done, true);
+});

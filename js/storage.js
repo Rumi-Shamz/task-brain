@@ -29,7 +29,7 @@ export function save() {
 
 export function getPersistPayload() {
   return {
-    version: 12,
+    version: 13,
     updatedAt: new Date().toISOString(),
     settingsUpdatedAt: state.settingsUpdatedAt || null,
     tombstones: state.tombstones || [],
@@ -76,6 +76,8 @@ export function applyPersistPayload(d) {
   state.activityRules = normalizeActivityRules(d.activityRules);
   state.blockSkips = Array.isArray(d.blockSkips) ? d.blockSkips : [];
   state.imports = Array.isArray(d.imports) ? d.imports : [];
+  // v12 → v13: tasks gain doneAt / doneChangedAt (normalizeTask: absent = unknown; merge treats a
+  // done copy as the winner over an open one when neither has doneChangedAt).
   // v11 → v12: errands (recurring assistant briefs; absent = none), and tasks gain agentWorker /
   // agentWithPlan / agentRerunAt / agentFeedback (normalizeTask: absent = Claude, no plan, first run).
   state.errands = normalizeErrands(d.errands);

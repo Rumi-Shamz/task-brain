@@ -1,5 +1,5 @@
 /** Today: the task edit sheet (name, domain, project, activity, day, time of day, duration). */
-import { state, esc, ensureDashCalDate } from './state.js';
+import { state, esc, ensureDashCalDate, setTaskDone } from './state.js';
 import { allDomains, normalizeDomainId } from './domains.js';
 import { ACTIVITIES, projectsInDomain, ensureProjectForDomain } from './projects.js';
 import { deps } from './deps.js';
@@ -35,7 +35,7 @@ export function saveDashEdit() {
   t.activity = act;
   t.lane = act === 'research' ? 'research' : act;
   t.note = (document.getElementById('de-note')?.value || '').trim();
-  t.done = !!document.getElementById('de-done')?.checked;
+  setTaskDone(t, !!document.getElementById('de-done')?.checked);
   const ymd = document.getElementById('de-ymd')?.value || '';
   const interval = document.getElementById('de-interval')?.value || '';
   const dur = parseInt(document.getElementById('de-duration')?.value || '', 10);

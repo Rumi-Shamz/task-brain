@@ -443,6 +443,9 @@ export function normalizeTask(t) {
     draining: !!t.draining,
     done: status === 'done' || done,
     status,
+    // v12 → v13: when the task was finished, and when done was last switched either way (absent = unknown).
+    doneAt: t.doneAt ? String(t.doneAt) : null,
+    doneChangedAt: t.doneChangedAt ? String(t.doneChangedAt) : null,
     reviewAt: t.reviewAt || null,
     missed: Array.isArray(t.missed) ? [...new Set(t.missed.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(String(d))))].sort() : [],
     priority: t.priority != null ? Number(t.priority) : null,
@@ -514,13 +517,25 @@ export function setHideDone(v) {
   if (toggle) toggle.checked = state.hideDone;
   deps.renderDashboard();
 }
+/**
+ * Switch done on or off and record when. The merge resolves done by `doneChangedAt`, not by the
+ * record's `updatedAt`, so a stale device rolling the task forward cannot undo a check-off.
+ */
+export function setTaskDone(t, checked, now = new Date().toISOString()) {
+  const done = !!checked;
+  if (!!t.done === done) return false;
+  t.done = done;
+  if (done) t.status = 'done';
+  else if (t.status === 'done') t.status = 'todo';
+  t.doneAt = done ? now : null;
+  t.doneChangedAt = now;
+  return true;
+}
 export function toggleTaskDone(id, checked) {
   const t = state.tasks.find(x => x.id === id);
   if (!t) return;
   const becameDone = !!checked && !t.done;
-  t.done = !!checked;
-  if (t.done) t.status = 'done';
-  else if (t.status === 'done') t.status = 'todo';
+  setTaskDone(t, checked);
   if (t.done && t.timerStartedAt) { t.trackedMs = taskElapsedMs(t);
     t.timerStartedAt = null; }
   if (becameDone && typeof window.onTaskDoneMaybeLearn === 'function') {
