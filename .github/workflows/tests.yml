@@ -1,0 +1,25 @@
+# Runs the unit tests on every PR into main, including pr-goblin's (which is why
+# goblin.yml opens them with GOBLIN_GH_TOKEN: PRs opened by GITHUB_TOKEN do not trigger this).
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tests/*.test.mjs

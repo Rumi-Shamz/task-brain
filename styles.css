@@ -1536,6 +1536,9 @@ body.dashboard-active .header { margin-bottom: 0.75rem; padding-bottom: 0.65rem;
 .app-footer { padding: 14px 0 6px; text-align: center; flex-shrink: 0; }
 body.dashboard-active .app-footer { padding: 6px 0 0; }
 .sync-status { margin: 0; font-size: 12px; color: var(--txt3); }
+.report-bug { margin-left: 10px; font-size: 12px; color: var(--txt3); text-decoration: none; }
+.report-bug:hover, .report-bug:focus-visible { color: var(--txt); text-decoration: underline; }
+.sync-status:empty + .report-bug { margin-left: 0; }
 
 /* Figures use the system face (see --nums). */
 .num, .day-hour-label, .hi-time, .now-until, .next-time, .chip-timer-time,

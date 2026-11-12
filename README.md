@@ -92,6 +92,12 @@ The live app (GitHub Pages) only changes when a PR merges to `main`. To try chan
 - **Your data in a preview:** the app picks its data repo from the address. The published site (`shijin.anastasov.eu`) syncs the real `task-brain-data`; staging, Vercel previews and localhost sync `task-brain-data-staging`, and refuse the real repo even if you type it. Test imports and new data versions there; nothing reaches the real data. Your token needs access to both repos.
 - **Weekly extraction:** it runs on your computer, not in the app. `LLM_PROVIDER=ollama node scripts/extract_week.mjs transcript.txt --week 2026-W42 --out out/` (or with `ANTHROPIC_API_KEY`) writes `out/week-2026-W42.json`; import it on **Organize** and check the import report and **Import accuracy**. `--prebrief-only --data data.json` writes the prebrief without a model. The GitHub Action can only be started once its workflow is on `main`.
 
+## Bug reports (pr-goblin)
+
+**Report a bug** in the footer opens a prefilled issue on this repo: the view, app version, site, browser, viewport and the last few error messages (tokens, repo names, query strings and emails taken out). Nothing from `data.json`. This repo is public, so read it before submitting. For the owner the issue gets the `goblin` label; GitHub drops the label for anyone else.
+
+`.github/workflows/goblin.yml` runs [pr-goblin](https://github.com/Rumi-Shamz/pr-goblin) every 15 minutes: for each open `goblin` issue opened by the owner it runs Claude Code and opens a PR into `main`. It never merges. It is off until the repo variable `GOBLIN_ENABLED` is `true`, and needs the secrets listed at the top of that file. `tests.yml` runs the tests on every PR.
+
 ## Development
 
 No build step and no dependencies. Serve the folder with any static server. Tests use Node's built-in runner:
