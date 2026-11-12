@@ -1,0 +1,120 @@
+# pr-goblin runner: works open issues labelled `goblin` and opens a PR into
+# `main` for each. It never merges; tests.yml runs on its PRs and a human
+# reviews and merges them (merging to main deploys the site).
+# Based on pr-goblin's examples/goblin.yml (release v0.1.0).
+#
+# Off until the repo variable GOBLIN_ENABLED is "true" (Settings → Secrets and
+# variables → Actions → Variables). Set it to anything else to stop all runs.
+#
+# Secrets:
+#   GOBLIN_GH_TOKEN          fine-grained PAT, this repo only: Contents, Issues,
+#                            Pull requests read/write. The built-in GITHUB_TOKEN is
+#                            refused on purpose: PRs it opens do not trigger tests.yml.
+#   CLAUDE_CODE_OAUTH_TOKEN  the Claude subscription, from `claude setup-token`, or
+#   ANTHROPIC_API_KEY        a Console API key, billed per use.
+#   When both are set the subscription is used and the API key is kept from the agent.
+#
+# This repo is public. Anyone can open an issue, but only someone with triage
+# rights can add the `goblin` label (the in-app "Report a bug" link presets it,
+# and GitHub drops it for everyone else). As a second guard, the runner only
+# works issues opened by the repo owner, or by the logins in the optional repo
+# variable GOBLIN_AUTHORS (comma-separated); on anyone else's the label is removed.
+
+name: pr-goblin
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # GitHub's minimum is 5 minutes, and runs are often late
+  workflow_dispatch:
+
+# One run at a time, so two runs never pick up the same ticket.
+concurrency:
+  group: pr-goblin
+  cancel-in-progress: false
+
+# The built-in token gets nothing it could write with; all writes use GOBLIN_GH_TOKEN.
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: vars.GOBLIN_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check secrets
+        env:
+          HAS_GH_TOKEN: ${{ secrets.GOBLIN_GH_TOKEN != '' }}
+          HAS_AGENT_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$HAS_GH_TOKEN" != "true" ]; then
+            echo "::error::Set the GOBLIN_GH_TOKEN secret first. The built-in GITHUB_TOKEN is not used."
+            exit 1
+          fi
+          if [ "$HAS_AGENT_KEY" != "true" ]; then
+            echo "::error::Set CLAUDE_CODE_OAUTH_TOKEN (subscription) or ANTHROPIC_API_KEY first."
+            exit 1
+          fi
+
+      - name: Only work issues opened by allowed authors
+        env:
+          GH_TOKEN: ${{ secrets.GOBLIN_GH_TOKEN }}
+          REPO: ${{ github.repository }}
+          AUTHORS: ${{ vars.GOBLIN_AUTHORS || github.repository_owner }}
+        run: |
+          set -euo pipefail
+          allowed=",$(echo "$AUTHORS" | tr -d ' ' | tr '[:upper:]' '[:lower:]'),"
+          gh issue list --repo "$REPO" --state open --label goblin --limit 100 \
+              --json number,author -q '.[] | "\(.number) \(.author.login)"' |
+          while read -r number login; do
+            case "$allowed" in *",$(echo "$login" | tr '[:upper:]' '[:lower:]'),"*) continue ;; esac
+            echo "::warning::#$number was opened by $login, not an allowed author: removing the goblin label."
+            gh issue edit "$number" --repo "$REPO" --remove-label goblin
+            gh issue comment "$number" --repo "$REPO" --body "pr-goblin only works issues opened by the maintainer. The \`goblin\` label was removed; the maintainer can open a new issue that links to this one."
+          done
+
+      - name: Get pr-goblin
+        uses: actions/checkout@v4
+        with:
+          repository: Rumi-Shamz/pr-goblin
+          # Pinned to release v0.1.0. Upgrade on purpose, never to main.
+          ref: b64685e588ab8613330e25c3da25bf9432dd63a6
+          path: pr-goblin
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install the runner and the coding agent
+        run: |
+          cd pr-goblin/runner && bun install --frozen-lockfile
+          npm install -g @anthropic-ai/claude-code
+
+      - name: Git identity for the agent's commits
+        run: |
+          # Commit as the token's owner (id-prefixed noreply address). A made-up
+          # pr-goblin@users.noreply.github.com belongs to whichever account has that login.
+          owner=$(gh api user -q '"\(.id) \(.login)"')
+          read -r id login <<<"$owner"
+          git config --global user.name "$login"
+          git config --global user.email "$id+$login@users.noreply.github.com"
+          gh auth setup-git
+        env:
+          GH_TOKEN: ${{ secrets.GOBLIN_GH_TOKEN }}
+
+      - name: Work the queue
+        run: bun pr-goblin/runner/src/cli/app.ts once --timeout 50
+        env:
+          GH_TOKEN: ${{ secrets.GOBLIN_GH_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Passed only when there is no subscription token, so usage is never billed to the key by surprise.
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' && secrets.ANTHROPIC_API_KEY || '' }}
+          GOBLIN_AUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' && 'subscription' || 'api-key' }}
+          GOBLIN_SOURCE: github
+          GOBLIN_REPO: ${{ github.repository }}
+          GOBLIN_BASE_BRANCH: main
+          GOBLIN_AGENT: claude
+          GOBLIN_MAX_CONCURRENT: '1'

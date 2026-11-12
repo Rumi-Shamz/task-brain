@@ -1,3 +1,5 @@
+// First, so errors raised while the other modules load are kept for a bug report.
+import { initBugReport } from './bug-report.js';
 import { state, addCustomProject, ensureTimerTick, setHideDone, toggleTaskDone, startTaskTimer, pauseTaskTimer, stopTaskTimer } from './state.js';
 import { save, load } from './storage.js';
 import {
@@ -105,6 +107,7 @@ agentUi.loadCachedAgentResults();
 agentUi.startAgentResultsTicker();
 switchPhase('plan');
 refreshSyncForm();
+initBugReport();
 
 // Pull remote BEFORE learn-block seeding / auto-push, so phone and desktop share one source of truth.
 bootSync().finally(() => {
